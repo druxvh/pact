@@ -1,0 +1,24 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    ".wxt/wxt.d.ts",
+    "entrypoints/**/*",
+    "components/**/*",
+    "lib/**/*",
+    "store/**/*",
+    "types/**/*",
+    "assets/**/*",
+    "wxt.config.ts",
+    "tailwind.config.ts"
+  ]
+}
