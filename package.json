@@ -1,6 +1,6 @@
 {
-  "name": "office-hub-dashboard",
-  "description": "Office Hub Dashboard — a Chrome new tab extension for team productivity.",
+  "name": "pact",
+  "description": "pact — a fun community new tab extension with notes, kanban, timer, mini tools, and chatrooms.",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -16,9 +16,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
+    "clsx": "^2.1.1",
+    "framer-motion": "^13.4.0",
     "lucide-react": "^0.544.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.7.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

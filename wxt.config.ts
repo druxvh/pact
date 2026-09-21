@@ -11,12 +11,15 @@ export default defineConfig({
     '@/assets': './assets',
   },
   manifest: {
-    name: 'Office Hub Dashboard',
+    name: 'pact',
     description:
-      'A collaborative new tab dashboard with kanban, mini tools, and live office presence.',
-    permissions: ['storage', 'tabs'],
+      'pact — notes, kanban, timer, utility tools, and chatrooms for your new tab.',
+    permissions: ['storage', 'tabs', 'topSites', 'bookmarks'],
     chrome_url_overrides: {
       newtab: 'newtab.html',
+    },
+    omnibox: {
+      keyword: 'pact',
     },
   },
   vite: () => ({
