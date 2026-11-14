@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**", "server/**", "dev/**", "*.ts", "*.json", "!**/*.css", "!src/features/chat/emoji-data.ts"]
+    "includes": ["src/**", "server/**", "*.ts", "*.json", "!**/*.css", "!src/features/chat/emoji-data.ts"]
   },
   "formatter": {
     "enabled": true,

@@ -1,30 +1,152 @@
-# Office Hub Dashboard
+# pact
 
-Chrome new tab extension built with WXT, React, Tailwind, Zustand, and Supabase.
+A new-tab extension for **teams, classes and friends**: notes, a kanban board, a focus timer, tiny private tools, chat — and a *watch YouTube together* mode — on the page you already open a hundred times a day.
 
-## Commands
+Local-first, no accounts, no tracking. Built with WXT, React 19, Tailwind v4, Base UI and Motion.
+
+## What's real and what's a demo
+
+| Area | State |
+| --- | --- |
+| Home, Notes, Kanban, Focus, Tools, Settings | **Real.** Stored on your device (browser local storage). Nothing is uploaded and nothing syncs between devices. Export/import a backup from Settings. |
+| VibeParty (watch together) | **Real.** Works between YouTube tabs in one browser out of the box. Add the bundled relay to watch with friends on other computers. |
+| Chat & friends | **A working UI over a simulated backend.** pact has no server for people yet, so friends are bots that reply, show typing indicators and "accept" requests. All of that lives in one file — `src/store/demoServer.ts` — so swapping in a real realtime backend doesn't touch any view. |
+
+## Quick start
 
 ```bash
 bun install
-bun run dev
-bun run build
+bun run dev        # WXT opens a dev browser with the extension loaded, with hot reload
 ```
 
-## VibeParty — synchronized YouTube parties
+To load a production build by hand: `bun run build`, then open `chrome://extensions`, enable *Developer mode*, *Load unpacked* → `.output/chrome-mv3`.
 
-Real-time party mode for `youtube.com` / `music.youtube.com`, with a hub inside pact itself:
+Requires Bun 1.x and a Chromium browser (Chrome 116+). A Firefox build exists too — see [Browsers](#browsers).
 
-- **In-app hub** — `components/sections/PartyView.tsx` (sidebar → **VibeParty**): generate/share a room code, see live room status, then "Open YouTube & start party" auto-joins the room on load
-- `entrypoints/vibeparty.content.ts` — content-script entry (matches + run_at live here)
-- `src/content/content.ts` — orchestrator wiring sync engine ↔ overlay ↔ background (+ auto-join from the in-app hub)
-- `src/content/sync-engine.ts` — HTML5 `<video>` hook, 250 ms echo-suppression lock, soft drift correction (rate 0.95/1.05) vs hard seek (> 2 s)
-- `src/content/ui-overlay.ts` + `src/styles/overlay.css` — Shadow DOM (`mode: 'open'`) side panel styled with pact tokens (orange accent, `rounded-sm`): chat, double-tap emoji reactions, democratic queue with live re-sorting upvotes
-- `src/background/vibeparty.ts` — service-worker room hub + resilient WebSocket client (`WXT_VIBEPARTY_WS_URL`) + `vibeparty:app-status` for the in-app hub
+| Script | What it does |
+| --- | --- |
+| `bun run dev` / `dev:firefox` | Dev browser with hot reload |
+| `bun run build` / `build:firefox` | Production bundle in `.output/` |
+| `bun run zip` / `zip:firefox` | Store-ready archive |
+| `bun run check` | Typecheck (TypeScript 7) + Biome + tests — run before committing |
+| `bun run test` / `test:watch` | Vitest |
+| `bun run lint` / `lint:fix` | Biome |
+| `bun run relay` | Start the VibeParty relay (see below) |
 
-### Test locally
+## What's inside
 
-1. `bun install && bun run dev` (or `bun run build` for a production bundle).
-2. Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, select `.output/chrome-mv3-dev` (dev) or `.output/chrome-mv3` (build).
-3. Open two YouTube tabs (e.g. the same music video), click the **VibeParty** panel on the right, enter the same room code in both, and join.
-4. Play/pause/seek in one tab — the other follows (soft rate correction between 0.3–2 s drift, hard seek beyond 2 s). Chat, double-tap reactions, and queue votes sync across both tabs.
-5. Without `WXT_VIBEPARTY_WS_URL` set, rooms run on the local background hub (multi-tab sync on one machine). Set `WXT_VIBEPARTY_WS_URL=ws://…` in `.env` and rebuild to relay through your sync backend.
+| Page | Highlights | Go there |
+| --- | --- | --- |
+| **Home** | Search box that understands URLs, shortcuts (add, edit, undo-remove), your most-visited sites, clock + greeting | `g h` |
+| **Notes** | Notebooks, Markdown editor with live preview, tick checkboxes in the preview, autosave, pins, undo | `g n` |
+| **Kanban** | Drag-and-drop with live reordering, priorities, due dates, task details, filters, progress | `g k` |
+| **Focus** | Pomodoro that survives navigation and closed tabs (alarms + notification), session history and streaks | `g t` |
+| **Tools** | Calculator, unit converter, colour + contrast, text tools, encoders, password generator, QR codes, image compressor (≤ 5 MB), random picker — all on-device | `g o` |
+| **Chat** | DMs and groups, replies, reactions, emoji picker, image/video attachments (stored in IndexedDB), link-safe rendering | `g c` |
+| **VibeParty** | Synced YouTube playback, chat, reactions and a shared up-vote queue | `g p` |
+| **Settings** | Profile, theme (light / dark / system), animations, home options, backup & restore | `g s` |
+
+Everywhere: `⌘K` / `Ctrl+K` command palette (jump, create, search notes/tasks/chats), `?` for every shortcut, `pact <page>` in the address bar. Light and dark themes, reduced-motion support, keyboard-first.
+
+## VibeParty
+
+Open the **VibeParty** page, pick or generate a room code, press **Open YouTube & join**. pact reuses a YouTube tab you already have (or opens one) and shows a panel on the page: people in the room, chat, reactions, and a queue.
+
+- **Sync** — play, pause and seek propagate; small drift is corrected by nudging speed ±5 %, larger drift by seeking. Playback speed is held at 1× during a party.
+- **Ads** — an ad on your side never reaches the room; your player sits it out and catches up afterwards.
+- **Queue** — add links (titles and thumbnails are fetched from YouTube itself), up-vote, and the most-voted video plays next for everyone when the current one ends.
+- **Different video?** If someone switches video you get a "Go to it" banner (or turn on *Follow automatically*).
+- **Codes are passwords.** Room codes (`amber-lofi-k7q2x9dm`) carry ~52 bits from `crypto.getRandomValues`. Anyone with the code can join.
+
+### Local vs live
+
+| | Local (default) | Live (relay) |
+| --- | --- | --- |
+| Setup | none | run the relay, rebuild with its address |
+| Who can join | YouTube tabs in **this browser** | anyone with the code, anywhere |
+| Where the room lives | the extension's background script | the relay (the extension mirrors it) |
+
+### Running the relay
+
+```bash
+bun run relay                                   # ws://127.0.0.1:8787
+HOST=0.0.0.0 PORT=8787 ALLOWED_ORIGINS=chrome-extension://<your-extension-id> bun run relay
+```
+
+Put TLS in front of it (the extension **refuses plain `ws://` except for localhost**, since an unencrypted relay would leak every code and message). With Caddy, `relay.example.com { reverse_proxy 127.0.0.1:8787 }` is the whole config. Then:
+
+```bash
+WXT_VIBEPARTY_WS_URL=wss://relay.example.com bun run build      # or set it in .env
+```
+
+The relay keeps rooms in memory (a room disappears ten minutes after it empties) and never logs chat. It enforces: sanitised and size-capped frames (16 KiB), per-connection rate limiting, peer ownership (a socket can't speak for someone else's peer), an optional `Origin` allow-list, heartbeats, and caps on rooms / people / queue / history. Unpacked extensions get a new ID per install path — pin one with a manifest `key` if you use `ALLOWED_ORIGINS` during development.
+
+### How it works (for contributors)
+
+```
+YouTube tab ──content script──▶ background (PartyController) ──WebSocket──▶ relay (same Room rules)
+ overlay + sync engine            owns the party, survives                    only in "live" mode
+                                  service-worker restarts
+```
+
+- **No clock ever crosses a hop.** `mediaTime` always means "as of when this message was created"; a receiver anchors it to *its own* clock minus measured latency. Two machines with different system clocks stay in sync (there's a test with a one-hour skew).
+- `src/features/party/vibeparty/room.ts` is a pure state machine shared by the extension and the relay; `controller.ts` is the background logic with no browser APIs in it; `sanitize.ts` validates everything crossing a trust boundary.
+- The overlay is plain DOM in a shadow root (a framework would cost ~140 kB on every YouTube load) and renders user content with `textContent` only. Keystrokes typed in the panel can't trigger YouTube's hotkeys.
+
+### Known limits
+
+- **Not yet verified on live youtube.com.** It is covered by 120+ unit/integration tests (including real WebSockets with two simulated browsers) and a faithful in-browser harness (`src/dev/vibeparty-harness.html`) — but do a two-browser smoke test before shipping. YouTube's DOM can change; the selectors it relies on (`#movie_player video`, `.ad-showing`) live at the top of `sync-engine.ts`.
+- The panel isn't visible in browser fullscreen (the browser only paints the fullscreen element) — theater mode keeps it.
+- Shorts and YouTube Music aren't targeted.
+
+## Architecture
+
+```
+src/
+  entrypoints/    newtab (the app), background (alarms, omnibox, VibeParty), vibeparty.content
+  app/            shell: sidebar, top bar, command palette, onboarding, error boundaries, routes
+  components/ui/  design system on Base UI: Button, Dialog, Select, Segmented, Tooltip, …
+  features/       home · notes · kanban · timer · tools · chat · party · settings   (one folder each)
+  store/          cross-cutting Zustand stores + demoServer.ts (the simulated backend)
+  lib/            small, tested helpers: hotkeys, fuzzy search, url, motion presets, extension facade
+  styles/         Tailwind v4 theme (OKLCH tokens, light/dark) in globals.css
+  dev/            kitchen.html (design-system gallery) and the VibeParty harness — never shipped
+server/           the VibeParty relay (runs on Bun or Node)
+```
+
+Notable decisions: hash routing with lazy-loaded pages (prefetched when idle); every store is versioned with a real `migrate` and synced across open tabs; the timer stores an absolute end time so it survives navigation; the extension API is wrapped by `lib/ext.ts` so pages also run (degraded) as a plain web page during development; permissions are kept to what's used.
+
+## Data, privacy and permissions
+
+pact makes **no network requests of its own** (fonts and icons are bundled; site icons come from the browser's local favicon cache). The only traffic is the relay *you* configure and, on youtube.com, YouTube's own oEmbed endpoint and thumbnails for the queue.
+
+| Permission | Why |
+| --- | --- |
+| `storage` | VibeParty remembers your display name and panel preferences; party state survives service-worker restarts |
+| `topSites` | "Most visited" tiles on Home |
+| `favicon` | Private, local site icons (Chromium-only; Firefox falls back to letter tiles) |
+| `search` | Search with *your* default search engine |
+| `alarms`, `notifications` | The focus timer fires even if every pact tab is closed |
+| host `www.youtube.com` | The VibeParty panel, and finding an open YouTube tab to start a party in |
+
+## Quality
+
+- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (250+ tests): calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
+- Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, verified contrast for the brand colour.
+
+## Browsers
+
+- **Chrome / Edge / Brave** (MV3, Chrome 116+): primary target.
+- **Firefox** (`bun run build:firefox`, MV2): builds and `web-ext lint` reports no errors. Before publishing to AMO, set `browser_specific_settings.gecko.id` and declare data collection (`none`) in `wxt.config.ts`; Firefox ignores the `favicon` permission.
+- Safari isn't tested.
+
+## Before you publish
+
+- [ ] Run a two-browser VibeParty smoke test on real YouTube; deploy the relay behind TLS and build with `WXT_VIBEPARTY_WS_URL`.
+- [ ] Decide what "friends" means for real: the Chat page needs a backend (auth, storage, realtime). `src/store/demoServer.ts` is the seam.
+- [ ] Store listing: screenshots, a privacy policy (it's short: nothing leaves the device except what you configure), permission justifications (table above).
+- [ ] Add an end-to-end test that loads the built extension (Playwright + a persistent Chromium context).
+
+## Roadmap
+
+Real accounts and presence · persistent chat history · opt-in encrypted cloud sync · shared notebooks and boards that actually sync · push notifications for messages · localisation.
