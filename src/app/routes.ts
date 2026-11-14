@@ -29,7 +29,7 @@ export const SECTIONS: readonly SectionMeta[] = [
   { id: 'kanban', label: 'Kanban', description: 'Boards and tasks', icon: Columns3, hotkey: 'k', bleed: true },
   { id: 'timer', label: 'Focus', description: 'Pomodoro timer and stats', icon: Clock3, hotkey: 't' },
   { id: 'tools', label: 'Tools', description: 'Tiny, private utilities', icon: Wrench, hotkey: 'o' },
-  { id: 'chat', label: 'Chat', description: 'Friends and spaces', icon: MessageCircleMore, hotkey: 'c', bleed: true },
+  { id: 'chat', label: 'Chat', description: 'Friends and groups', icon: MessageCircleMore, hotkey: 'c', bleed: true },
   { id: 'party', label: 'VibeParty', description: 'Watch YouTube together', icon: Disc3, hotkey: 'p' },
   { id: 'settings', label: 'Settings', description: 'Profile and preferences', icon: Settings, hotkey: 's' },
 ] as const;

@@ -134,6 +134,15 @@ export async function storeLocal(items: Record<string, unknown>): Promise<void> 
   }
 }
 
+/** The installed extension's version, or "dev" when running as a plain web page. */
+export function appVersion(): string {
+  try {
+    return api?.runtime?.getManifest?.().version ?? 'dev';
+  } catch {
+    return 'dev';
+  }
+}
+
 /** Open the extension's new tab page, optionally at a hash route (e.g. "#/timer"). */
 export function pactUrl(hash = ''): string {
   if (api?.runtime?.getURL) return api.runtime.getURL('/newtab.html') + hash;

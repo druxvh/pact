@@ -95,7 +95,11 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
 
   // Chrome often keeps focus in the omnibox on a new tab; try once, politely.
   useEffect(() => {
-    const t = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 80);
+    const t = window.setTimeout(() => {
+      // Never pull focus out of a modal (e.g. the first-run welcome dialog).
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      inputRef.current?.focus({ preventScroll: true });
+    }, 80);
     return () => window.clearTimeout(t);
   }, []);
 

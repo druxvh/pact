@@ -1,179 +1,418 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { useUserStore } from '@/store/useUserStore';
-import { useThemeStore } from '@/store/useThemeStore';
-import { useNotificationStore } from '@/store/useNotificationStore';
-import { useNotesStore } from '@/features/notes/store';
-import { useKanbanStore } from '@/features/kanban/store';
+import {
+  Download,
+  Info,
+  Keyboard,
+  Laptop,
+  Moon,
+  Palette,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  Trash2,
+  Upload,
+  UserRound,
+} from 'lucide-react';
+import { motion } from 'motion/react';
+import { type ReactNode, useRef, useState } from 'react';
+import {
+  Avatar,
+  Button,
+  Card,
+  Input,
+  Label,
+  PageHeader,
+  Segmented,
+  Switch,
+  Textarea,
+  confirm,
+} from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
-import { Moon, Sun, Trash2 } from 'lucide-react';
+import { useHomeStore } from '@/features/home/store';
+import { useKanbanStore } from '@/features/kanban/store';
+import { useNotesStore } from '@/features/notes/store';
+import { useTimerStore } from '@/features/timer/store';
+import { downloadText } from '@/lib/download';
+import { appVersion } from '@/lib/ext';
+import { fadeUp, stagger } from '@/lib/motion';
+import { notify } from '@/lib/toast';
+import { exportBackup, importBackup, loadSampleWorkspace, parseBackup, resetAllData } from '@/store/demoServer';
+import { type ClockFormat, type MotionPreference, useSettingsStore } from '@/store/useSettingsStore';
+import { type ThemeMode, useThemeStore } from '@/store/useThemeStore';
+import { useUiStore } from '@/store/useUiStore';
+import { normalizeUsername, useUserStore, validateUsername } from '@/store/useUserStore';
 
-export function SettingsView() {
-  const user = useUserStore((s) => s.currentUser);
+/** One labelled control: text on the left, the control on the right (stacks on narrow screens). */
+function Row({ label, description, htmlFor, children }: { label: string; description?: ReactNode; htmlFor?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <div className="min-w-0">
+        <label htmlFor={htmlFor} className="text-sm font-medium">
+          {label}
+        </label>
+        {description && <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{description}</p>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function Section({ icon: Icon, title, description, children }: { icon: typeof Palette; title: string; description?: string; children: ReactNode }) {
+  return (
+    <motion.div variants={fadeUp}>
+      <Card className="gap-4 p-5">
+        <header className="flex items-start gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-text">
+            <Icon className="size-4" />
+          </span>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+            {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
+          </div>
+        </header>
+        <div className="divide-y divide-border">{children}</div>
+      </Card>
+    </motion.div>
+  );
+}
+
+// ── profile ──────────────────────────────────────────────────────────────────
+
+function ProfileSection() {
+  const me = useUserStore((s) => s.currentUser);
   const updateProfile = useUserStore((s) => s.updateProfile);
-  const spaces = useUserStore((s) => s.spaces);
-  const teammates = useUserStore((s) => s.teammates);
-  const theme = useThemeStore((s) => s.resolved);
-  const setTheme = useThemeStore((s) => s.setMode);
-  const notifications = useNotificationStore((s) => s.notifications);
-  const dismiss = useNotificationStore((s) => s.dismiss);
-
   const [form, setForm] = useState({
-    displayName: user?.displayName ?? '',
-    username: user?.username ?? '',
-    designation: user?.designation ?? '',
-    bio: user?.bio ?? '',
-    email: user?.email ?? '',
+    displayName: me.displayName === 'You' ? '' : me.displayName,
+    username: me.username,
+    designation: me.designation ?? '',
+    email: me.email ?? '',
+    bio: me.bio ?? '',
   });
-  const [saved, setSaved] = useState(false);
 
-  const stats = {
-    notes: useNotesStore((s) => s.notes.length),
-    tasks: useKanbanStore((s) => s.tasks.length),
-    chats: useChatStore((s) => s.messages.length),
-    spaces: spaces.length,
+  const baseline = {
+    displayName: me.displayName === 'You' ? '' : me.displayName,
+    username: me.username,
+    designation: me.designation ?? '',
+    email: me.email ?? '',
+    bio: me.bio ?? '',
+  };
+  const dirty = (Object.keys(form) as Array<keyof typeof form>).some((k) => form[k] !== baseline[k]);
+  const usernameError = form.username !== baseline.username ? validateUsername(form.username) : null;
+  const emailError = form.email && !/^\S+@\S+\.\S+$/.test(form.email.trim()) ? 'That doesn’t look like an email address' : null;
+  const canSave = dirty && !usernameError && !emailError;
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const shownName = form.displayName.trim() || 'You';
+
+  const save = () => {
+    const saved = {
+      displayName: shownName,
+      username: normalizeUsername(form.username) || 'you',
+      designation: form.designation.trim(),
+      email: form.email.trim(),
+      bio: form.bio.trim(),
+    };
+    updateProfile(saved);
+    // Show exactly what was stored (e.g. "@Zoe_O" → "zoe_o"), otherwise the form would look unsaved forever.
+    setForm({ ...saved, displayName: saved.displayName === 'You' ? '' : saved.displayName });
+    notify.success('Profile saved');
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="mx-auto max-w-3xl space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">Settings</h2>
-        <p className="text-xs text-muted-foreground">Profile, appearance & sync</p>
-      </div>
-
-      <Card>
-        <h3 className="text-sm font-medium text-foreground">Profile</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Shown in top bar and chats. Username is how friends add you (like insta).</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div>
-            <label className="text-xs text-muted-foreground">Display name</label>
-            <input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="mt-1 h-9 w-full rounded-sm border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-ring" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Username</label>
-            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.replace(/\s/g, '').toLowerCase() })} placeholder="you" className="mt-1 h-9 w-full rounded-sm border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-ring" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Designation</label>
-            <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} className="mt-1 h-9 w-full rounded-sm border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-ring" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Email</label>
-            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 h-9 w-full rounded-sm border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-ring" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="text-xs text-muted-foreground">Bio</label>
-            <textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} rows={2} className="mt-1 w-full resize-none rounded-sm border border-input bg-background p-3 text-sm outline-none transition-colors focus:border-ring" placeholder="What do you do?" />
+    <Section icon={UserRound} title="Profile" description="Shown in chats and to friends. The username is how people find you.">
+      <div className="space-y-4 py-0">
+        <div className="flex items-center gap-3">
+          <Avatar name={shownName} size="xl" />
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold tracking-tight">{shownName}</p>
+            <p className="truncate text-[13px] text-muted-foreground">@{normalizeUsername(form.username) || 'you'}</p>
           </div>
         </div>
-        <div className="mt-4 flex items-center justify-between">
-          <AnimatePresence>
-            {saved ? (
-              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-emerald-600 dark:text-emerald-400">✓ Saved</motion.p>
-            ) : (
-              <span className="text-xs text-transparent">.</span>
-            )}
-          </AnimatePresence>
-          <Button
-            className="rounded-sm"
-            onClick={() => {
-              updateProfile({ displayName: form.displayName || 'You', username: form.username || 'you', designation: form.designation, bio: form.bio, email: form.email });
-              setSaved(true);
-              setTimeout(() => setSaved(false), 2000);
-            }}
-          >
-            Save
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="set-name">Display name</Label>
+            <Input id="set-name" value={form.displayName} onChange={set('displayName')} maxLength={40} placeholder="Your name" autoComplete="name" />
+          </div>
+          <div>
+            <Label htmlFor="set-username">Username</Label>
+            <Input id="set-username" value={form.username} onChange={set('username')} maxLength={21} placeholder="you" autoComplete="username" aria-invalid={usernameError ? true : undefined} aria-describedby="set-username-err" />
+            <p id="set-username-err" className="mt-1 min-h-4 text-xs text-destructive-text" role="alert">
+              {usernameError}
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="set-role">Role</Label>
+            <Input id="set-role" value={form.designation} onChange={set('designation')} maxLength={60} placeholder="Student, designer, engineer…" />
+          </div>
+          <div>
+            <Label htmlFor="set-email">Email (optional)</Label>
+            <Input id="set-email" type="email" value={form.email} onChange={set('email')} maxLength={120} placeholder="you@example.com" autoComplete="email" aria-invalid={emailError ? true : undefined} aria-describedby="set-email-err" />
+            <p id="set-email-err" className="mt-1 min-h-4 text-xs text-destructive-text" role="alert">
+              {emailError}
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="set-bio">Bio</Label>
+            <Textarea id="set-bio" value={form.bio} onChange={set('bio')} rows={2} maxLength={160} placeholder="A line about you" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          {dirty && (
+            <Button variant="ghost" onClick={() => setForm(baseline)}>
+              Discard
+            </Button>
+          )}
+          <Button variant="primary" disabled={!canSave} onClick={save}>
+            Save changes
           </Button>
         </div>
-      </Card>
+      </div>
+    </Section>
+  );
+}
 
-      <Card>
-        <h3 className="text-sm font-medium text-foreground">Appearance</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Black is default. Switch to light anytime.</p>
-        <div className="mt-3 flex items-center justify-between rounded-sm border border-border bg-muted p-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">Theme</p>
-            <p className="text-xs text-muted-foreground">Switch theme</p>
-          </div>
-          <div className="flex gap-1 rounded-sm border border-border bg-background p-1">
-            <button onClick={() => setTheme('light')} className={`flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${theme === 'light' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><Sun className="h-3.5 w-3.5" /> Light</button>
-            <button onClick={() => setTheme('dark')} className={`flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${theme === 'dark' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><Moon className="h-3.5 w-3.5" /> Dark</button>
-          </div>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-sm border border-border bg-background p-3">
-            <p className="text-xs text-muted-foreground">Background</p>
-            <p className="font-mono text-sm text-foreground">{theme === 'dark' ? '#000000' : '#FFFFFF'}</p>
-          </div>
-          <div className="rounded-sm border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">Card</p>
-            <p className="font-mono text-sm text-foreground">{theme === 'dark' ? '#0a0a0a' : '#FFFFFF'}</p>
-          </div>
-        </div>
-      </Card>
+// ── appearance & home ────────────────────────────────────────────────────────
 
-      <Card>
-        <h3 className="text-sm font-medium text-foreground">Sync & data</h3>
-        <p className="mt-1 text-sm text-muted-foreground">All data syncs across your devices.</p>
-        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {[
-            { k: 'Notes', v: stats.notes },
-            { k: 'Tasks', v: stats.tasks },
-            { k: 'Messages', v: stats.chats },
-            { k: 'Spaces', v: stats.spaces },
-          ].map((s) => (
-            <motion.div key={s.k} whileHover={{ y: -1 }} className="rounded-sm border border-border bg-background p-3 text-center">
-              <p className="text-2xl font-semibold tracking-tight text-foreground">{s.v}</p>
-              <p className="text-xs text-muted-foreground">{s.k}</p>
-            </motion.div>
-          ))}
-        </div>
-        <div className="mt-3 flex gap-2">
-          <Button variant="outline" size="sm" className="rounded-sm" onClick={() => { localStorage.clear(); location.reload(); }}>Clear data</Button>
-          <span className="text-xs leading-8 text-muted-foreground">Resets to defaults</span>
-        </div>
-      </Card>
+function AppearanceSection() {
+  const mode = useThemeStore((s) => s.mode);
+  const setMode = useThemeStore((s) => s.setMode);
+  const motionPref = useSettingsStore((s) => s.motion);
+  const sounds = useSettingsStore((s) => s.sounds);
+  const set = useSettingsStore((s) => s.set);
+  // The theme change reveals as a circle from wherever the user last pressed.
+  const origin = useRef<{ x: number; y: number } | undefined>(undefined);
 
-      <Card>
-        <h3 className="text-sm font-medium text-foreground">Spaces</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Invite by username → share kanban/notes/chats.</p>
-        <div className="mt-3 space-y-2">
-          {spaces.map((sp) => (
-            <div key={sp.id} className="flex items-center justify-between rounded-sm border border-border bg-background p-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">{sp.name}</p>
-                <p className="text-xs text-muted-foreground">{sp.memberIds.map((id) => (id === 'local-user' ? user?.username ?? 'you' : teammates.find((t) => t.id === id)?.username ?? id)).join(', ')}</p>
-              </div>
-              <span className="rounded-sm bg-muted px-2 py-1 text-xs text-muted-foreground">{sp.memberIds.length} members</span>
+  return (
+    <Section icon={Palette} title="Appearance" description="Make pact feel the way you like.">
+      <Row label="Theme" description="System follows your OS and switches automatically.">
+        <div onPointerDownCapture={(e) => (origin.current = { x: e.clientX, y: e.clientY })}>
+          <Segmented<ThemeMode>
+            aria-label="Theme"
+            value={mode}
+            onValueChange={(m) => setMode(m, origin.current)}
+            options={[
+              { value: 'light', label: 'Light', icon: <Sun /> },
+              { value: 'dark', label: 'Dark', icon: <Moon /> },
+              { value: 'system', label: 'System', icon: <Laptop /> },
+            ]}
+          />
+        </div>
+      </Row>
+      <Row label="Animations" description="“System” follows your OS’s reduce-motion setting.">
+        <Segmented<MotionPreference>
+          aria-label="Animations"
+          value={motionPref}
+          onValueChange={(v) => set('motion', v)}
+          options={[
+            { value: 'system', label: 'System' },
+            { value: 'full', label: 'Full' },
+            { value: 'reduced', label: 'Reduced' },
+          ]}
+        />
+      </Row>
+      <Row label="Sounds" description="A soft chime when a focus session or break ends." htmlFor="set-sounds">
+        <Switch id="set-sounds" checked={sounds} onCheckedChange={(v) => set('sounds', v)} aria-label="Sounds" />
+      </Row>
+    </Section>
+  );
+}
+
+function HomeSection() {
+  const { clock, showGreeting, showTopSites, set } = useSettingsStore();
+  const hidden = useHomeStore((s) => s.hiddenHosts.length);
+  const resetHidden = useHomeStore((s) => s.resetHidden);
+
+  return (
+    <Section icon={Sparkles} title="Home" description="What you see on every new tab.">
+      <Row label="Clock" description="12-hour, 24-hour, or whatever your locale prefers.">
+        <Segmented<ClockFormat>
+          aria-label="Clock format"
+          value={clock}
+          onValueChange={(v) => set('clock', v)}
+          options={[
+            { value: 'auto', label: 'Auto' },
+            { value: '12h', label: '12h' },
+            { value: '24h', label: '24h' },
+          ]}
+        />
+      </Row>
+      <Row label="Greeting" description="“Good evening, Sam” above the search box." htmlFor="set-greeting">
+        <Switch id="set-greeting" checked={showGreeting} onCheckedChange={(v) => set('showGreeting', v)} aria-label="Greeting" />
+      </Row>
+      <Row label="Most visited sites" description="Tiles from your browser’s history. pact asks the browser; nothing leaves your device." htmlFor="set-topsites">
+        <Switch id="set-topsites" checked={showTopSites} onCheckedChange={(v) => set('showTopSites', v)} aria-label="Most visited sites" />
+      </Row>
+      <Row label="Hidden sites" description={hidden ? `${hidden} site${hidden === 1 ? '' : 's'} removed from Home.` : 'You haven’t removed any sites from Home.'}>
+        <Button
+          variant="outline"
+          disabled={hidden === 0}
+          onClick={() => {
+            resetHidden();
+            notify.success('Hidden sites restored');
+          }}
+        >
+          Show them again
+        </Button>
+      </Row>
+    </Section>
+  );
+}
+
+// ── data ─────────────────────────────────────────────────────────────────────
+
+function DataSection() {
+  const notes = useNotesStore((s) => s.notes.length);
+  const tasks = useKanbanStore((s) => s.tasks.length);
+  const sessions = useTimerStore((s) => s.sessions.length);
+  const messages = useChatStore((s) => s.messages.length);
+  const friends = useUserStore((s) => s.friendIds.length);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  const stats = [
+    ['Notes', notes],
+    ['Tasks', tasks],
+    ['Focus sessions', sessions],
+    ['Messages', messages],
+    ['Friends', friends],
+  ] as const;
+
+  const exportData = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadText(`pact-backup-${stamp}.json`, JSON.stringify(exportBackup(), null, 2));
+    notify.success('Backup downloaded', 'Chat attachments (images and video) aren’t included.');
+  };
+
+  const importFile = async (file: File) => {
+    const parsed = parseBackup(await file.text());
+    if (!parsed.ok) {
+      notify.error('Couldn’t import that file', parsed.error);
+      return;
+    }
+    const when = Number.isNaN(Date.parse(parsed.backup.exportedAt)) ? '' : ` from ${new Date(parsed.backup.exportedAt).toLocaleString()}`;
+    const ok = await confirm({
+      title: 'Replace your data with this backup?',
+      description: `This overwrites the notes, boards, chats and settings on this device with the backup${when}. It can’t be undone — export a backup of your current data first if you might want it.`,
+      confirmLabel: 'Replace my data',
+      destructive: true,
+    });
+    if (!ok) return;
+    importBackup(parsed.backup);
+    notify.success('Backup restored', 'Reloading…');
+    window.setTimeout(() => location.reload(), 700);
+  };
+
+  const loadSample = async () => {
+    const hasData = notes + tasks + messages + friends > 0;
+    const ok = await confirm({
+      title: 'Load the sample workspace?',
+      description: hasData
+        ? 'This replaces your current notes, boards, chats and friends on this device with example data. Export a backup first if you want to keep what you have.'
+        : 'Fills pact with example notes, a board, chats and friends so you can explore everything.',
+      confirmLabel: hasData ? 'Replace with samples' : 'Load samples',
+      destructive: hasData,
+    });
+    if (!ok) return;
+    loadSampleWorkspace();
+    notify.success('Sample workspace loaded');
+  };
+
+  const reset = async () => {
+    const ok = await confirm({
+      title: 'Erase everything on this device?',
+      description: 'Notes, boards, chats, attachments, timer history, settings and your profile will be deleted. This can’t be undone.',
+      confirmLabel: 'Erase everything',
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    await resetAllData();
+    location.reload();
+  };
+
+  return (
+    <Section icon={ShieldCheck} title="Your data" description="Stored on this device only — in your browser’s local storage. Nothing is uploaded and nothing syncs between devices.">
+      <div className="pb-4">
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {stats.map(([label, value]) => (
+            <div key={label} className="rounded-lg border bg-background/50 px-3 py-2.5">
+              <dd className="text-xl font-semibold tabular tracking-tight">{value}</dd>
+              <dt className="text-xs text-muted-foreground">{label}</dt>
             </div>
           ))}
+        </dl>
+      </div>
+      <Row label="Backup" description="Download everything as a file you can restore here — or on another computer — later.">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportData}>
+            <Download /> Export
+          </Button>
+          <Button variant="outline" onClick={() => fileRef.current?.click()}>
+            <Upload /> Import
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            aria-label="Choose a pact backup file"
+            tabIndex={-1}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) void importFile(file);
+            }}
+          />
         </div>
-      </Card>
+      </Row>
+      <Row label="Sample workspace" description="Example notes, a kanban board, chats and friends — handy for a tour.">
+        <Button variant="outline" onClick={() => void loadSample()}>
+          <Sparkles /> Load samples
+        </Button>
+      </Row>
+      <Row label="Erase everything" description="Resets pact to a fresh install on this device.">
+        <Button variant="danger" loading={busy} onClick={() => void reset()}>
+          <Trash2 /> Erase all data
+        </Button>
+      </Row>
+    </Section>
+  );
+}
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-foreground">Notifications · {notifications.filter((n) => !n.read).length} unread</h3>
-          <Button variant="ghost" size="sm" className="rounded-sm" onClick={() => notifications.forEach((n) => dismiss(n.id))}>Clear all</Button>
+function AboutSection() {
+  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
+  const togglePalette = useUiStore((s) => s.togglePalette);
+  return (
+    <Section icon={Info} title="About" description="pact — a new tab for notes, tasks, focus, tools and company.">
+      <Row label="Keyboard" description="⌘K jumps anywhere, g then a letter switches pages, ? lists every shortcut.">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={togglePalette}>
+            Command palette
+          </Button>
+          <Button variant="outline" onClick={() => setShortcutsOpen(true)}>
+            <Keyboard /> Shortcuts
+          </Button>
         </div>
-        <div className="mt-3 space-y-2">
-          {notifications.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No notifications</p>
-          ) : (
-            notifications.slice(0, 8).map((n) => (
-              <div key={n.id} className={`flex items-start justify-between gap-2 rounded-sm border p-3 ${n.read ? 'border-border bg-background' : 'border-primary/20 bg-accent'}`}>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{n.title}</p>
-                  <p className="text-xs text-muted-foreground">{n.body}</p>
-                  <p className="text-[11px] text-muted-foreground">{new Date(n.createdAt).toLocaleString()} · {n.kind}</p>
-                </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-sm" onClick={() => dismiss(n.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-              </div>
-            ))
-          )}
-        </div>
-      </Card>
+      </Row>
+      <Row label="Version">
+        <span className="font-mono text-xs text-muted-foreground">pact {appVersion()}</span>
+      </Row>
+    </Section>
+  );
+}
+
+export function SettingsView() {
+  return (
+    <motion.div variants={stagger(0.05)} initial="hidden" animate="show" className="mx-auto w-full max-w-3xl space-y-4">
+      <motion.div variants={fadeUp}>
+        <PageHeader icon={Settings} title="Settings" description="Profile, appearance and your data" />
+      </motion.div>
+      <ProfileSection />
+      <AppearanceSection />
+      <HomeSection />
+      <DataSection />
+      <AboutSection />
     </motion.div>
   );
 }

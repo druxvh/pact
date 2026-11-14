@@ -8,6 +8,7 @@ import { TimerEngine } from '@/features/timer/TimerEngine';
 import { useTimerStore } from '@/features/timer/store';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
 import { MobileNav, Sidebar } from '@/app/Sidebar';
+import { Onboarding } from '@/app/Onboarding';
 import { TopBar } from '@/app/TopBar';
 import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -95,6 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <PromptHost />
         <CommandPalette />
         <ShortcutsDialog />
+        <Onboarding />
       </TooltipProvider>
     </MotionConfig>
   );

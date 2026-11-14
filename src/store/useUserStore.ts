@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { uid } from '@/lib/format';
 import { syncAcrossTabs } from '@/lib/persist';
-import type { Space } from '@/types/space';
 import type { FriendRequest, Person } from '@/types/user';
 
 /** The signed-in (local) user's id. Stable so existing persisted data keeps working. */
@@ -61,14 +60,12 @@ type UserState = {
   teammates: Person[];
   friendIds: string[];
   friendRequests: FriendRequest[];
-  spaces: Space[];
   onboarded: boolean;
   updateProfile: (patch: Partial<Person>) => void;
   completeOnboarding: (patch: Partial<Person>) => void;
   sendFriendRequest: (username: string) => FriendResult;
   acceptRequest: (id: string) => void;
   rejectRequest: (id: string) => void;
-  createSpace: (name: string, memberUsernames: string[]) => void;
 };
 
 const now = () => new Date().toISOString();
@@ -80,7 +77,6 @@ export const useUserStore = create<UserState>()(
       teammates: DEMO_DIRECTORY,
       friendIds: [],
       friendRequests: [],
-      spaces: [],
       onboarded: false,
 
       updateProfile: (patch) => set((s) => ({ currentUser: { ...s.currentUser, ...patch, id: ME_ID } })),
@@ -125,26 +121,13 @@ export const useUserStore = create<UserState>()(
         set((s) => ({
           friendRequests: s.friendRequests.map((r) => (r.id === id ? { ...r, status: 'rejected' as const } : r)),
         })),
-
-      createSpace: (name, memberUsernames) =>
-        set((s) => {
-          const ids = memberUsernames
-            .map((u) => s.teammates.find((t) => t.username.toLowerCase() === u.toLowerCase())?.id)
-            .filter((id): id is string => Boolean(id));
-          const space: Space = {
-            id: uid('space'),
-            name: name.trim() || 'Untitled space',
-            memberIds: [ME_ID, ...ids],
-            createdAt: now(),
-          };
-          return { spaces: [space, ...s.spaces] };
-        }),
     }),
     {
       name: 'pact-user',
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
-        // v1/v2 shipped a seeded "You" profile, a static teammate list and a dead `messages` array.
+        // Older versions shipped a seeded "You" profile, a static teammate list, a dead `messages` array and
+        // "spaces" (replaced by notebooks/boards/group chats). Rebuilding the object here drops all of that.
         const p = (persisted ?? {}) as Partial<UserState>;
         const reqs = p.friendRequests ?? [];
         return {
@@ -154,7 +137,6 @@ export const useUserStore = create<UserState>()(
           friendIds:
             p.friendIds ??
             reqs.filter((r) => r.status === 'accepted').map((r) => (r.fromId === ME_ID ? r.toId : r.fromId)),
-          spaces: p.spaces ?? [],
           onboarded: p.onboarded ?? false,
         } as UserState;
       },

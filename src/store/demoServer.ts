@@ -244,7 +244,7 @@ export function loadSampleWorkspace() {
       t(DEFAULT_BOARD_ID, 'done', 3, 1000, 'Black theme shipped'),
       t(jam.id, 'todo', 1, 1000, 'Onboarding copy', { assigneeId: 'alex', priority: 'medium', due: day(3) }),
       t(jam.id, 'todo', 4, 2000, 'Fix notification badge', { assigneeId: ME_ID, priority: 'high', due: day(-1) }),
-      t(jam.id, 'in_progress', 2, 1000, 'Review pact spaces', { assigneeId: 'jordan' }),
+      t(jam.id, 'in_progress', 2, 1000, 'Review the group chat flow', { assigneeId: 'jordan' }),
       t(jam.id, 'done', 3, 1000, 'Home minimal'),
     ],
     activeBoardId: DEFAULT_BOARD_ID,
