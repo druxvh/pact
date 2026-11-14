@@ -1,151 +1,248 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Note, Notebook } from '@/features/notes/types';
-import { useUserStore } from '@/store/useUserStore';
-
-type NotesState = {
-  notebooks: Notebook[];
-  activeNotebookId: string;
-  notes: Note[];
-  selectedId: string | null;
-  query: string;
-  setQuery: (q: string) => void;
-  setActiveNotebook: (id: string) => void;
-  createNotebook: (name: string, memberIds?: string[]) => string;
-  deleteNotebook: (id: string) => void;
-  inviteToNotebook: (notebookId: string, username: string) => { ok: boolean; msg: string };
-  select: (id: string | null) => void;
-  addNote: (title?: string, body?: string, notebookId?: string) => string;
-  updateNote: (id: string, patch: Partial<Note>) => void;
-  deleteNote: (id: string) => void;
-  assignNote: (id: string, assigneeId: string | null) => void;
-  moveNote: (activeId: string, overId: string | null) => void;
-};
+import { uid } from '@/lib/format';
+import { syncAcrossTabs } from '@/lib/persist';
+import { resolveInvite } from '@/store/members';
+import { ME_ID } from '@/store/useUserStore';
 
 const now = () => new Date().toISOString();
 
-const seedNotebooks: Notebook[] = [
-  { id: 'nb-1', name: 'Personal', memberIds: ['local-user'], createdAt: now() },
-  { id: 'nb-2', name: 'design jam', memberIds: ['local-user', 'alex', 'jordan'], createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString() },
-  { id: 'nb-3', name: 'pact launch', memberIds: ['local-user', 'sam', 'riley'], createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-];
+export const DEFAULT_NOTEBOOK_ID = 'nb-personal';
 
-const seedNotes: Note[] = [
-  { id: 'n1', notebookId: 'nb-1', number: 1, title: 'Pact ideas', body: 'Spaces sync kanban + notes + chats per friend group. Add by username → friend request → share. Keep it playful, black, fast.', assigneeId: null, createdAt: now(), updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-  { id: 'n2', notebookId: 'nb-1', number: 2, title: 'Onboarding copy', body: 'Steps: 1) auth via Clerk/BetterAuth 2) username (unique) 3) designation 4) bio. Make it modern, fun, not corporate.', assigneeId: 'local-user', createdAt: now(), updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-  { id: 'n3', notebookId: 'nb-2', number: 1, title: 'Utility tools list', body: 'x→y converters: length, temp, currency (mock rates), text case, url encode, color picker, QR, image compress ≤5mb.', assigneeId: 'alex', createdAt: now(), updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
-  { id: 'n4', notebookId: 'nb-2', number: 2, title: 'Chat vibe', body: 'Discord × Telegram: left dm list, main chat bubbles, emoji picker, gif, image/video ≤5mb, reply, reactions.', assigneeId: null, createdAt: now(), updatedAt: now() },
-  { id: 'n5', notebookId: 'nb-3', number: 1, title: 'Kanban polish', body: 'Remove borders, dnd-kit smooth, per-board add, #numbers + assign, groups on top, invite flow.', assigneeId: 'jordan', createdAt: now(), updatedAt: now() },
-];
+const defaultNotebook = (): Notebook => ({
+  id: DEFAULT_NOTEBOOK_ID,
+  name: 'Personal',
+  memberIds: [ME_ID],
+  nextNumber: 1,
+  createdAt: now(),
+});
+
+export type NotebookSnapshot = { notebook: Notebook; notes: Note[] };
+
+type NotesState = {
+  notebooks: Notebook[];
+  notes: Note[];
+  activeNotebookId: string;
+  selectedId: string | null;
+  /** Ephemeral — intentionally not persisted. */
+  query: string;
+
+  setQuery: (q: string) => void;
+  setActiveNotebook: (id: string) => void;
+  select: (id: string | null) => void;
+
+  createNotebook: (name: string) => string;
+  renameNotebook: (id: string, name: string) => void;
+  /** Refuses to delete the last notebook. Returns a snapshot for undo. */
+  deleteNotebook: (id: string) => NotebookSnapshot | null;
+  restoreNotebook: (snapshot: NotebookSnapshot) => void;
+  inviteToNotebook: (notebookId: string, username: string) => { ok: boolean; msg: string; personId?: string };
+  removeMember: (notebookId: string, personId: string) => void;
+
+  addNote: (init?: Partial<Pick<Note, 'title' | 'body'>>, notebookId?: string) => string;
+  updateNote: (id: string, patch: Partial<Pick<Note, 'title' | 'body' | 'pinned' | 'assigneeId'>>) => void;
+  deleteNote: (id: string) => Note | null;
+  restoreNote: (note: Note) => void;
+};
+
+const nextSelection = (notes: Note[], notebookId: string, excluding?: string): string | null =>
+  notes.find((n) => n.notebookId === notebookId && n.id !== excluding)?.id ?? null;
 
 export const useNotesStore = create<NotesState>()(
   persist(
     (set, get) => ({
-      notebooks: seedNotebooks,
-      activeNotebookId: 'nb-1',
-      notes: seedNotes,
-      selectedId: 'n1',
+      notebooks: [defaultNotebook()],
+      notes: [],
+      activeNotebookId: DEFAULT_NOTEBOOK_ID,
+      selectedId: null,
       query: '',
+
       setQuery: (query) => set({ query }),
-      setActiveNotebook: (activeNotebookId) => set({ activeNotebookId, selectedId: null }),
-      createNotebook: (name, memberIds = ['local-user']) => {
-        const id = `nb-${crypto.randomUUID().slice(0, 8)}`;
-        const nb: Notebook = { id, name: name.trim() || `Notebook ${get().notebooks.length + 1}`, memberIds, createdAt: now() };
-        set((s) => ({ notebooks: [...s.notebooks, nb], activeNotebookId: id }));
-        return id;
-      },
-      deleteNotebook: (id) =>
-        set((s) => {
-          const notebooks = s.notebooks.filter((b) => b.id !== id);
-          const activeNotebookId = s.activeNotebookId === id ? (notebooks[0]?.id ?? s.notebooks[0]?.id ?? id) : s.activeNotebookId;
-          const notes = s.notes.filter((n) => n.notebookId !== id);
-          const selectedId = notes.find((n) => n.notebookId === activeNotebookId)?.id ?? null;
-          return { notebooks: notebooks.length ? notebooks : s.notebooks, notes, activeNotebookId: activeNotebookId ?? s.activeNotebookId, selectedId };
-        }),
-      inviteToNotebook: (notebookId, username) => {
-        const clean = username.replace(/^@/, '').trim().toLowerCase();
-        if (!clean) return { ok: false, msg: 'Enter username' };
-        const teammates = useUserStore.getState().teammates;
-        const found = teammates.find((t) => t.username.toLowerCase() === clean);
-        if (!found) return { ok: false, msg: `No user @${clean} (try alex/jordan/sam/riley)` };
-        let ok = false;
-        let msg = `Already in notebook`;
-        set((s) => {
-          const notebooks = s.notebooks.map((b) => {
-            if (b.id !== notebookId) return b;
-            if (b.memberIds.includes(found.id)) return b;
-            ok = true;
-            msg = `Added @${found.username}`;
-            return { ...b, memberIds: [...b.memberIds, found.id] };
-          });
-          return { notebooks };
-        });
-        return { ok, msg };
-      },
+      setActiveNotebook: (id) =>
+        set((s) => ({
+          activeNotebookId: id,
+          query: '',
+          selectedId: nextSelection(sortNotes(s.notes.filter((n) => n.notebookId === id)), id),
+        })),
       select: (selectedId) => set({ selectedId }),
-      addNote: (title = 'Untitled', body = '', notebookId) => {
-        const nbId = notebookId ?? get().activeNotebookId;
-        const boardNotes = get().notes.filter((n) => n.notebookId === nbId);
-        const maxNum = boardNotes.reduce((m, n) => Math.max(m, n.number), 0);
-        const id = crypto.randomUUID();
-        const note: Note = { id, notebookId: nbId, number: maxNum + 1, title, body, assigneeId: null, createdAt: now(), updatedAt: now() };
-        set((s) => ({ notes: [note, ...s.notes], selectedId: id }));
+
+      createNotebook: (name) => {
+        const id = uid('nb');
+        const nb: Notebook = {
+          id,
+          name: name.trim() || `Notebook ${get().notebooks.length + 1}`,
+          memberIds: [ME_ID],
+          nextNumber: 1,
+          createdAt: now(),
+        };
+        set((s) => ({ notebooks: [...s.notebooks, nb], activeNotebookId: id, selectedId: null, query: '' }));
         return id;
       },
-      updateNote: (id, patch) => set((s) => ({ notes: s.notes.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: now() } : n)) })),
-      deleteNote: (id) =>
-        set((s) => {
-          const notes = s.notes.filter((n) => n.id !== id);
-          const selectedId = s.selectedId === id ? (notes.find((n) => n.notebookId === s.activeNotebookId)?.id ?? notes[0]?.id ?? null) : s.selectedId;
-          return { notes, selectedId };
-        }),
-      assignNote: (id, assigneeId) => set((s) => ({ notes: s.notes.map((n) => (n.id === id ? { ...n, assigneeId, updatedAt: now() } : n)) })),
-      moveNote: (activeId, overId) =>
-        set((s) => {
-          if (!overId || activeId === overId) return s;
-          const activeIdx = s.notes.findIndex((n) => n.id === activeId);
-          const overIdx = s.notes.findIndex((n) => n.id === overId);
-          if (activeIdx === -1 || overIdx === -1) return s;
-          // only within same notebook
-          const active = s.notes[activeIdx]!;
-          const over = s.notes[overIdx]!;
-          if (active.notebookId !== over.notebookId) return s;
-          const newNotes = [...s.notes];
-          const [moved] = newNotes.splice(activeIdx, 1);
-          if (!moved) return s;
-          const insertAt = activeIdx < overIdx ? overIdx - 1 : overIdx;
-          newNotes.splice(insertAt, 0, moved);
-          return { notes: newNotes };
-        }),
+
+      renameNotebook: (id, name) => {
+        const v = name.trim();
+        if (!v) return;
+        set((s) => ({ notebooks: s.notebooks.map((b) => (b.id === id ? { ...b, name: v } : b)) }));
+      },
+
+      deleteNotebook: (id) => {
+        const s = get();
+        if (s.notebooks.length <= 1) return null;
+        const notebook = s.notebooks.find((b) => b.id === id);
+        if (!notebook) return null;
+        const removedNotes = s.notes.filter((n) => n.notebookId === id);
+        const notebooks = s.notebooks.filter((b) => b.id !== id);
+        const activeNotebookId = s.activeNotebookId === id ? (notebooks[0]?.id ?? DEFAULT_NOTEBOOK_ID) : s.activeNotebookId;
+        const notes = s.notes.filter((n) => n.notebookId !== id);
+        set({
+          notebooks,
+          notes,
+          activeNotebookId,
+          selectedId: s.activeNotebookId === id ? nextSelection(sortNotes(notes.filter((n) => n.notebookId === activeNotebookId)), activeNotebookId) : s.selectedId,
+        });
+        return { notebook, notes: removedNotes };
+      },
+
+      restoreNotebook: ({ notebook, notes }) =>
+        set((s) =>
+          s.notebooks.some((b) => b.id === notebook.id)
+            ? s
+            : { notebooks: [...s.notebooks, notebook], notes: [...s.notes, ...notes], activeNotebookId: notebook.id, selectedId: notes[0]?.id ?? null },
+        ),
+
+      inviteToNotebook: (notebookId, username) => {
+        const nb = get().notebooks.find((b) => b.id === notebookId);
+        if (!nb) return { ok: false, msg: 'Notebook not found' };
+        const r = resolveInvite(nb.memberIds, username);
+        if (!r.ok) return r;
+        set((s) => ({
+          notebooks: s.notebooks.map((b) => (b.id === notebookId ? { ...b, memberIds: [...b.memberIds, r.person.id] } : b)),
+        }));
+        return { ok: true, msg: r.msg, personId: r.person.id };
+      },
+
+      removeMember: (notebookId, personId) =>
+        set((s) => ({
+          notebooks: s.notebooks.map((b) =>
+            b.id === notebookId && personId !== ME_ID ? { ...b, memberIds: b.memberIds.filter((m) => m !== personId) } : b,
+          ),
+          // Anything assigned to the removed person becomes unassigned.
+          notes: s.notes.map((n) => (n.notebookId === notebookId && n.assigneeId === personId ? { ...n, assigneeId: null } : n)),
+        })),
+
+      addNote: (init, notebookId) => {
+        const s = get();
+        const nbId = notebookId ?? s.activeNotebookId;
+        const nb = s.notebooks.find((b) => b.id === nbId) ?? s.notebooks[0];
+        if (!nb) return '';
+        const id = uid('note');
+        const stamp = now();
+        const note: Note = {
+          id,
+          notebookId: nb.id,
+          number: nb.nextNumber,
+          title: init?.title ?? '',
+          body: init?.body ?? '',
+          pinned: false,
+          assigneeId: null,
+          createdAt: stamp,
+          updatedAt: stamp,
+        };
+        set((st) => ({
+          notes: [note, ...st.notes],
+          notebooks: st.notebooks.map((b) => (b.id === nb.id ? { ...b, nextNumber: b.nextNumber + 1 } : b)),
+          activeNotebookId: nb.id,
+          selectedId: id,
+          query: '',
+        }));
+        return id;
+      },
+
+      updateNote: (id, patch) =>
+        set((s) => ({
+          notes: s.notes.map((n) => {
+            if (n.id !== id) return n;
+            const touchesContent = patch.title !== undefined || patch.body !== undefined;
+            return { ...n, ...patch, updatedAt: touchesContent ? now() : n.updatedAt };
+          }),
+        })),
+
+      deleteNote: (id) => {
+        const s = get();
+        const note = s.notes.find((n) => n.id === id);
+        if (!note) return null;
+        const notes = s.notes.filter((n) => n.id !== id);
+        set({
+          notes,
+          selectedId: s.selectedId === id ? nextSelection(sortNotes(notes.filter((n) => n.notebookId === note.notebookId)), note.notebookId) : s.selectedId,
+        });
+        return note;
+      },
+
+      restoreNote: (note) =>
+        set((s) =>
+          s.notes.some((n) => n.id === note.id)
+            ? s
+            : { notes: [...s.notes, note], activeNotebookId: note.notebookId, selectedId: note.id },
+        ),
     }),
     {
       name: 'pact-notes',
-      version: 2,
-      migrate: (persisted: any, _version) => {
-        // migrate from v1 (no notebooks) to v2
-        if (!persisted?.notebooks) {
-          const oldNotes: any[] = persisted?.notes ?? seedNotes;
-          // map old notes that had no notebookId/number
-          const migrated = oldNotes.map((n: any, i: number) => ({
-            id: n.id ?? crypto.randomUUID(),
-            notebookId: n.notebookId ?? 'nb-1',
-            number: n.number ?? i + 1,
-            title: n.title ?? 'Untitled',
-            body: n.body ?? '',
-            assigneeId: n.assigneeId ?? null,
-            createdAt: n.createdAt ?? now(),
-            updatedAt: n.updatedAt ?? now(),
-          }));
-          return {
-            notebooks: seedNotebooks,
-            activeNotebookId: 'nb-1',
-            notes: migrated,
-            selectedId: migrated[0]?.id ?? null,
-            query: persisted?.query ?? '',
-          };
-        }
-        return persisted as any;
+      version: 3,
+      partialize: (s) => ({
+        notebooks: s.notebooks,
+        notes: s.notes,
+        activeNotebookId: s.activeNotebookId,
+        selectedId: s.selectedId,
+      }),
+      migrate: (persisted) => {
+        // v1: flat notes. v2: notebooks + numbered notes. v3: counters + pinning.
+        const p = (persisted ?? {}) as { notebooks?: Notebook[]; notes?: Array<Partial<Note>>; activeNotebookId?: string; selectedId?: string | null };
+        const baseNotebooks = p.notebooks?.length ? p.notebooks : [defaultNotebook()];
+        const notes: Note[] = (p.notes ?? []).map((n, i) => ({
+          id: n.id ?? uid('note'),
+          notebookId: n.notebookId ?? baseNotebooks[0]?.id ?? DEFAULT_NOTEBOOK_ID,
+          number: n.number ?? i + 1,
+          title: n.title ?? '',
+          body: n.body ?? '',
+          pinned: n.pinned ?? false,
+          assigneeId: n.assigneeId ?? null,
+          createdAt: n.createdAt ?? now(),
+          updatedAt: n.updatedAt ?? now(),
+        }));
+        const notebooks: Notebook[] = baseNotebooks.map((b) => ({
+          ...b,
+          nextNumber:
+            (b as Partial<Notebook>).nextNumber ??
+            notes.filter((n) => n.notebookId === b.id).reduce((m, n) => Math.max(m, n.number), 0) + 1,
+        }));
+        return {
+          notebooks,
+          notes,
+          activeNotebookId: notebooks.some((b) => b.id === p.activeNotebookId) ? (p.activeNotebookId as string) : (notebooks[0]?.id ?? DEFAULT_NOTEBOOK_ID),
+          selectedId: p.selectedId ?? null,
+        } as NotesState;
       },
     },
   ),
 );
+
+syncAcrossTabs('pact-notes', useNotesStore);
+
+/** Pinned first, then most recently edited. */
+export function sortNotes(notes: Note[]): Note[] {
+  return [...notes].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** Plain-text excerpt for list previews (markdown punctuation stripped). */
+export function excerpt(body: string, max = 140): string {
+  const flat = body
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/gm, '')
+    .replace(/[#>*_`~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return flat.length > max ? `${flat.slice(0, max).trimEnd()}…` : flat;
+}

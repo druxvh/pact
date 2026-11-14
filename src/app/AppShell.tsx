@@ -5,7 +5,7 @@ import { SECTION_BY_ID, SECTIONS } from '@/app/routes';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
 import { MobileNav, Sidebar } from '@/app/Sidebar';
 import { TopBar } from '@/app/TopBar';
-import { ConfirmHost, Toaster, TooltipProvider } from '@/components/ui';
+import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { useHotkeys } from '@/lib/hotkeys';
 import { page } from '@/lib/motion';
@@ -76,6 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <Toaster />
         <ConfirmHost />
+        <PromptHost />
         <CommandPalette />
         <ShortcutsDialog />
       </TooltipProvider>

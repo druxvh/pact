@@ -2,16 +2,20 @@ export type Notebook = {
   id: string;
   name: string;
   memberIds: string[];
+  /** Next `#number` to hand out — a counter so numbers are never reused after deletes. */
+  nextNumber: number;
   createdAt: string;
 };
 
 export type Note = {
   id: string;
   notebookId: string;
-  number: number; // #1, #2
+  /** Per-notebook `#1`, `#2`… reference. */
+  number: number;
   title: string;
   body: string;
-  assigneeId?: string | null;
+  pinned: boolean;
+  assigneeId: string | null;
   updatedAt: string;
   createdAt: string;
 };

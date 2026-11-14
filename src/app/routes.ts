@@ -25,7 +25,7 @@ export type SectionMeta = {
 
 export const SECTIONS: readonly SectionMeta[] = [
   { id: 'home', label: 'Home', description: 'Search and your shortcuts', icon: House, hotkey: 'h', bleed: true },
-  { id: 'notes', label: 'Notes', description: 'Notebooks you can share', icon: NotebookPen, hotkey: 'n' },
+  { id: 'notes', label: 'Notes', description: 'Notebooks you can share', icon: NotebookPen, hotkey: 'n', bleed: true },
   { id: 'kanban', label: 'Kanban', description: 'Boards and tasks', icon: Columns3, hotkey: 'k' },
   { id: 'timer', label: 'Focus', description: 'Pomodoro timer and stats', icon: Clock3, hotkey: 't' },
   { id: 'tools', label: 'Tools', description: 'Tiny, private utilities', icon: Wrench, hotkey: 'o' },

@@ -28,6 +28,7 @@ export { Input, InputGroup, Label, Textarea } from './Input';
 export { Kbd } from './Kbd';
 export { PageHeader } from './PageHeader';
 export { Popover, PopoverClose, PopoverContent, PopoverTrigger } from './Popover';
+export { PromptHost, promptText } from './prompt';
 export { Segmented, type SegmentedOption } from './Segmented';
 export { Select, type SelectOption } from './Select';
 export { Skeleton } from './Skeleton';
