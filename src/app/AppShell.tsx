@@ -1,7 +1,9 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { CommandPalette } from '@/app/CommandPalette';
-import { SECTION_BY_ID, SECTIONS } from '@/app/routes';
+import { SECTION_BY_ID, SECTIONS, baseTitle } from '@/app/routes';
+import { TimerEngine } from '@/features/timer/TimerEngine';
+import { useTimerStore } from '@/features/timer/store';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
 import { MobileNav, Sidebar } from '@/app/Sidebar';
 import { TopBar } from '@/app/TopBar';
@@ -29,9 +31,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [section]);
 
   // Keep the document title in sync (helps tab search & screen readers).
+  // (While the timer runs, TimerEngine owns the title so it can show the countdown.)
   useEffect(() => {
-    document.title = section === 'home' ? 'pact' : `${meta.label} · pact`;
-  }, [section, meta.label]);
+    if (useTimerStore.getState().status !== 'running') document.title = baseTitle(section);
+  }, [section]);
 
   useHotkeys([
     { keys: 'mod+k', allowInInput: true, handler: togglePalette },
@@ -74,6 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
+        <TimerEngine />
         <Toaster />
         <ConfirmHost />
         <PromptHost />

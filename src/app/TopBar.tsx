@@ -2,6 +2,7 @@ import { Search } from 'lucide-react';
 import { IconButton, Kbd, ThemeToggle } from '@/components/ui';
 import { NotificationCenter } from '@/app/NotificationCenter';
 import { ProfileMenu } from '@/app/ProfileMenu';
+import { TimerPill } from '@/features/timer/TimerPill';
 import { cn } from '@/lib/cn';
 import { MOD_KEY } from '@/lib/hotkeys';
 import { useNavStore } from '@/store/useNavStore';
@@ -32,6 +33,7 @@ export function TopBar() {
       )}
 
       <div className="ml-auto flex items-center gap-1">
+        <TimerPill />
         <IconButton label="Search" shortcut={`${MOD_KEY}K`} onClick={() => openPalette(true)} className={cn(!isHome && 'md:hidden')}>
           <Search />
         </IconButton>

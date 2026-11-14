@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
  *   - single keys:           '?', '/', 'n'
  *   - modifier combos:       'mod+k'  (mod = ⌘ on macOS, Ctrl elsewhere)
  *   - Gmail-style sequences: 'g n'    (press g, then n within 1s)
+ *   - the Space key:         'space'
  * Bindings are ignored while typing in inputs unless `allowInInput` is set
  * (so `n` doesn't hijack a text field, but `mod+k` still works everywhere).
  */
@@ -14,6 +15,8 @@ export type Binding = {
   allowInInput?: boolean;
   /** Skip the binding (e.g. when a dialog is open). */
   enabled?: boolean;
+  /** Don't fire while a button/link/tab/etc. has focus (so Space doesn't double-activate it). */
+  ignoreInteractive?: boolean;
 };
 
 const SEQUENCE_TIMEOUT_MS = 1000;
@@ -28,6 +31,13 @@ function isTypingTarget(t: EventTarget | null): boolean {
   return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable;
 }
 
+function isInteractiveTarget(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null;
+  return Boolean(
+    el?.closest?.('button, a[href], summary, [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"]'),
+  );
+}
+
 function matchesCombo(combo: string, e: KeyboardEvent): boolean {
   const parts = combo.toLowerCase().split('+');
   const key = parts[parts.length - 1] ?? '';
@@ -40,7 +50,8 @@ function matchesCombo(combo: string, e: KeyboardEvent): boolean {
   if (wantAlt !== e.altKey) return false;
   // Shift is implicit for characters like '?' — only enforce when explicitly requested.
   if (wantShift && !e.shiftKey) return false;
-  return e.key.toLowerCase() === key;
+  // 'space' is the token for the literal Space key (a real space in `keys` means a sequence like 'g n')
+  return e.key.toLowerCase() === (key === 'space' ? ' ' : key);
 }
 
 export function useHotkeys(bindings: Binding[]): void {
@@ -59,7 +70,10 @@ export function useHotkeys(bindings: Binding[]): void {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.isComposing || e.repeat) return;
       const typing = isTypingTarget(e.target);
-      const active = ref.current.filter((b) => b.enabled !== false && (!typing || b.allowInInput));
+      const interactive = isInteractiveTarget(e.target);
+      const active = ref.current.filter(
+        (b) => b.enabled !== false && (!typing || b.allowInInput) && !(interactive && b.ignoreInteractive),
+      );
 
       // 1) finish a pending sequence ("g" then "n")
       if (pending) {

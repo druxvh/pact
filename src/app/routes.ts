@@ -36,6 +36,8 @@ export const SECTIONS: readonly SectionMeta[] = [
 
 export const SECTION_BY_ID = Object.fromEntries(SECTIONS.map((s) => [s.id, s])) as Record<Section, SectionMeta>;
 
+export const baseTitle = (section: Section) => (section === 'home' ? 'pact' : `${SECTION_BY_ID[section].label} · pact`);
+
 /** Every keyboard shortcut in one place — drives both the bindings and the help dialog. */
 export type ShortcutDef = { keys: string[]; label: string; group: 'General' | 'Navigate' | 'Context' };
 
@@ -49,4 +51,5 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   ),
   { keys: ['N'], label: 'New note / task / chat (current page)', group: 'Context' },
   { keys: ['Space'], label: 'Start / pause timer (Focus)', group: 'Context' },
+  { keys: ['R'], label: 'Reset timer (Focus)', group: 'Context' },
 ];

@@ -8,9 +8,18 @@ export default defineConfig({
   manifest: {
     name: 'pact',
     description:
-      'pact — notes, kanban, timer, utility tools, chatrooms, and VibeParty YouTube sync for your new tab.',
-    permissions: ['storage', 'tabs', 'topSites', 'bookmarks'],
-    host_permissions: ['https://*.youtube.com/*', 'https://music.youtube.com/*'],
+      'A fun, fast new tab: search, notes, kanban, focus timer, tiny tools, chat — and watch YouTube in sync with friends.',
+    minimum_chrome_version: '116',
+    // Each permission is used by a feature and shows in the install prompt, so keep this list tight:
+    //  storage       VibeParty hands the room code to the YouTube tab
+    //  topSites      "most visited" tiles on Home
+    //  favicon       private, local site icons (instead of a third-party favicon service)
+    //  search        search with the user's default engine
+    //  alarms        focus timer fires even if every pact tab is closed
+    //  notifications "focus session complete" when pact isn't focused
+    // (`tabs` and `bookmarks` were requested before but never needed — removed.)
+    permissions: ['storage', 'topSites', 'favicon', 'search', 'alarms', 'notifications'],
+    host_permissions: ['https://*.youtube.com/*'],
     chrome_url_overrides: {
       newtab: 'newtab.html',
     },
