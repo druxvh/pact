@@ -1,156 +1,125 @@
-import {
-  Clock3,
-  Columns3,
-  Disc3,
-  House,
-  MessageCircleMore,
-  NotebookPen,
-  Settings,
-  Wrench,
-  Moon,
-  Sun,
-} from 'lucide-react';
-import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
+import { LayoutGroup, motion } from 'motion/react';
+import { Logo } from '@/components/Logo';
+import { Tooltip } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import { useNavStore, type NavSection } from '@/store/useNavStore';
-import { useThemeStore } from '@/store/useThemeStore';
-import { useUserStore } from '@/store/useUserStore';
+import { spring } from '@/lib/motion';
+import { ProfileMenu } from '@/app/ProfileMenu';
+import { SECTIONS, type SectionMeta } from '@/app/routes';
+import { type Section, useNavStore } from '@/store/useNavStore';
 
-type NavItem = {
-  id: NavSection;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
+type Badges = Partial<Record<Section, number | 'dot'>>;
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'home', label: 'Home', icon: House },
-  { id: 'notes', label: 'Notes', icon: NotebookPen },
-  { id: 'kanban', label: 'Kanban', icon: Columns3 },
-  { id: 'timer', label: 'Timer', icon: Clock3 },
-  { id: 'tools', label: 'Tools', icon: Wrench },
-  { id: 'chatrooms', label: 'Chats', icon: MessageCircleMore },
-  { id: 'party', label: 'VibeParty', icon: Disc3 },
-];
+function RailItem({
+  item,
+  active,
+  badge,
+  onSelect,
+}: {
+  item: SectionMeta;
+  active: boolean;
+  badge?: number | 'dot';
+  onSelect: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <Tooltip content={item.label} shortcut={`G ${item.hotkey.toUpperCase()}`} side="right">
+      <button
+        type="button"
+        aria-label={item.label}
+        aria-current={active ? 'page' : undefined}
+        onClick={onSelect}
+        className={cn(
+          'group relative grid size-10 place-items-center rounded-xl outline-offset-2 transition-colors duration-150 active:scale-95',
+          active ? 'text-brand-text' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+        )}
+      >
+        {active && (
+          <motion.span
+            layoutId="rail-pill"
+            transition={spring.layout}
+            className="absolute inset-0 rounded-xl bg-brand-soft shadow-[inset_0_0_0_1px_var(--brand-glow)]"
+          >
+            <span className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand shadow-[0_0_10px_var(--brand-glow)]" />
+          </motion.span>
+        )}
+        <Icon className="relative size-[19px] transition-transform duration-200 ease-out-expo group-hover:scale-110" />
+        {badge ? (
+          <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold leading-4 text-brand-foreground ring-2 ring-background">
+            {badge === 'dot' ? '' : badge}
+          </span>
+        ) : null}
+      </button>
+    </Tooltip>
+  );
+}
 
-const BOTTOM_ITEMS: NavItem[] = [
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
-
-export function Sidebar() {
-  const active = useNavStore((s) => s.active);
-  const setActive = useNavStore((s) => s.setActive);
-  const theme = useThemeStore((s) => s.resolved);
-  const toggle = useThemeStore((s) => s.toggle);
-  const currentUser = useUserStore((s) => s.currentUser);
+/** Desktop rail (≥ md). */
+export function Sidebar({ badges = {} }: { badges?: Badges }) {
+  const section = useNavStore((s) => s.section);
+  const go = useNavStore((s) => s.go);
+  const main = SECTIONS.filter((s) => s.id !== 'settings');
+  const settings = SECTIONS.find((s) => s.id === 'settings');
 
   return (
-    <motion.aside
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-      className="flex h-screen w-[68px] shrink-0 flex-col items-center border-r border-border bg-background py-4"
+    <aside
+      aria-label="Primary"
+      className="hidden w-[68px] shrink-0 flex-col items-center border-r bg-background/70 py-3 md:flex"
     >
-      {/* Logo — minimal rounded-sm, premium accent */}
-      <motion.div
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="mb-6 flex h-9 w-9 items-center justify-center rounded-sm bg-accent text-[13px] font-bold tracking-tighter text-accent-foreground shadow-sm"
-      >
-        p.
-      </motion.div>
+      <Tooltip content="pact" side="right">
+        <button type="button" aria-label="pact home" onClick={() => go('home')} className="mb-4 rounded-xl outline-offset-4">
+          <Logo />
+        </button>
+      </Tooltip>
 
-      <LayoutGroup>
-        <nav className="flex flex-1 flex-col items-center gap-1.5">
-          {NAV_ITEMS.map((item) => {
-            const isActive = active === item.id;
-            return (
-              <motion.button
-                key={item.id}
-                onClick={() => setActive(item.id)}
-                aria-label={item.label}
-                title={item.label}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-                className={cn(
-                  'group relative flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
-                  isActive
-                    ? 'bg-accent text-accent-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground',
-                )}
-              >
-                <item.icon className="h-[17px] w-[17px]" />
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.span
-                      layoutId="sidebar-indicator"
-                      initial={{ opacity: 0, scaleY: 0.6 }}
-                      animate={{ opacity: 1, scaleY: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute -left-[14px] top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-accent"
-                    />
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            );
-          })}
+      <LayoutGroup id="rail">
+        <nav aria-label="Sections" className="flex flex-1 flex-col items-center gap-1">
+          {main.map((item) => (
+            <RailItem key={item.id} item={item} active={section === item.id} badge={badges[item.id]} onSelect={() => go(item.id)} />
+          ))}
         </nav>
+
+        <div className="flex flex-col items-center gap-2">
+          {settings && (
+            <RailItem item={settings} active={section === 'settings'} onSelect={() => go('settings')} />
+          )}
+          <ProfileMenu />
+        </div>
       </LayoutGroup>
+    </aside>
+  );
+}
 
-      <div className="flex flex-col items-center gap-1.5">
-        <motion.button
-          onClick={() => toggle()}
-          aria-label="Toggle theme"
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.96 }}
-          className="flex h-9 w-9 items-center justify-center rounded-sm border border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={theme}
-              initial={{ rotate: -90, opacity: 0, scale: 0.8 }}
-              animate={{ rotate: 0, opacity: 1, scale: 1 }}
-              exit={{ rotate: 90, opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </motion.span>
-          </AnimatePresence>
-        </motion.button>
-
-        <div className="my-1 h-px w-8 bg-border" />
-
-          {BOTTOM_ITEMS.map((item) => {
-          const isActive = active === item.id;
-          return (
-            <motion.button
-              key={item.id}
-              onClick={() => setActive(item.id)}
-              aria-label={item.label}
-              title={item.label}
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
-                isActive
-                  ? 'bg-accent text-accent-foreground shadow-sm'
-                  : 'text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground',
-              )}
-            >
-              <item.icon className="h-[17px] w-[17px]" />
-            </motion.button>
-          );
-        })}
-
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          className="mt-3 flex h-8 w-8 items-center justify-center rounded-sm border border-border bg-muted text-[11px] font-medium text-muted-foreground"
-        >
-          {(currentUser?.displayName ?? 'Y').slice(0, 1).toUpperCase()}
-        </motion.div>
-      </div>
-    </motion.aside>
+/** Bottom tab bar for narrow windows (< md). */
+export function MobileNav({ badges = {} }: { badges?: Badges }) {
+  const section = useNavStore((s) => s.section);
+  const go = useNavStore((s) => s.go);
+  return (
+    <nav
+      aria-label="Sections"
+      className="surface-glass flex shrink-0 items-center justify-around border-t px-1 pb-[env(safe-area-inset-bottom)] md:hidden"
+    >
+      {SECTIONS.map((item) => {
+        const Icon = item.icon;
+        const active = section === item.id;
+        const badge = badges[item.id];
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-label={item.label}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => go(item.id)}
+            className={cn(
+              'relative grid h-12 flex-1 place-items-center transition-colors active:scale-95',
+              active ? 'text-brand-text' : 'text-muted-foreground',
+            )}
+          >
+            <Icon className="size-5" />
+            {active && <span className="absolute inset-x-3 top-0 h-0.5 rounded-b-full bg-brand" />}
+            {badge ? <span className="absolute right-1/4 top-2 size-2 rounded-full bg-brand ring-2 ring-background" /> : null}
+          </button>
+        );
+      })}
+    </nav>
   );
 }

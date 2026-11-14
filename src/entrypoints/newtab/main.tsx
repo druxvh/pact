@@ -1,11 +1,17 @@
-import React from 'react';
+import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
 import '@/styles/globals.css';
 import '@/store/useThemeStore';
+import { installSpotlight } from '@/lib/spotlight';
+import App from './App';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+installSpotlight();
+
+const root = document.getElementById('root');
+if (!root) throw new Error('#root not found');
+
+ReactDOM.createRoot(root).render(
+  <StrictMode>
     <App />
-  </React.StrictMode>,
+  </StrictMode>,
 );

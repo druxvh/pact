@@ -1,32 +1,53 @@
 import { create } from 'zustand';
 
-export type NavSection =
-  | 'home'
-  | 'notes'
-  | 'kanban'
-  | 'timer'
-  | 'tools'
-  | 'chatrooms'
-  | 'party'
-  | 'settings';
+export const SECTION_IDS = ['home', 'notes', 'kanban', 'timer', 'tools', 'chat', 'party', 'settings'] as const;
+export type Section = (typeof SECTION_IDS)[number];
 
-type NavState = {
-  active: NavSection;
-  setActive: (section: NavSection) => void;
+type Route = { section: Section; sub: string | null };
+
+type NavState = Route & {
+  /** Navigate to a section (optionally a sub-route, e.g. tools → "qr"). */
+  go: (section: Section, sub?: string | null, opts?: { replace?: boolean }) => void;
 };
 
-export const useNavStore = create<NavState>((set) => ({
-  active: 'home',
-  setActive: (active) => set({ active }),
+const isSection = (v: string | undefined): v is Section => !!v && (SECTION_IDS as readonly string[]).includes(v);
+
+/** `#/tools/qr` → { section: 'tools', sub: 'qr' } */
+export function parseHash(hash: string): Route {
+  const [, s, sub] = hash.replace(/^#/, '').split('/');
+  return { section: isSection(s) ? s : 'home', sub: sub ? decodeURIComponent(sub) : null };
+}
+
+export function toHash(section: Section, sub?: string | null): string {
+  if (section === 'home') return '#/';
+  return `#/${section}${sub ? `/${encodeURIComponent(sub)}` : ''}`;
+}
+
+const initial = parseHash(typeof location === 'undefined' ? '' : location.hash);
+
+export const useNavStore = create<NavState>((set, get) => ({
+  ...initial,
+  go: (section, sub = null, opts) => {
+    const cur = get();
+    if (cur.section === section && cur.sub === sub) return;
+    const hash = toHash(section, sub);
+    try {
+      if (opts?.replace) history.replaceState(null, '', hash);
+      else history.pushState(null, '', hash);
+    } catch {
+      /* history unavailable — state still updates */
+    }
+    set({ section, sub });
+  },
 }));
 
-export const NAV_LABELS: Record<NavSection, string> = {
-  home: 'Home',
-  notes: 'Notes',
-  kanban: 'Kanban',
-  timer: 'Timer',
-  tools: 'Tools',
-  chatrooms: 'Chatrooms',
-  party: 'VibeParty',
-  settings: 'Settings',
-};
+// Back/forward buttons and manual hash edits.
+if (typeof window !== 'undefined') {
+  const sync = () => {
+    const next = parseHash(location.hash);
+    const cur = useNavStore.getState();
+    if (next.section !== cur.section || next.sub !== cur.sub) useNavStore.setState(next);
+  };
+  window.addEventListener('popstate', sync);
+  window.addEventListener('hashchange', sync);
+}

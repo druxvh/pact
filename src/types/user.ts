@@ -1,4 +1,4 @@
-export type OfficeUser = {
+export type Person = {
   id: string;
   displayName: string;
   username: string;
@@ -7,13 +7,6 @@ export type OfficeUser = {
   email?: string;
   avatarUrl?: string;
   isOnline: boolean;
-};
-
-export type ChatMessage = {
-  id: string;
-  userId: string;
-  body: string;
-  createdAt: string;
 };
 
 export type FriendRequest = {

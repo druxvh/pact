@@ -1,31 +1,84 @@
-import type { ReactNode } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Sidebar } from '@/app/Sidebar';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { type ReactNode, useEffect, useRef } from 'react';
+import { CommandPalette } from '@/app/CommandPalette';
+import { SECTION_BY_ID, SECTIONS } from '@/app/routes';
+import { ShortcutsDialog } from '@/app/ShortcutsDialog';
+import { MobileNav, Sidebar } from '@/app/Sidebar';
 import { TopBar } from '@/app/TopBar';
+import { ConfirmHost, Toaster, TooltipProvider } from '@/components/ui';
+import { cn } from '@/lib/cn';
+import { useHotkeys } from '@/lib/hotkeys';
+import { page } from '@/lib/motion';
 import { useNavStore } from '@/store/useNavStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { useUiStore } from '@/store/useUiStore';
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const active = useNavStore((s) => s.active);
+  const section = useNavStore((s) => s.section);
+  const go = useNavStore((s) => s.go);
+  const motionPref = useSettingsStore((s) => s.motion);
+  const togglePalette = useUiStore((s) => s.togglePalette);
+  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
+  const overlayOpen = useUiStore((s) => s.paletteOpen || s.shortcutsOpen);
+  const mainRef = useRef<HTMLElement>(null);
+  const meta = SECTION_BY_ID[section];
 
-  const isHome = active === 'home';
+  // New page → start at the top.
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [section]);
+
+  // Keep the document title in sync (helps tab search & screen readers).
+  useEffect(() => {
+    document.title = section === 'home' ? 'pact' : `${meta.label} · pact`;
+  }, [section, meta.label]);
+
+  useHotkeys([
+    { keys: 'mod+k', allowInInput: true, handler: togglePalette },
+    { keys: '?', enabled: !overlayOpen, handler: () => setShortcutsOpen(true) },
+    ...SECTIONS.map((s) => ({
+      keys: `g ${s.hotkey}`,
+      enabled: !overlayOpen,
+      handler: () => go(s.id),
+    })),
+  ]);
+
   return (
-    <div className="flex h-screen min-h-screen w-full bg-background text-foreground">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col bg-background">
-        <TopBar />
-        <AnimatePresence mode="wait">
-          <motion.main
-            key={active}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={`flex-1 overflow-y-auto bg-background ${isHome ? 'p-0' : 'p-4 md:p-6'}`}
+    <MotionConfig reducedMotion={motionPref === 'system' ? 'user' : motionPref === 'reduced' ? 'always' : 'never'}>
+      <TooltipProvider>
+        <div className="relative isolate flex h-full w-full">
+          <div aria-hidden="true" className="bg-ambient pointer-events-none absolute inset-0 -z-10" />
+          <a
+            href="#main"
+            className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-foreground focus:not-sr-only focus:absolute focus:left-3 focus:top-3"
           >
-            <div className={isHome ? 'w-full' : 'mx-auto w-full max-w-[1400px]'}>{children}</div>
-          </motion.main>
-        </AnimatePresence>
-      </div>
-    </div>
+            Skip to content
+          </a>
+
+          <Sidebar />
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TopBar />
+            <main id="main" ref={mainRef} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={section}
+                  {...page}
+                  className={cn(meta.bleed ? 'h-full' : 'mx-auto w-full max-w-[1240px] px-4 py-6 md:px-8 md:py-8')}
+                >
+                  {children}
+                </motion.div>
+              </AnimatePresence>
+            </main>
+            <MobileNav />
+          </div>
+        </div>
+
+        <Toaster />
+        <ConfirmHost />
+        <CommandPalette />
+        <ShortcutsDialog />
+      </TooltipProvider>
+    </MotionConfig>
   );
 }

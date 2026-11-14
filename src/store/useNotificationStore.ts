@@ -1,5 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { uid } from '@/lib/format';
+import { syncAcrossTabs } from '@/lib/persist';
+import type { Section } from '@/store/useNavStore';
+
+export type NotificationKind = 'friend' | 'chat' | 'system' | 'space' | 'timer';
 
 export type Notification = {
   id: string;
@@ -7,36 +12,44 @@ export type Notification = {
   body: string;
   createdAt: string;
   read: boolean;
-  kind?: 'friend' | 'chat' | 'system' | 'space';
+  kind?: NotificationKind;
+  /** Where clicking the notification should take you. */
+  link?: { section: Section; sub?: string | null };
 };
+
+type NewNotification = Omit<Notification, 'id' | 'createdAt' | 'read'> & Partial<Pick<Notification, 'read'>>;
 
 type State = {
   notifications: Notification[];
-  add: (n: Omit<Notification, 'id' | 'createdAt' | 'read'> & Partial<Pick<Notification, 'read'>>) => void;
+  add: (n: NewNotification) => string;
+  markRead: (id: string) => void;
   markAllRead: () => void;
   dismiss: (id: string) => void;
+  clearAll: () => void;
 };
 
-const seed: Notification[] = [
-  { id: 'n1', title: 'Alex sent a message', body: 'hey — pact is live ✨', createdAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(), read: false, kind: 'chat' },
-  { id: 'n2', title: 'Friend request', body: 'Jordan wants to connect', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), read: false, kind: 'friend' },
-  { id: 'n3', title: 'Space invite', body: 'You were invited to “design jam”', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), read: true, kind: 'space' },
-];
+const MAX = 50;
 
 export const useNotificationStore = create<State>()(
   persist(
     (set) => ({
-      notifications: seed,
-      add: (n) =>
+      notifications: [],
+      add: (n) => {
+        const id = uid('n');
         set((s) => ({
-          notifications: [
-            { id: crypto.randomUUID(), createdAt: new Date().toISOString(), read: false, ...n },
-            ...s.notifications,
-          ].slice(0, 20),
-        })),
-      markAllRead: () => set((s) => ({ notifications: s.notifications.map((x) => ({ ...x, read: true })) })),
+          notifications: [{ id, createdAt: new Date().toISOString(), read: false, ...n }, ...s.notifications].slice(0, MAX),
+        }));
+        return id;
+      },
+      markRead: (id) => set((s) => ({ notifications: s.notifications.map((x) => (x.id === id ? { ...x, read: true } : x)) })),
+      markAllRead: () => set((s) => ({ notifications: s.notifications.map((x) => (x.read ? x : { ...x, read: true })) })),
       dismiss: (id) => set((s) => ({ notifications: s.notifications.filter((x) => x.id !== id) })),
+      clearAll: () => set({ notifications: [] }),
     }),
-    { name: 'pact-notifications' },
+    { name: 'pact-notifications', version: 2 },
   ),
 );
+
+syncAcrossTabs('pact-notifications', useNotificationStore);
+
+export const selectUnreadCount = (s: State) => s.notifications.reduce((n, x) => n + (x.read ? 0 : 1), 0);
