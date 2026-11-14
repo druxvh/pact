@@ -112,6 +112,28 @@ export async function systemNotify(id: string, title: string, message: string): 
   }
 }
 
+/**
+ * Message the extension's background script. Resolves `null` when there is no extension runtime (the dev
+ * server, a plain web page) or the background doesn't answer — callers decide how to explain that.
+ */
+export async function sendToBackground<T>(message: unknown): Promise<T | null> {
+  if (!isExtension || !api?.runtime?.sendMessage) return null;
+  try {
+    return ((await api.runtime.sendMessage(message)) as T | undefined) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Write to `chrome.storage.local` (shared with content scripts, unlike this page's localStorage). Best effort. */
+export async function storeLocal(items: Record<string, unknown>): Promise<void> {
+  try {
+    await api?.storage?.local?.set(items);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 /** Open the extension's new tab page, optionally at a hash route (e.g. "#/timer"). */
 export function pactUrl(hash = ''): string {
   if (api?.runtime?.getURL) return api.runtime.getURL('/newtab.html') + hash;

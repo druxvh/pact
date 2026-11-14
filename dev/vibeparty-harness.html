@@ -1,0 +1,181 @@
+<!doctype html>
+<!--
+  Dev harness for the VibeParty overlay — NOT part of the extension build (WXT only builds src/entrypoints).
+
+  It fakes just enough of youtube.com to drive the real content script, overlay, sync engine and background
+  controller in an ordinary browser tab:
+    • a "movie player" with a real, seekable <video> (a generated WAV, so no network or media files needed)
+    • YouTube-style single-key hotkeys on the document (to prove typing in the panel doesn't trigger them)
+    • a fake `chrome.runtime` that routes messages to a real PartyController, with a second simulated person
+  Run `bun run dev`, then open  http://localhost:3010/dev/vibeparty-harness.html
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VibeParty harness</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; background: #0f0f0f; color: #e8e8e8; font: 14px/1.5 system-ui, sans-serif; }
+      .masthead { height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #212121; font-weight: 600; }
+      .masthead small { font-weight: 400; color: #aaa; }
+      main { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: 24px; padding: 24px; max-width: 1100px; }
+      #movie_player { position: relative; background: #000; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
+      #movie_player video { width: 100%; height: 100%; }
+      #movie_player.ad-showing::after { content: 'AD'; position: absolute; top: 8px; left: 8px; padding: 2px 8px; background: #fc0; color: #000; font-weight: 700; border-radius: 4px; }
+      .panel { background: #181818; border: 1px solid #303030; border-radius: 12px; padding: 14px; }
+      h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: #aaa; }
+      .buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+      button.h { padding: 5px 10px; background: #303030; color: #eee; border: 0; border-radius: 8px; cursor: pointer; font: inherit; }
+      button.h:hover { background: #3d3d3d; }
+      pre { margin: 0; max-height: 180px; overflow: auto; font: 12px/1.45 ui-monospace, monospace; color: #bbb; white-space: pre-wrap; }
+      dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font: 12.5px ui-monospace, monospace; }
+      dt { color: #888; } dd { margin: 0; }
+      .stack { display: grid; gap: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="masthead">▶ FakeTube <small>(dev harness — 56px masthead like the real one)</small></div>
+    <main>
+      <div class="stack">
+        <div id="movie_player" class="html5-video-player">
+          <video class="html5-main-video" controls muted playsinline></video>
+        </div>
+        <div class="panel">
+          <h3>Player &amp; page state</h3>
+          <dl>
+            <dt>video id</dt><dd id="s-id"></dd>
+            <dt>playing / time</dt><dd id="s-play"></dd>
+            <dt>playbackRate</dt><dd id="s-rate"></dd>
+            <dt>YouTube hotkeys fired</dt><dd id="s-keys">0</dd>
+          </dl>
+          <p style="margin: 10px 0 0; color: #999; font-size: 12.5px">
+            Click here, then press <kbd>Space</kbd>: the hotkey counter goes up. Type spaces in the panel's inputs: it must not.
+          </p>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel">
+          <h3>Simulate “Sam” (a second person in the room)</h3>
+          <div class="buttons" id="sam"></div>
+        </div>
+        <div class="panel">
+          <h3>Simulate the page</h3>
+          <div class="buttons" id="page"></div>
+        </div>
+        <div class="panel">
+          <h3>What the background sent to Sam’s tab</h3>
+          <pre id="log"></pre>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { PartyController } from '/src/features/party/vibeparty/controller.ts';
+
+      const ROOM = 'amber-lofi-k7q2x9dm';
+      const VID_A = 'dQw4w9WgXcQ';
+      const VID_B = 'jNQXAC9IVRw';
+      const VID_C = '9bZkp7q19f0';
+      const $ = (id) => document.getElementById(id);
+      const log = (line) => { const el = $('log'); el.textContent = `${new Date().toLocaleTimeString()}  ${line}\n${el.textContent}`.slice(0, 4000); };
+
+      // ── a real, seekable media element ─────────────────────────────────────
+      function makeWav(seconds, rate = 8000) {
+        const n = seconds * rate;
+        const buf = new ArrayBuffer(44 + n);
+        const v = new DataView(buf);
+        const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+        w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+        w(36, 'data'); v.setUint32(40, n, true);
+        for (let i = 0; i < n; i++) v.setUint8(44 + i, 128 + Math.round(Math.sin((i / rate) * 2 * Math.PI * 220) * 5));
+        return new Blob([buf], { type: 'audio/wav' });
+      }
+      const video = document.querySelector('video');
+      video.src = URL.createObjectURL(makeWav(90));
+      let currentId = VID_A;
+
+      // ── fake YouTube hotkeys (retargeting makes them blind to shadow-DOM inputs, exactly like the real site) ──
+      let hotkeys = 0;
+      document.addEventListener('keydown', (e) => {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // what YouTube does for ordinary inputs
+        if (e.key === ' ' || e.key === 'k') { hotkeys++; video.paused ? video.play() : video.pause(); e.preventDefault(); }
+      });
+
+      // ── a real background controller, reachable through a fake chrome.runtime ──
+      const listeners = new Set();
+      const store = {};
+      const controller = new PartyController({
+        now: () => Date.now(),
+        uuid: () => crypto.randomUUID(),
+        relay: null,
+        send: (tabId, msg) => {
+          if (tabId === 1) queueMicrotask(() => listeners.forEach((fn) => fn(msg, {}, () => {})));
+          else log(`→ Sam: ${msg.type.replace('vibeparty:', '')} ${msg.type === 'vibeparty:chat' ? JSON.stringify(msg.message.text) : ''}`);
+        },
+      });
+      globalThis.chrome = {
+        runtime: {
+          id: 'harness',
+          sendMessage: async (msg) => { controller.handleContent(1, msg); },
+          onMessage: { addListener: (fn) => listeners.add(fn), removeListener: (fn) => listeners.delete(fn) },
+        },
+        storage: {
+          local: {
+            get: async (keys) => Object.fromEntries([].concat(keys).map((k) => [k, store[k]]).filter(([, v]) => v !== undefined)),
+            set: async (o) => { Object.assign(store, o); },
+          },
+        },
+      };
+      globalThis.__harness = { controller, video, store, hotkeys: () => hotkeys, setVideoId: (id) => { currentId = id; } };
+
+      const navigate = (id) => {
+        log(`page navigates → ${id}`);
+        currentId = id;
+        // Reloading the element is what the real player does for an in-page video switch: it fires
+        // `emptied` → `loadedmetadata`, resets time to 0 and silently sets paused (no `pause` event).
+        video.load();
+        document.dispatchEvent(new Event('yt-navigate-finish'));
+      };
+
+      // ── the real content script ────────────────────────────────────────────
+      const { initVibeParty } = await import('/src/features/party/vibeparty/content.ts');
+      initVibeParty(undefined, { getVideoId: () => currentId, navigate });
+
+      // ── Sam ────────────────────────────────────────────────────────────────
+      const sam = (msg) => controller.handleContent(2, msg);
+      const buttons = (host, defs) => defs.forEach(([label, fn]) => { const b = document.createElement('button'); b.className = 'h'; b.textContent = label; b.onclick = fn; $(host).append(b); });
+      buttons('sam', [
+        ['Sam joins', () => sam({ type: 'vibeparty:join', room: controller.appStatus().rooms[0]?.room ?? ROOM, name: 'Sam' })],
+        ['says “hey there 👋”', () => sam({ type: 'vibeparty:chat', text: 'hey there 👋' })],
+        ['long message', () => sam({ type: 'vibeparty:chat', text: 'This is a deliberately long message to check wrapping inside the bubble: supercalifragilisticexpialidocious_supercalifragilisticexpialidocious and a handful of ordinary words after it.' })],
+        ['reacts 🔥', () => sam({ type: 'vibeparty:reaction', emoji: '🔥', messageId: null })],
+        ['plays @ 12s', () => sam({ type: 'vibeparty:media', ev: 'play', mediaTime: 12, playing: true, videoId: currentId })],
+        ['pauses @ 20s', () => sam({ type: 'vibeparty:media', ev: 'pause', mediaTime: 20, playing: false, videoId: currentId })],
+        ['seeks to 45s', () => sam({ type: 'vibeparty:media', ev: 'seek', mediaTime: 45, playing: true, videoId: currentId })],
+        ['plays a different video', () => sam({ type: 'vibeparty:media', ev: 'play', mediaTime: 3, playing: true, videoId: VID_B })],
+        ['queues video B', () => sam({ type: 'vibeparty:queue:add', url: `https://www.youtube.com/watch?v=${VID_B}`, title: 'Me at the zoo' })],
+        ['queues video C', () => sam({ type: 'vibeparty:queue:add', url: `https://www.youtube.com/watch?v=${VID_C}`, title: 'A very long queue title that should clamp to two lines instead of pushing the vote button off the panel' })],
+        ['Sam’s video ends', () => sam({ type: 'vibeparty:media', ev: 'ended', mediaTime: 90, playing: false, videoId: currentId })],
+        ['Sam leaves', () => sam({ type: 'vibeparty:leave' })],
+      ]);
+      buttons('page', [
+        ['ad starts', () => $('movie_player').classList.add('ad-showing')],
+        ['ad ends', () => $('movie_player').classList.remove('ad-showing')],
+        ['show A', () => navigate(VID_A)],
+        ['show B', () => navigate(VID_B)],
+        ['block autoplay', () => { video.__realPlay ??= video.play; video.play = () => Promise.reject(Object.assign(new Error('blocked'), { name: 'NotAllowedError' })); }],
+        ['allow autoplay', () => { if (video.__realPlay) video.play = video.__realPlay; }],
+      ]);
+
+      setInterval(() => {
+        $('s-id').textContent = currentId;
+        $('s-play').textContent = `${video.paused ? 'paused' : 'playing'} @ ${video.currentTime.toFixed(1)}s`;
+        $('s-rate').textContent = video.playbackRate.toFixed(2);
+        $('s-keys').textContent = String(hotkeys);
+      }, 200);
+    </script>
+  </body>
+</html>

@@ -1,4 +1,6 @@
-import { pick, randomInt } from '@/lib/random';
+// Relative (not `@/`) on purpose: the relay server imports this module directly under Node/Bun, which
+// know nothing about the bundler's path alias.
+import { pick, randomInt } from '../../lib/random.ts';
 
 const WORDS = [
   'amber', 'aurora', 'azure', 'breeze', 'cobalt', 'cosmic', 'coral', 'cozy', 'crimson', 'dawn', 'disco', 'dusk',

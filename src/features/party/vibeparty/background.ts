@@ -1,539 +1,132 @@
+/**
+ * Wires the pure `PartyController` to the browser: extension messaging, tabs, the optional relay WebSocket,
+ * and persistence so a party survives Chrome tearing down the MV3 service worker.
+ */
 import { browser } from 'wxt/browser';
-import type {
-  AppStatus,
-  ChatMessage,
-  ContentToBackground,
-  MediaSnapshot,
-  PeerInfo,
-  QueueItem,
-  ReactionEvent,
-  RoomState,
-  WireMessage,
-} from './protocol';
-import { parseYouTubeId } from './protocol';
+import { PartyController } from './controller.ts';
+import type { BackgroundToContent, OpenResult } from './protocol.ts';
+import { RelayClient } from './relay-client.ts';
+import { cleanName, cleanRoom, parseAppMessage, parseRelayUrl } from './sanitize.ts';
 
-type TabMember = {
-  peerId: string;
-  name: string;
-};
+const SESSION_KEY = 'vibeparty:controller';
+const PRUNE_EVERY_MS = 30_000;
+const PERSIST_DEBOUNCE_MS = 250;
 
-type RoomHub = {
-  peers: Map<number, TabMember>;
-  queue: QueueItem[];
-  chat: ChatMessage[];
-  media: MediaSnapshot | null;
-};
+/**
+ * Reuse an open YouTube tab if there is one (preferring a watch page), otherwise open a new one.
+ * Either way the tab is joined to the room — no hand-off through storage, no race between two tabs.
+ */
+async function openParty(controller: PartyController, rawRoom: string, rawName: string): Promise<OpenResult> {
+  const room = cleanRoom(rawRoom);
+  if (!room) return { ok: false, error: 'That room code isn’t valid.' };
+  const name = cleanName(rawName);
 
-const HEARTBEAT_MS = 25_000;
-const RECONNECT_BASE_MS = 1_000;
-const RECONNECT_MAX_MS = 30_000;
-const CHAT_CAP = 200;
+  const open = await browser.tabs.query({ url: 'https://www.youtube.com/*' }).catch(() => []);
+  const target = open.find((t) => t.url?.includes('/watch')) ?? open[0];
 
-const rooms = new Map<string, RoomHub>();
-let socket: WebSocket | null = null;
-let socketUrl = '';
-let reconnectAttempts = 0;
-let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let socketConnected = false;
-
-function uuid(): string {
-  try {
-    return crypto.randomUUID();
-  } catch {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-}
-
-function getHub(room: string): RoomHub {
-  let hub = rooms.get(room);
-  if (!hub) {
-    hub = { peers: new Map(), queue: [], chat: [], media: null };
-    rooms.set(room, hub);
-  }
-  return hub;
-}
-
-function roomOfTab(tabId: number): { room: string; hub: RoomHub } | null {
-  for (const [room, hub] of rooms) {
-    if (hub.peers.has(tabId)) return { room, hub };
-  }
-  return null;
-}
-
-function sortedQueue(queue: QueueItem[]): QueueItem[] {
-  return [...queue].sort((a, b) => {
-    const votes = b.voters.length - a.voters.length;
-    if (votes !== 0) return votes;
-    return a.createdAt - b.createdAt;
-  });
-}
-
-function presenceOf(hub: RoomHub): PeerInfo[] {
-  const seen = new Map<string, PeerInfo>();
-  for (const member of hub.peers.values()) {
-    seen.set(member.peerId, { id: member.peerId, name: member.name });
-  }
-  return [...seen.values()];
-}
-
-function extrapolateMedia(hub: RoomHub): MediaSnapshot | null {
-  const media = hub.media;
-  if (!media) return null;
-  const elapsed = (Date.now() - media.serverTime) / 1000;
-  return {
-    ...media,
-    mediaTime: media.playing ? Math.max(0, media.mediaTime + elapsed) : media.mediaTime,
-    serverTime: Date.now(),
-  };
-}
-
-async function sendToTab(tabId: number, message: unknown): Promise<void> {
-  try {
-    await browser.tabs.sendMessage(tabId, message);
-  } catch {
-    // tab may not have the content script (other extension pages)
-  }
-}
-
-function broadcastRoom(
-  hub: RoomHub,
-  message: Record<string, unknown>,
-  exceptTabId?: number,
-): void {
-  for (const tabId of hub.peers.keys()) {
-    if (tabId === exceptTabId) continue;
-    void sendToTab(tabId, message);
-  }
-}
-
-function broadcastPresence(hub: RoomHub): void {
-  broadcastRoom(hub, { type: 'vibeparty:presence', peers: presenceOf(hub) });
-}
-
-function broadcastQueue(hub: RoomHub): void {
-  hub.queue = sortedQueue(hub.queue);
-  broadcastRoom(hub, { type: 'vibeparty:queue', items: hub.queue });
-}
-
-function broadcastMedia(
-  hub: RoomHub,
-  fromTabId: number | undefined,
-  fromPeerId: string,
-): void {
-  const media = extrapolateMedia(hub);
-  if (!media) return;
-  for (const [tabId, member] of hub.peers) {
-    if (tabId === fromTabId) continue;
-    if (member.peerId === fromPeerId) continue;
-    void sendToTab(tabId, {
-      type: 'vibeparty:media',
-      from: fromPeerId,
-      playing: media.playing,
-      mediaTime: media.mediaTime,
-      serverTime: media.serverTime,
-      videoId: media.videoId,
-    });
-  }
-}
-
-function leaveRoom(tabId: number): void {
-  const found = roomOfTab(tabId);
-  if (!found) return;
-  const { room, hub } = found;
-  const member = hub.peers.get(tabId);
-  hub.peers.delete(tabId);
-  if (member && socketConnected) {
-    socketSend({ t: 'leave', room, peerId: member.peerId });
-  }
-  void sendToTab(tabId, { type: 'vibeparty:left' });
-  if (hub.peers.size === 0) {
-    rooms.delete(room);
-  } else {
-    broadcastPresence(hub);
-  }
-}
-
-function joinRoom(tabId: number, room: string, name: string): void {
-  const existing = roomOfTab(tabId);
-  if (existing && existing.room !== room) leaveRoom(tabId);
-  const hub = getHub(room);
-  const peerId = uuid();
-  const member: TabMember = { peerId, name };
-  hub.peers.set(tabId, member);
-  const state: RoomState = {
-    room,
-    peers: presenceOf(hub),
-    queue: sortedQueue(hub.queue),
-    chat: hub.chat.slice(-CHAT_CAP),
-    media: extrapolateMedia(hub),
-  };
-  void sendToTab(tabId, { type: 'vibeparty:joined', state, selfId: peerId });
-  broadcastPresence(hub);
-  if (socketConnected) {
-    socketSend({ t: 'join', room, peerId, name });
-  }
-}
-
-function handleMediaOp(
-  tabId: number,
-  msg: Extract<ContentToBackground, { type: 'vibeparty:media' }>,
-): void {
-  const found = roomOfTab(tabId);
-  if (!found) return;
-  const { room, hub } = found;
-  const member = hub.peers.get(tabId);
-  if (!member) return;
-  if (msg.ev === 'state' && hub.media && hub.media.controllerPeerId !== member.peerId) return;
-  const playing =
-    msg.ev === 'play' ? true : msg.ev === 'pause' || msg.ev === 'ended' ? false : msg.playing;
-  hub.media = {
-    playing,
-    mediaTime: msg.mediaTime,
-    serverTime: Date.now(),
-    videoId: msg.videoId,
-    controllerPeerId: member.peerId,
-  };
-  if (socketConnected) {
-    socketSend({
-      t: 'media',
-      room,
-      peerId: member.peerId,
-      ev: msg.ev,
-      mediaTime: msg.mediaTime,
-      videoId: msg.videoId,
-    });
-  }
-  broadcastMedia(hub, tabId, member.peerId);
-}
-
-function handleChatOp(tabId: number, msg: Extract<ContentToBackground, { type: 'vibeparty:chat' }>): void {
-  const found = roomOfTab(tabId);
-  if (!found) return;
-  const { room, hub } = found;
-  const member = hub.peers.get(tabId);
-  if (!member) return;
-  const message: ChatMessage = {
-    id: uuid(),
-    peerId: member.peerId,
-    name: member.name,
-    text: msg.text.slice(0, 500),
-    at: Date.now(),
-  };
-  hub.chat.push(message);
-  if (hub.chat.length > CHAT_CAP) hub.chat = hub.chat.slice(-CHAT_CAP);
-  broadcastRoom(hub, { type: 'vibeparty:chat', message });
-  if (socketConnected) {
-    socketSend({
-      t: 'chat',
-      room,
-      peerId: member.peerId,
-      name: member.name,
-      text: message.text,
-      id: message.id,
-      at: message.at,
-    });
-  }
-}
-
-function handleReactionOp(
-  tabId: number,
-  msg: Extract<ContentToBackground, { type: 'vibeparty:reaction' }>,
-): void {
-  const found = roomOfTab(tabId);
-  if (!found) return;
-  const { room, hub } = found;
-  const member = hub.peers.get(tabId);
-  if (!member) return;
-  const reaction: ReactionEvent = {
-    id: uuid(),
-    peerId: member.peerId,
-    name: member.name,
-    emoji: msg.emoji.slice(0, 8),
-    messageId: msg.messageId,
-    at: Date.now(),
-  };
-  broadcastRoom(hub, { type: 'vibeparty:reaction', reaction }, tabId);
-  if (socketConnected) {
-    socketSend({
-      t: 'reaction',
-      room,
-      peerId: member.peerId,
-      name: member.name,
-      emoji: reaction.emoji,
-      messageId: reaction.messageId,
-      id: reaction.id,
-      at: reaction.at,
-    });
-  }
-}
-
-function handleQueueAdd(
-  tabId: number,
-  msg: Extract<ContentToBackground, { type: 'vibeparty:queue:add' }>,
-): void {
-  const found = roomOfTab(tabId);
-  if (!found) return;
-  const { room, hub } = found;
-  const member = hub.peers.get(tabId);
-  if (!member) return;
-  const item: QueueItem = {
-    id: uuid(),
-    url: msg.url,
-    videoId: extractVideoId(msg.url),
-    title: msg.title.slice(0, 120),
-    addedBy: member.peerId,
-    addedByName: member.name,
-    voters: [member.peerId],
-    createdAt: Date.now(),
-  };
-  hub.queue.push(item);
-  broadcastQueue(hub);
-  if (socketConnected) {
-    socketSend({ t: 'queue:add', room, peerId: member.peerId, item });
-  }
-}
-
-function handleQueueVote(
-  tabId: number,
-  msg: Extract<ContentToBackground, { type: 'vibeparty:queue:vote' }>,
-): void {
-  const found = roomOfTab(tabId);
-  if (!found) return;
-  const { room, hub } = found;
-  const member = hub.peers.get(tabId);
-  if (!member) return;
-  const item = hub.queue.find((q) => q.id === msg.id);
-  if (!item) return;
-  const idx = item.voters.indexOf(member.peerId);
-  if (idx >= 0) item.voters.splice(idx, 1);
-  else item.voters.push(member.peerId);
-  broadcastQueue(hub);
-  if (socketConnected) {
-    socketSend({ t: 'queue:vote', room, peerId: member.peerId, id: msg.id });
-  }
-}
-
-function extractVideoId(url: string): string | null {
-  return parseYouTubeId(url);
-}
-
-function socketSend(message: WireMessage): void {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(message));
-  }
-}
-
-function applyServerMessage(raw: string): void {
-  let msg: WireMessage;
-  try {
-    msg = JSON.parse(raw) as WireMessage;
-  } catch {
-    return;
-  }
-  switch (msg.t) {
-    case 'state': {
-      const hub = getHub(msg.room);
-      hub.queue = sortedQueue(msg.queue ?? []);
-      hub.chat = (msg.chat ?? []).slice(-CHAT_CAP);
-      hub.media = msg.media ?? null;
-      for (const tabId of hub.peers.keys()) {
-        const member = hub.peers.get(tabId);
-        void sendToTab(tabId, {
-          type: 'vibeparty:joined',
-          state: {
-            room: msg.room,
-            peers: msg.peers ?? presenceOf(hub),
-            queue: hub.queue,
-            chat: hub.chat,
-            media: hub.media,
-          } satisfies RoomState,
-          selfId: member?.peerId ?? '',
-        });
-      }
-      break;
+  if (target?.id !== undefined) {
+    const id = target.id;
+    await browser.tabs.update(id, { active: true }).catch(() => {});
+    if (target.windowId !== undefined) await browser.windows.update(target.windowId, { focused: true }).catch(() => {});
+    const alive = await browser.tabs.sendMessage(id, { type: 'vibeparty:probe' } satisfies BackgroundToContent).then(
+      () => true,
+      () => false,
+    );
+    if (alive) {
+      controller.joinTab(id, room, name);
+    } else {
+      // The tab predates the extension install/update, so it has no content script. Reload it to inject one.
+      controller.expectTab(id, room, name);
+      await browser.tabs.reload(id).catch(() => {});
     }
-    case 'media-broadcast': {
-      const hub = rooms.get(msg.room);
-      if (!hub) return;
-      hub.media = {
-        playing: msg.playing,
-        mediaTime: msg.mediaTime,
-        serverTime: msg.serverTime,
-        videoId: msg.videoId,
-        controllerPeerId: msg.from,
-      };
-      broadcastMedia(hub, undefined, msg.from);
-      break;
-    }
-    case 'chat-broadcast': {
-      const hub = rooms.get(msg.room);
-      if (!hub) return;
-      hub.chat.push(msg.message);
-      if (hub.chat.length > CHAT_CAP) hub.chat = hub.chat.slice(-CHAT_CAP);
-      broadcastRoom(hub, { type: 'vibeparty:chat', message: msg.message });
-      break;
-    }
-    case 'reaction-broadcast': {
-      const hub = rooms.get(msg.room);
-      if (!hub) return;
-      for (const [tabId, member] of hub.peers) {
-        if (member.peerId === msg.reaction.peerId) continue;
-        void sendToTab(tabId, { type: 'vibeparty:reaction', reaction: msg.reaction });
-      }
-      break;
-    }
-    case 'queue-broadcast': {
-      const hub = rooms.get(msg.room);
-      if (!hub) return;
-      hub.queue = sortedQueue(msg.items ?? []);
-      broadcastRoom(hub, { type: 'vibeparty:queue', items: hub.queue });
-      break;
-    }
-    case 'presence-broadcast': {
-      const hub = rooms.get(msg.room);
-      if (!hub) return;
-      broadcastRoom(hub, { type: 'vibeparty:presence', peers: msg.peers ?? [] });
-      break;
-    }
-    case 'pong':
-      break;
-    default:
-      break;
+    return { ok: true, reusedTab: true };
   }
-}
 
-function connectSocket(): void {
-  if (!socketUrl) return;
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
-  try {
-    socket = new WebSocket(socketUrl);
-  } catch {
-    scheduleReconnect();
-    return;
-  }
-  socket.addEventListener('open', () => {
-    socketConnected = true;
-    reconnectAttempts = 0;
-    if (!heartbeatTimer) {
-      heartbeatTimer = setInterval(() => socketSend({ t: 'ping' }), HEARTBEAT_MS);
-    }
-    for (const [room, hub] of rooms) {
-      for (const member of hub.peers.values()) {
-        socketSend({ t: 'join', room, peerId: member.peerId, name: member.name });
-      }
-    }
-    notifyStatus();
-  });
-  socket.addEventListener('message', (event) => {
-    if (typeof event.data === 'string') applyServerMessage(event.data);
-  });
-  socket.addEventListener('close', () => {
-    socketConnected = false;
-    socket = null;
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
-    }
-    notifyStatus();
-    scheduleReconnect();
-  });
-  socket.addEventListener('error', () => {
-    socket?.close();
-  });
-}
-
-function scheduleReconnect(): void {
-  if (!socketUrl || reconnectTimer) return;
-  reconnectAttempts += 1;
-  const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** (reconnectAttempts - 1));
-  const jitter = Math.random() * 400;
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    connectSocket();
-  }, delay + jitter);
-}
-
-function notifyStatus(): void {
-  for (const [room, hub] of rooms) {
-    for (const tabId of hub.peers.keys()) {
-      void sendToTab(tabId, {
-        type: 'vibeparty:status',
-        connected: socketConnected,
-        room,
-      });
-    }
-  }
-}
-
-function getAppStatus(): AppStatus {
-  const list: AppStatus['rooms'] = [];
-  for (const [room, hub] of rooms) {
-    list.push({
-      room,
-      peers: presenceOf(hub).length,
-      queue: hub.queue.length,
-      playing: hub.media?.playing ?? false,
-    });
-  }
-  list.sort((a, b) => b.peers - a.peers);
-  return { connected: socketConnected, wsConfigured: Boolean(socketUrl), rooms: list };
+  const tab = await browser.tabs.create({ url: 'https://www.youtube.com/' });
+  if (tab.id !== undefined) controller.expectTab(tab.id, room, name);
+  return { ok: true, reusedTab: false };
 }
 
 export function initVibePartyBackground(): void {
-  socketUrl = String(import.meta.env.WXT_VIBEPARTY_WS_URL ?? '').trim();
-  connectSocket();
+  const relayUrl = parseRelayUrl(import.meta.env.WXT_VIBEPARTY_WS_URL);
+  if (import.meta.env.WXT_VIBEPARTY_WS_URL && !relayUrl) {
+    console.warn('[vibeparty] WXT_VIBEPARTY_WS_URL ignored: it must be wss://… (ws:// only for localhost).');
+  }
 
-  browser.runtime.onMessage.addListener(
-    (message: ContentToBackground | { type?: string }, sender, sendResponse) => {
-      if (!message || typeof message.type !== 'string' || !message.type.startsWith('vibeparty:')) {
-        return;
-      }
-      if (message.type === 'vibeparty:app-status') {
-        sendResponse(getAppStatus());
-        return;
-      }
-      const tabId = sender.tab?.id;
-      if (typeof tabId !== 'number') return;
-      const contentMsg = message as ContentToBackground;
-      switch (contentMsg.type) {
-        case 'vibeparty:join':
-          joinRoom(tabId, contentMsg.room, contentMsg.name);
-          break;
-        case 'vibeparty:leave':
-          leaveRoom(tabId);
-          break;
-        case 'vibeparty:ping': {
-          const found = roomOfTab(tabId);
-          if (!found) {
-            joinRoom(tabId, contentMsg.room, contentMsg.name);
-          }
-          break;
-        }
-        case 'vibeparty:media':
-          handleMediaOp(tabId, contentMsg);
-          break;
-        case 'vibeparty:chat':
-          handleChatOp(tabId, contentMsg);
-          break;
-        case 'vibeparty:reaction':
-          handleReactionOp(tabId, contentMsg);
-          break;
-        case 'vibeparty:queue:add':
-          handleQueueAdd(tabId, contentMsg);
-          break;
-        case 'vibeparty:queue:vote':
-          handleQueueVote(tabId, contentMsg);
-          break;
-        default:
-          break;
-      }
+  // MV3 workers are killed after ~30 s idle. storage.session survives that (but not a browser restart,
+  // which is right: the tabs are gone too).
+  const session = (browser.storage as { session?: typeof browser.storage.local }).session;
+  let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // The relay and controller need each other, so one is created lazily through this ref.
+  const ref: { controller?: PartyController } = {};
+  const relay = relayUrl
+    ? new RelayClient(relayUrl, {
+        onOpen: () => ref.controller?.relayOpened(),
+        onClose: () => ref.controller?.relayClosed(),
+        onMessage: (msg) => ref.controller?.relayMessage(msg),
+        onLatency: (ms) => ref.controller?.setLatency(ms),
+      })
+    : null;
+
+  const controller = new PartyController({
+    now: () => Date.now(),
+    uuid: () => crypto.randomUUID(),
+    send: (tabId, msg) => {
+      // A tab with no content script (closed, navigated away) rejects — that's fine, prune() cleans up.
+      void browser.tabs.sendMessage(tabId, msg).catch(() => {});
     },
-  );
+    relay,
+    onChange: () => {
+      if (!session) return;
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        void session.set({ [SESSION_KEY]: controller.serialize() }).catch(() => {});
+      }, PERSIST_DEBOUNCE_MS);
+    },
+  });
+  ref.controller = controller;
+
+  // Everything waits for the restore so a message that woke the worker isn't handled against empty state.
+  const ready = (async () => {
+    try {
+      const stored = await session?.get(SESSION_KEY);
+      controller.restore(stored?.[SESSION_KEY]);
+    } catch {
+      /* start clean */
+    }
+    relay?.start();
+  })();
+
+  const extensionOrigin = new URL(browser.runtime.getURL('/newtab.html')).origin;
+
+  browser.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+    if (typeof message !== 'object' || message === null) return;
+    const type = (message as { type?: unknown }).type;
+    if (typeof type !== 'string' || !type.startsWith('vibeparty:')) return;
+
+    // Messages from pact's own pages (new tab) vs. from a YouTube tab's content script.
+    if (sender.id === browser.runtime.id && typeof sender.url === 'string' && sender.url.startsWith(`${extensionOrigin}/`)) {
+      const app = parseAppMessage(message);
+      if (!app) return;
+      if (app.type === 'vibeparty:app-status') {
+        void ready.then(() => sendResponse(controller.appStatus()));
+      } else {
+        void ready
+          .then(() => openParty(controller, app.room, app.name))
+          .then(sendResponse, () => sendResponse({ ok: false, error: 'Couldn’t open YouTube.' } satisfies OpenResult));
+      }
+      return true; // async response
+    }
+
+    const tabId = sender.tab?.id;
+    if (typeof tabId === 'number') void ready.then(() => controller.handleContent(tabId, message));
+    return;
+  });
 
   browser.tabs.onRemoved.addListener((tabId) => {
-    leaveRoom(tabId);
+    void ready.then(() => controller.tabClosed(tabId));
   });
+
+  setInterval(() => controller.prune(), PRUNE_EVERY_MS);
 }

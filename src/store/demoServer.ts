@@ -30,6 +30,7 @@ export const STORAGE_KEYS = [
   'pact-kanban',
   'pact-timer',
   'pact-chat',
+  'pact-party',
   'pact-home',
   'pact-settings',
   'pact-theme',

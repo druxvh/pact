@@ -11,7 +11,7 @@ export default defineConfig({
       'A fun, fast new tab: search, notes, kanban, focus timer, tiny tools, chat — and watch YouTube in sync with friends.',
     minimum_chrome_version: '116',
     // Each permission is used by a feature and shows in the install prompt, so keep this list tight:
-    //  storage       VibeParty hands the room code to the YouTube tab
+    //  storage       VibeParty remembers your display name / panel prefs; the YouTube tab ↔ background hand-off
     //  topSites      "most visited" tiles on Home
     //  favicon       private, local site icons (instead of a third-party favicon service)
     //  search        search with the user's default engine
@@ -19,7 +19,8 @@ export default defineConfig({
     //  notifications "focus session complete" when pact isn't focused
     // (`tabs` and `bookmarks` were requested before but never needed — removed.)
     permissions: ['storage', 'topSites', 'favicon', 'search', 'alarms', 'notifications'],
-    host_permissions: ['https://*.youtube.com/*'],
+    // youtube.com: find an open YouTube tab to start a party in (tabs.query by URL) — nothing else needs it.
+    host_permissions: ['https://www.youtube.com/*'],
     chrome_url_overrides: {
       newtab: 'newtab.html',
     },

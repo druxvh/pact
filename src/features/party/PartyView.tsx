@@ -1,224 +1,348 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Check, Clock, Copy, Disc3, ExternalLink, Info, MessageCircle, RefreshCw, Server, Users, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useState } from 'react';
 import {
-  Check,
-  Copy,
-  Disc3,
-  ExternalLink,
-  MessageCircleMore,
-  Music2,
-  RefreshCw,
-  Sparkles,
-  ThumbsUp,
-  Users,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { browser } from 'wxt/browser';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { useUserStore } from '@/store/useUserStore';
-import type { AppStatus } from '@/features/party/vibeparty/protocol';
-import { VIBEPARTY_PENDING_KEY } from '@/features/party/vibeparty/protocol';
+  Badge,
+  Button,
+  Card,
+  DropdownContent,
+  DropdownItem,
+  DropdownLabel,
+  DropdownMenu,
+  DropdownTrigger,
+  IconButton,
+  Input,
+  Label,
+  PageHeader,
+  Skeleton,
+  buttonClass,
+} from '@/components/ui';
+import { useChatStore } from '@/features/chat/store';
+import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from '@/features/party/roomCode';
+import { usePartyStore } from '@/features/party/store';
+import { type AppStatus, type ConnectionMode, type OpenResult, VIBEPARTY_NAME_KEY } from '@/features/party/vibeparty/protocol';
+import { cn } from '@/lib/cn';
+import { copyText } from '@/lib/clipboard';
+import { sendToBackground, storeLocal } from '@/lib/ext';
+import { relativeTime } from '@/lib/format';
+import { fadeUp, spring, stagger } from '@/lib/motion';
+import { notify } from '@/lib/toast';
+import { sendMessage } from '@/store/demoServer';
+import { useUiStore } from '@/store/useUiStore';
+import { findPerson, useUserStore } from '@/store/useUserStore';
 
-const ROOM_WORDS = [
-  'amber', 'lofi', 'neon', 'vinyl', 'cozy', 'groove', 'midnight', 'pixel',
-  'sunset', 'velvet', 'aurora', 'disco', 'chill', 'static', 'lunar', 'fuzzy',
-];
-
-function generateRoomCode(): string {
-  const a = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)] ?? 'lofi';
-  const remaining = ROOM_WORDS.filter((w) => w !== a);
-  const b = remaining[Math.floor(Math.random() * remaining.length)] ?? 'vinyl';
-  const n = Math.floor(Math.random() * 90) + 10;
-  return `${a}-${b}-${n}`;
-}
+const inviteText = (room: string) => `🍿 Join my VibeParty — room code: ${room}`;
 
 const STEPS = [
-  {
-    title: 'Grab a room code',
-    body: 'Generate one below — it’s your party password. No signup, no links to leak.',
-  },
-  {
-    title: 'Open YouTube, hit play',
-    body: 'The VibeParty panel appears on the right. Join with the code — everyone locks to the same playback.',
-  },
-  {
-    title: 'Share the code',
-    body: 'Friends join from their own pact hub or by typing the code into the panel. Chat, reactions, and the queue stay in sync.',
-  },
-];
+  ['Pick a room code', 'A fresh, unguessable one is ready for you. The code is the room’s password — share it only with people you want there.'],
+  ['Open YouTube and join', 'pact reuses a YouTube tab you already have open (or opens one) and puts the VibeParty panel on the page.'],
+  ['Watch, chat, queue', 'Play, pause and seek stay in sync. Add videos to the shared queue — the most upvoted plays next.'],
+] as const;
 
-const FEATURES = [
-  { icon: Music2, label: 'Drift-proof sync', hint: 'soft rate nudge under 2s, hard seek beyond' },
-  { icon: ThumbsUp, label: 'Democratic queue', hint: 'upvotes re-sort the playlist live' },
-  { icon: MessageCircleMore, label: 'Double-tap reactions', hint: 'emoji bursts on any chat message' },
-];
+const GOOD_TO_KNOW = [
+  'Ads: when an ad plays on your side your player sits it out, then catches up. It never drags anyone else into your ad.',
+  'Playback speed is held at 1× during a party so everyone stays together; tiny drift is corrected by gently nudging speed.',
+  'The panel isn’t visible in fullscreen (the browser only draws the video). Theater mode keeps it on screen.',
+  'Press Escape in the panel’s chat box to hand the keyboard back to YouTube.',
+] as const;
 
-export function PartyView() {
-  const currentUser = useUserStore((s) => s.currentUser);
-  const [room, setRoom] = useState(generateRoomCode);
-  const [name, setName] = useState(() => {
-    try {
-      return localStorage.getItem('pact-vibeparty-name') || currentUser?.displayName || '';
-    } catch {
-      return currentUser?.displayName || '';
-    }
-  });
-  const [copied, setCopied] = useState(false);
-  const [status, setStatus] = useState<AppStatus | null>(null);
+// ── connection status ────────────────────────────────────────────────────────
 
+/** `undefined` = still asking · `null` = no extension runtime (running as a plain web page). */
+function useStatus(): AppStatus | null | undefined {
+  const [status, setStatus] = useState<AppStatus | null | undefined>(undefined);
   useEffect(() => {
-    let cancelled = false;
+    let alive = true;
     const load = async () => {
-      try {
-        const res = (await browser.runtime.sendMessage({ type: 'vibeparty:app-status' })) as AppStatus | undefined;
-        if (!cancelled && res && typeof res === 'object') setStatus(res);
-      } catch {
-        if (!cancelled) setStatus(null);
-      }
+      const s = await sendToBackground<AppStatus>({ type: 'vibeparty:app-status' });
+      if (alive) setStatus(s);
+    };
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load();
     };
     void load();
-    const id = setInterval(() => void load(), 5000);
+    const id = window.setInterval(refresh, 4000);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
-      cancelled = true;
-      clearInterval(id);
+      alive = false;
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, []);
+  return status;
+}
 
-  const copyCode = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(room);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  }, [room]);
+function ModeBadge({ status }: { status: AppStatus | null | undefined }) {
+  if (status === undefined) return <Skeleton className="h-6 w-28 rounded-full" />;
+  if (status === null) {
+    return (
+      <Badge tone="outline" className="h-6 gap-1.5 px-2.5 text-xs" title="pact is running as a plain web page, so there is no browser to start a party in. Load it as an extension.">
+        <Info /> Preview mode
+      </Badge>
+    );
+  }
+  const watching = status.rooms.reduce((n, r) => n + r.peers, 0);
+  const mode: Record<ConnectionMode, { tone: 'neutral' | 'success' | 'warning'; label: string; hint: string }> = {
+    local: { tone: 'neutral', label: 'This browser', hint: 'Parties sync the YouTube tabs in this browser. A relay is needed to watch with friends elsewhere.' },
+    live: { tone: 'success', label: watching > 0 ? `Live · ${watching} watching` : 'Live', hint: 'Connected to a relay — friends can join from anywhere with the room code.' },
+    reconnecting: { tone: 'warning', label: 'Reconnecting…', hint: 'The relay is unreachable. Changes stay on this browser until it’s back.' },
+  };
+  const m = mode[status.mode];
+  return (
+    <Badge tone={m.tone} className="h-6 gap-1.5 px-2.5 text-xs" title={m.hint}>
+      <span className="relative flex size-1.5">
+        {status.mode !== 'local' && <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />}
+        <span className="relative inline-flex size-1.5 rounded-full bg-current" />
+      </span>
+      {m.label}
+    </Badge>
+  );
+}
 
-  const openYouTube = useCallback(async () => {
-    const cleanName = name.trim() || 'guest';
-    try {
-      localStorage.setItem('pact-vibeparty-name', cleanName);
-    } catch {}
-    try {
-      await browser.storage.local.set({
-        [VIBEPARTY_PENDING_KEY]: { room, name: cleanName, at: Date.now() },
-      });
-    } catch {}
-    try {
-      await browser.tabs.create({ url: 'https://www.youtube.com' });
-    } catch {
-      window.open('https://www.youtube.com', '_blank');
-    }
-  }, [room, name]);
+function ModeExplainer({ status }: { status: AppStatus | null | undefined }) {
+  if (status === undefined) return null;
+  const copyCmd = () => void copyText('bun run relay', 'Command copied');
 
-  const live = status?.connected ?? false;
-  const totalPeers = status?.rooms.reduce((sum, r) => sum + r.peers, 0) ?? 0;
+  if (status === null) {
+    return (
+      <Card className="border-dashed bg-transparent shadow-none">
+        <p className="flex items-start gap-2 text-[13px] text-muted-foreground">
+          <Info className="mt-0.5 size-4 shrink-0" />
+          <span>
+            You’re viewing pact as a regular web page, so VibeParty can’t reach a browser to start a party in. Load the built extension (<code className="font-mono text-xs">bun run dev</code> opens a
+            browser with it installed) to try it for real.
+          </span>
+        </p>
+      </Card>
+    );
+  }
+
+  const text =
+    status.mode === 'live'
+      ? 'Connected to a relay: anyone with the room code can join from any computer. Chat and the queue are shared; playback is kept in sync across the internet.'
+      : status.mode === 'reconnecting'
+        ? 'A relay is configured but can’t be reached right now. Everything keeps working between YouTube tabs in this browser, and changes made meanwhile stay here.'
+        : 'No relay is configured, so a party syncs the YouTube tabs inside this browser only — handy for trying it out or watching on two screens. To watch with friends on other computers, run the relay and point pact at it.';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-      className="mx-auto max-w-3xl space-y-4"
-    >
-      <div className="flex items-end justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
-            <Disc3 className="h-4.5 w-4.5 text-accent" /> VibeParty
-          </h2>
-          <p className="text-xs text-muted-foreground">Watch together · synced YouTube parties</p>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-sm border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground">
-          <motion.span
-            animate={live ? { opacity: [1, 0.4, 1] } : { opacity: 1 }}
-            transition={live ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : undefined}
-            className={`inline-block h-1.5 w-1.5 rounded-full ${live ? 'bg-emerald-400' : status?.wsConfigured ? 'bg-amber-400' : 'bg-muted-foreground/50'}`}
-          />
-          {live ? `live server · ${totalPeers} watching` : status?.wsConfigured ? 'reconnecting…' : 'local hub mode'}
-        </div>
-      </div>
-
-      <Card className="p-6 md:p-8">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Your room</p>
-
-        <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <motion.code
-              key={room}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18 }}
-              className="rounded-sm border border-border bg-muted px-3 py-2 font-mono text-base font-semibold tracking-tight text-foreground md:text-lg"
-            >
-              {room}
-            </motion.code>
-            <Button variant="ghost" size="icon" title="New code" onClick={() => setRoom(generateRoomCode())}>
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Copy code" onClick={() => void copyCode()}>
-              <AnimatePresence mode="wait" initial={false}>
-                {copied ? (
-                  <motion.span key="check" initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.7, opacity: 0 }}>
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  </motion.span>
-                ) : (
-                  <motion.span key="copy" initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.7, opacity: 0 }}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Button>
-          </div>
-
-          <div className="w-full sm:w-52">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={20}
-              placeholder="your name"
-              aria-label="Your name"
-              className="h-9 w-full rounded-sm border border-input bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-ring"
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row">
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-            <Button
-              className="h-10 w-full gap-2 bg-accent text-accent-foreground shadow-sm hover:bg-accent/90 sm:w-auto"
-              aria-label="Open YouTube and start party"
-              onClick={() => void openYouTube()}
-            >
-              Open YouTube & start party <ExternalLink className="h-3.5 w-3.5" />
-            </Button>
-          </motion.div>
-          <p className="text-center text-xs text-muted-foreground sm:text-left">
-            opens YouTube and drops you into <span className="font-mono text-[11px] text-foreground">#{room}</span> automatically
+    <Card title="Where parties run" action={<Server className="size-4 text-muted-foreground" />}>
+      <p className="text-[13px] leading-relaxed text-muted-foreground">{text}</p>
+      {status.mode === 'local' && (
+        <div className="mt-3 space-y-2 rounded-lg border bg-muted/40 p-3 text-[12.5px]">
+          <p className="text-muted-foreground">
+            Start a relay (needs Bun or Node), then rebuild with its address:
           </p>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">bun run relay</code>
+            <IconButton label="Copy command" size="icon-sm" onClick={copyCmd}>
+              <Copy />
+            </IconButton>
+          </div>
+          <code className="block truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">WXT_VIBEPARTY_WS_URL=wss://your-relay.example bun run build</code>
+          <p className="text-subtle-foreground">Remote relays must use wss:// — the extension refuses unencrypted ones. See the README for deployment.</p>
         </div>
-      </Card>
+      )}
+    </Card>
+  );
+}
+
+// ── the page ─────────────────────────────────────────────────────────────────
+
+export function PartyView() {
+  const profileName = useUserStore((s) => s.currentUser.displayName);
+  const friendIds = useUserStore((s) => s.friendIds);
+  const { name, setName, recent, remember, forget, clearRecent } = usePartyStore();
+  const status = useStatus();
+
+  const [code, setCode] = useState(() => useUiStore.getState().partyRoom ?? generateRoomCode());
+  const [opening, setOpening] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'invite' | null>(null);
+  const [spin, setSpin] = useState(0);
+  const [unavailable, setUnavailable] = useState(false);
+
+  // A code handed over from Chat ("Join the party" / "Watch together") — take it once.
+  useEffect(() => {
+    const incoming = useUiStore.getState().partyRoom;
+    if (!incoming) return;
+    useUiStore.getState().setPartyRoom(null);
+    notify.info('Room code filled in from chat');
+  }, []);
+
+  const room = normalizeRoomCode(code);
+  const valid = isValidRoomCode(room);
+  const touched = code.length > 0;
+  const displayName = (name || profileName).trim() || 'guest';
+  const friends = friendIds.map(findPerson).filter((p): p is NonNullable<typeof p> => Boolean(p));
+
+  const flash = (what: 'code' | 'invite') => {
+    setCopied(what);
+    window.setTimeout(() => setCopied(null), 1600);
+  };
+
+  const start = async (target = room) => {
+    if (!isValidRoomCode(target)) return;
+    setOpening(true);
+    setUnavailable(false);
+    void storeLocal({ [VIBEPARTY_NAME_KEY]: displayName });
+    const res = await sendToBackground<OpenResult>({ type: 'vibeparty:open', room: target, name: displayName });
+    setOpening(false);
+    if (res === null) {
+      setUnavailable(true);
+      return;
+    }
+    if (!res.ok) {
+      notify.error('Couldn’t start the party', res.error);
+      return;
+    }
+    remember(target);
+    notify.success(res.reusedTab ? 'Joined in your YouTube tab' : 'Opening YouTube…', `#${target}`);
+  };
+
+  const sendInvite = (personId: string) => {
+    if (!valid) return;
+    const person = findPerson(personId);
+    const conversationId = useChatStore.getState().ensureDm(personId);
+    sendMessage({ conversationId, body: inviteText(room) });
+    remember(room);
+    notify.success('Invite sent', `Posted in your chat with ${person?.displayName ?? 'them'}.`);
+  };
+
+  return (
+    <motion.div variants={stagger(0.06)} initial="hidden" animate="show" className="mx-auto w-full max-w-3xl space-y-4">
+      <motion.div variants={fadeUp}>
+        <PageHeader icon={Disc3} title="VibeParty" description="Watch YouTube in sync — with chat, reactions and a shared queue" actions={<ModeBadge status={status} />} />
+      </motion.div>
+
+      <motion.div variants={fadeUp}>
+        <Card className="gap-5 p-5 sm:p-6">
+          <div>
+            <Label htmlFor="party-code">Room code</Label>
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Input
+                  id="party-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  spellCheck={false}
+                  autoComplete="off"
+                  maxLength={48}
+                  aria-invalid={touched && !valid ? true : undefined}
+                  aria-describedby="party-code-hint"
+                  className="h-11 pr-10 font-mono text-[15px] font-semibold tracking-tight"
+                />
+                <AnimatePresence>
+                  {valid && (
+                    <motion.span initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} transition={spring.bouncy} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-success-text">
+                      <Check className="size-4" />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+              <IconButton
+                label="Generate a new code"
+                variant="outline"
+                size="icon-lg"
+                onClick={() => {
+                  setCode(generateRoomCode());
+                  setSpin((n) => n + 1);
+                }}
+              >
+                <motion.span animate={{ rotate: spin * 180 }} transition={spring.snappy} className="grid place-items-center">
+                  <RefreshCw />
+                </motion.span>
+              </IconButton>
+              <IconButton
+                label={copied === 'code' ? 'Copied' : 'Copy code'}
+                variant="outline"
+                size="icon-lg"
+                disabled={!valid}
+                onClick={async () => {
+                  if (await copyText(room, '')) flash('code');
+                }}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span key={copied === 'code' ? 'ok' : 'copy'} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} transition={{ duration: 0.12 }} className="grid place-items-center">
+                    {copied === 'code' ? <Check className="text-success-text" /> : <Copy />}
+                  </motion.span>
+                </AnimatePresence>
+              </IconButton>
+            </div>
+            <p id="party-code-hint" className={cn('mt-1.5 text-xs', touched && !valid ? 'text-destructive-text' : 'text-subtle-foreground')}>
+              {touched && !valid
+                ? 'Room codes are 4–32 letters, numbers and dashes.'
+                : code !== room && valid
+                  ? `Will join as #${room}`
+                  : 'Anyone with this code can join — treat it like a password.'}
+            </p>
+          </div>
+
+          <div className="max-w-xs">
+            <Label htmlFor="party-name">Your name in the party</Label>
+            <Input id="party-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} placeholder={profileName || 'guest'} autoComplete="nickname" />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="lg" variant="primary" disabled={!valid} loading={opening} onClick={() => void start()}>
+              <ExternalLink /> Open YouTube &amp; join
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              disabled={!valid}
+              onClick={async () => {
+                if (await copyText(inviteText(room), '')) {
+                  flash('invite');
+                  notify.success('Invite copied', 'Paste it to a friend — chat links it to this page.');
+                }
+              }}
+            >
+              {copied === 'invite' ? <Check className="text-success-text" /> : <Copy />} Copy invite
+            </Button>
+            <DropdownMenu>
+              <DropdownTrigger disabled={!valid} className={buttonClass('outline', 'lg')}>
+                <MessageCircle /> Send to a friend
+              </DropdownTrigger>
+              <DropdownContent align="start" className="w-56">
+                <DropdownLabel>Post the invite in chat</DropdownLabel>
+                {friends.length === 0 && <DropdownItem disabled>Add friends in Chat first</DropdownItem>}
+                {friends.map((p) => (
+                  <DropdownItem key={p.id} onClick={() => sendInvite(p.id)}>
+                    {p.displayName}
+                  </DropdownItem>
+                ))}
+              </DropdownContent>
+            </DropdownMenu>
+          </div>
+
+          <AnimatePresence>
+            {unavailable && (
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-text">
+                <Info className="mt-0.5 size-4 shrink-0" />
+                VibeParty needs pact to be installed as an extension — there’s no browser to open YouTube in from a plain web page.
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </Card>
+      </motion.div>
 
       <AnimatePresence initial={false}>
         {status && status.rooms.length > 0 && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
-            <Card title="Active rooms" action={<span className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{status.rooms.length}</span>}>
+          <motion.div key="active" variants={fadeUp} initial="hidden" animate="show" exit={{ opacity: 0, height: 0 }}>
+            <Card title="Happening now" action={<Badge tone="brand">{status.rooms.length}</Badge>}>
               <ul className="space-y-1.5">
                 {status.rooms.map((r) => (
-                  <li key={r.room} className="flex items-center justify-between rounded-sm border border-border bg-background px-3 py-2 text-sm">
-                    <span className="flex items-center gap-2 font-mono text-xs text-foreground">
-                      {r.playing && (
-                        <motion.span
-                          animate={{ opacity: [1, 0.35, 1] }}
-                          transition={{ duration: 1.2, repeat: Infinity }}
-                          className="inline-block h-1.5 w-1.5 rounded-full bg-accent"
-                        />
-                      )}
-                      #{r.room}
+                  <li key={r.room} className="flex items-center gap-3 rounded-lg border bg-background/50 px-3 py-2">
+                    <span className="relative flex size-2 shrink-0">
+                      {r.playing && <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand opacity-60" />}
+                      <span className={cn('relative inline-flex size-2 rounded-full', r.playing ? 'bg-brand' : 'bg-muted-foreground/40')} />
                     </span>
-                    <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> {r.peers}</span>
-                      <span className="inline-flex items-center gap-1"><ThumbsUp className="h-3 w-3" /> {r.queue}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">#{r.room}</span>
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular">
+                      <Users className="size-3.5" /> {r.peers}
                     </span>
+                    <Button size="xs" variant="soft" onClick={() => void start(r.room)}>
+                      Go to tab
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -227,42 +351,66 @@ export function PartyView() {
         )}
       </AnimatePresence>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <motion.div variants={fadeUp}>
+        <ModeExplainer status={status} />
+      </motion.div>
+
+      {recent.length > 0 && (
+        <motion.div variants={fadeUp}>
+          <Card
+            title="Recent rooms"
+            action={
+              <Button size="xs" variant="ghost" onClick={clearRecent}>
+                Clear
+              </Button>
+            }
+          >
+            <ul className="flex flex-wrap gap-2">
+              <AnimatePresence initial={false}>
+                {recent.map((r) => (
+                  <motion.li key={r.code} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={spring.snappy} className="group flex items-center rounded-full border bg-background/50 pl-3 pr-1 transition-colors hover:border-foreground/25">
+                    <button type="button" onClick={() => setCode(r.code)} className="flex items-center gap-2 py-1 pr-1 text-left outline-offset-2" title="Use this code again">
+                      <span className="font-mono text-xs font-medium">#{r.code}</span>
+                      <span className="flex items-center gap-1 text-[11px] text-subtle-foreground">
+                        <Clock className="size-3" /> {relativeTime(r.at)}
+                      </span>
+                    </button>
+                    <IconButton label={`Forget ${r.code}`} size="icon-xs" tooltip={false} onClick={() => forget(r.code)}>
+                      <X />
+                    </IconButton>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
+            </ul>
+          </Card>
+        </motion.div>
+      )}
+
+      <motion.div variants={fadeUp} className="grid gap-4 md:grid-cols-2">
         <Card title="How it works">
-          <ol className="space-y-3">
-            {STEPS.map((step, i) => (
-              <li key={step.title} className="flex gap-3">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-accent text-[11px] font-bold text-accent-foreground">
-                  {i + 1}
-                </span>
+          <ol className="space-y-3.5">
+            {STEPS.map(([title, body], i) => (
+              <li key={title} className="flex gap-3">
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-brand-soft text-[11px] font-bold text-brand-text">{i + 1}</span>
                 <span>
-                  <span className="block text-sm font-medium text-foreground">{step.title}</span>
-                  <span className="block text-xs leading-relaxed text-muted-foreground">{step.body}</span>
+                  <span className="block text-sm font-medium">{title}</span>
+                  <span className="block text-[13px] leading-snug text-muted-foreground">{body}</span>
                 </span>
               </li>
             ))}
           </ol>
         </Card>
-
-        <Card title="Built different">
-          <ul className="space-y-3">
-            {FEATURES.map((f) => (
-              <li key={f.label} className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-muted-foreground">
-                  <f.icon className="h-3.5 w-3.5" />
-                </span>
-                <span>
-                  <span className="block text-sm font-medium text-foreground">{f.label}</span>
-                  <span className="block text-xs text-muted-foreground">{f.hint}</span>
-                </span>
+        <Card title="Good to know">
+          <ul className="space-y-2.5 text-[13px] leading-snug text-muted-foreground">
+            {GOOD_TO_KNOW.map((line) => (
+              <li key={line} className="flex gap-2">
+                <span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-brand" />
+                {line}
               </li>
             ))}
           </ul>
-          <p className="mt-4 flex items-center gap-1.5 border-t border-border pt-3 text-[11px] text-muted-foreground">
-            <Sparkles className="h-3 w-3 text-accent" /> No echo loops, no DOM hacks — the panel lives in a Shadow DOM so YouTube can’t break it.
-          </p>
         </Card>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
