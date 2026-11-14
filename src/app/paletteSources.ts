@@ -1,10 +1,12 @@
-import { CircleCheck, FileText, ListTodo } from 'lucide-react';
+import { CircleCheck, FileText, ListTodo, MessageCircle, Users } from 'lucide-react';
 import type { PaletteItem } from '@/app/CommandPalette';
+import { useChatStore } from '@/features/chat/store';
 import { COLUMNS, useKanbanStore } from '@/features/kanban/store';
 import { excerpt, useNotesStore } from '@/features/notes/store';
 import { TOOLS } from '@/features/tools/registry';
 import { useNavStore } from '@/store/useNavStore';
 import { useUiStore } from '@/store/useUiStore';
+import { useUserStore } from '@/store/useUserStore';
 
 /**
  * Feature data surfaced in the command palette (notes, tasks, chats…).
@@ -64,6 +66,27 @@ export function buildDataItems(query: string): PaletteItem[] {
         useKanbanStore.getState().setActiveBoard(t.boardId);
         useUiStore.getState().setPendingTaskId(t.id);
         useNavStore.getState().go('kanban');
+      },
+    });
+  }
+
+  // Chats (by name or recent message text)
+  const { conversations, messages } = useChatStore.getState();
+  const { teammates } = useUserStore.getState();
+  for (const c of conversations) {
+    const peer = c.kind === 'dm' ? teammates.find((t) => c.participantIds.includes(t.id)) : undefined;
+    const title = c.kind === 'group' ? (c.name ?? 'Group') : (peer?.displayName ?? 'Conversation');
+    const recent = messages.filter((m) => m.conversationId === c.id && !m.deleted).slice(-30).map((m) => m.body).join(' ');
+    items.push({
+      id: `chat-${c.id}`,
+      group: 'Chats',
+      label: title,
+      hint: c.kind === 'group' ? 'Group chat' : peer ? `@${peer.username}` : 'Direct message',
+      keywords: recent,
+      icon: c.kind === 'group' ? Users : MessageCircle,
+      run: () => {
+        useChatStore.getState().setActive(c.id);
+        useNavStore.getState().go('chat', c.id);
       },
     });
   }

@@ -12,6 +12,9 @@ type UiState = {
   pendingNewTask: boolean;
   setPendingTaskId: (id: string | null) => void;
   setPendingNewTask: (v: boolean) => void;
+  /** Room code handed from Chat's "Watch together" to the VibeParty view. */
+  partyRoom: string | null;
+  setPartyRoom: (code: string | null) => void;
 };
 
 export const useUiStore = create<UiState>((set) => ({
@@ -24,4 +27,6 @@ export const useUiStore = create<UiState>((set) => ({
   pendingNewTask: false,
   setPendingTaskId: (pendingTaskId) => set({ pendingTaskId }),
   setPendingNewTask: (pendingNewTask) => set({ pendingNewTask }),
+  partyRoom: null,
+  setPartyRoom: (partyRoom) => set({ partyRoom }),
 }));

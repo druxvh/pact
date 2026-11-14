@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { CommandPalette } from '@/app/CommandPalette';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { SECTION_BY_ID, SECTIONS, baseTitle } from '@/app/routes';
+import { selectTotalUnread, useChatStore } from '@/features/chat/store';
 import { TimerEngine } from '@/features/timer/TimerEngine';
 import { useTimerStore } from '@/features/timer/store';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
@@ -12,6 +13,7 @@ import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/
 import { cn } from '@/lib/cn';
 import { useHotkeys } from '@/lib/hotkeys';
 import { page } from '@/lib/motion';
+import { reconcileDemo } from '@/store/demoServer';
 import { useNavStore } from '@/store/useNavStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -23,8 +25,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const togglePalette = useUiStore((s) => s.togglePalette);
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const overlayOpen = useUiStore((s) => s.paletteOpen || s.shortcutsOpen);
+  const chatUnread = useChatStore(selectTotalUnread);
+  const badges = chatUnread > 0 ? { chat: chatUnread } : {};
   const mainRef = useRef<HTMLElement>(null);
   const meta = SECTION_BY_ID[section];
+
+  // Resolve any simulated friend request whose timer was lost when a tab closed.
+  useEffect(() => {
+    reconcileDemo();
+  }, []);
 
   // New page → start at the top.
   useEffect(() => {
@@ -59,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             Skip to content
           </a>
 
-          <Sidebar />
+          <Sidebar badges={badges} />
 
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar />
@@ -76,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </motion.div>
               </AnimatePresence>
             </main>
-            <MobileNav />
+            <MobileNav badges={badges} />
           </div>
         </div>
 
