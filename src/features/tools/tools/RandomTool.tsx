@@ -19,7 +19,12 @@ function Dice() {
   const [rolling, setRolling] = useState(false);
   const [rolls, setRolls] = useState(0);
   const alive = useRef(true);
-  useEffect(() => () => void (alive.current = false), []);
+  useEffect(() => {
+    alive.current = true; // StrictMode mounts, unmounts and re-mounts in development
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const roll = async () => {
     if (rolling) return;
@@ -170,7 +175,12 @@ function Picker() {
   const [winner, setWinner] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
-  useEffect(() => () => void (alive.current = false), []);
+  useEffect(() => {
+    alive.current = true; // StrictMode mounts, unmounts and re-mounts in development
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const options = raw
     .split('\n')

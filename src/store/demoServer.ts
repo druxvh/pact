@@ -154,7 +154,7 @@ export function requestFriend(username: string) {
 
 export function acceptIncoming(requestId: string) {
   const req = useUserStore.getState().friendRequests.find((r) => r.id === requestId);
-  if (!req || req.status !== 'pending') return;
+  if (req?.status !== 'pending') return;
   useUserStore.getState().acceptRequest(requestId);
   const convId = useChatStore.getState().ensureDm(req.fromId);
   typeThenDeliver(convId, req.fromId, 'yay, we’re connected 🎉', wait(600, 600));

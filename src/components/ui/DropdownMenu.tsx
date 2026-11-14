@@ -62,7 +62,7 @@ export function DropdownItem({
 }
 
 export function DropdownSeparator() {
-  return <div role="separator" className="-mx-1 my-1 h-px bg-border" />;
+  return <hr className="-mx-1 my-1 h-px border-0 bg-border" />;
 }
 
 export function DropdownLabel({ children }: { children: React.ReactNode }) {

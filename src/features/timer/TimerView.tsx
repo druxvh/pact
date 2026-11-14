@@ -18,6 +18,7 @@ const NO_TASK = '__none__';
 
 /** Particles that fly out of the ring when a session completes. */
 function Burst({ id }: { id: string }) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new burst per completion id
   const particles = useMemo(
     () =>
       Array.from({ length: 18 }, (_, i) => {
@@ -30,7 +31,6 @@ function Burst({ id }: { id: string }) {
           size: 5 + Math.random() * 6,
           color: ['var(--brand)', 'oklch(0.82 0.17 78)', 'var(--success)', 'oklch(0.98 0 0)'][i % 4] ?? 'var(--brand)',
         };
-        // biome-ignore lint/correctness/useExhaustiveDependencies: a new burst per completion id
       }),
     [id],
   );
@@ -160,7 +160,7 @@ export function TimerView() {
           </div>
 
           {/* cycle progress */}
-          <div className="flex items-center gap-2" aria-label={`${cycle} of ${longEvery} focus sessions before a long break`}>
+          <div className="flex items-center gap-2" role="img" aria-label={`${cycle} of ${longEvery} focus sessions before a long break`}>
             {Array.from({ length: longEvery }, (_, i) => (
               <motion.span
                 // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length indicator

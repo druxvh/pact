@@ -96,11 +96,10 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
 
   return (
     <>
-      <div className="flex flex-wrap justify-center gap-3" role="list" aria-label="Shortcuts">
+      <ul className="flex flex-wrap justify-center gap-3" aria-label="Shortcuts">
         {tiles.map((t, i) => (
-          <motion.div
+          <motion.li
             key={t.id}
-            role="listitem"
             layout
             initial={{ opacity: 0, y: 10, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -173,24 +172,26 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
                 )}
               </DropdownContent>
             </DropdownMenu>
-          </motion.div>
+          </motion.li>
         ))}
 
-        <motion.button
-          layout
-          type="button"
-          onClick={openAdd}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="group flex h-[92px] w-[96px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-muted-foreground transition-[color,border-color,background-color,transform] duration-200 hover:border-brand/60 hover:bg-brand-soft hover:text-brand-text active:scale-[0.96]"
-        >
-          <span className="grid size-8 place-items-center rounded-full bg-muted transition-[background-color,transform] duration-200 group-hover:rotate-90 group-hover:bg-brand-soft">
-            <Plus className="size-4" />
-          </span>
-          <span className="text-xs font-medium">Add</span>
-        </motion.button>
-      </div>
+        <li>
+          <motion.button
+            layout
+            type="button"
+            onClick={openAdd}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="group flex h-[92px] w-[96px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-muted-foreground transition-[color,border-color,background-color,transform] duration-200 hover:border-brand/60 hover:bg-brand-soft hover:text-brand-text active:scale-[0.96]"
+          >
+            <span className="grid size-8 place-items-center rounded-full bg-muted transition-[background-color,transform] duration-200 group-hover:rotate-90 group-hover:bg-brand-soft">
+              <Plus className="size-4" />
+            </span>
+            <span className="text-xs font-medium">Add</span>
+          </motion.button>
+        </li>
+      </ul>
 
       <ShortcutDialog open={dialogOpen} onOpenChange={setDialogOpen} editing={editing} suggestions={suggestions} />
     </>

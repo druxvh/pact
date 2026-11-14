@@ -27,7 +27,7 @@ describe('text cleaning', () => {
   });
 
   it('truncates by code point so an emoji is never cut in half', () => {
-    const out = cleanText('a'.repeat(23) + '🔥🔥🔥', LIMITS.name);
+    const out = cleanText(`${'a'.repeat(23)}🔥🔥🔥`, LIMITS.name);
     expect(Array.from(out)).toHaveLength(LIMITS.name);
     expect(out.endsWith('🔥')).toBe(true);
     expect(out).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/); // no lone high surrogate

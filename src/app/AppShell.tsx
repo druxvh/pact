@@ -37,6 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   // New page → start at the top.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `section` is the trigger, not a value the effect reads
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [section]);

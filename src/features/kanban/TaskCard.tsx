@@ -45,6 +45,7 @@ export function SortableTaskCard({ task, index, assignee, dragDisabled, onOpen, 
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users open the task with the Edit button; Enter/Space lift the card (dnd-kit)
+    // biome-ignore lint/a11y/noStaticElementInteractions: the card is the drag handle (dnd-kit supplies role and keyboard support)
     <div
       ref={ref}
       data-dragging={isDragging || undefined}

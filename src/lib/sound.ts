@@ -33,7 +33,9 @@ export function playChime(kind: 'up' | 'down' = 'up'): void {
   if (!c) return;
   const t = c.currentTime + 0.02;
   const notes = kind === 'up' ? [523.25, 659.25, 783.99, 1046.5] : [783.99, 659.25, 523.25];
-  notes.forEach((f, i) => tone(c, f, t + i * 0.13, 0.55));
+  notes.forEach((f, i) => {
+    tone(c, f, t + i * 0.13, 0.55);
+  });
 }
 
 /** Soft click for UI feedback (not used yet by default; handy for toggles). */

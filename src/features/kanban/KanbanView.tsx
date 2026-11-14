@@ -53,6 +53,7 @@ export function KanbanView() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: teammates/currentUser re-resolve member profiles
   const members = useMemo(() => (board ? membersOf(board.memberIds) : []), [board, teammates, currentUser]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: member names come from the user store; re-resolve when profiles change
   const groups = useMemo<GroupItem[]>(
     () =>
       boards.map((b) => ({
@@ -61,7 +62,6 @@ export function KanbanView() {
         count: tasks.filter((t) => t.boardId === b.id).length,
         members: membersOf(b.memberIds).map((p) => ({ id: p.id, name: p.displayName })),
       })),
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-resolve when profiles change
     [boards, tasks, teammates, currentUser],
   );
 
@@ -185,7 +185,14 @@ export function KanbanView() {
         )}
         {filtering && <span className="text-xs text-muted-foreground">Reordering is paused while filtering</span>}
 
-        <div className="ml-auto flex w-full items-center gap-2.5 sm:w-48" aria-label={`${pct}% complete`}>
+        <div
+          className="ml-auto flex w-full items-center gap-2.5 sm:w-48"
+          role="progressbar"
+          aria-label="Tasks completed"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
             <motion.div
               className="h-full rounded-full bg-gradient-to-r from-brand to-success"

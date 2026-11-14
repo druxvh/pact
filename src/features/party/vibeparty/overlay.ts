@@ -336,15 +336,8 @@ export class VibePartyOverlay {
       this.fabDot,
     );
 
-    this.panel = h(
-      'div',
-      { class: 'vp-panel' },
-      this.buildHeader(),
-      this.buildNotice(),
-      this.buildJoin(),
-      this.buildParty(),
-      (this.toast = h('div', { class: 'vp-toast', hidden: true, role: 'status' })),
-    );
+    this.toast = h('div', { class: 'vp-toast', hidden: true, role: 'status' });
+    this.panel = h('div', { class: 'vp-panel' }, this.buildHeader(), this.buildNotice(), this.buildJoin(), this.buildParty(), this.toast);
 
     this.root = h('aside', { class: 'vp', 'aria-label': 'VibeParty', 'data-view': 'join', 'data-collapsed': 'false' }, this.fab, this.panel);
     return this.root;

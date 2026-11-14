@@ -137,6 +137,7 @@ export function ImageTool() {
     return (
       <div>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: the inner button handles keyboard activation */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: drop zone — drag & drop is an enhancement over the button inside */}
         <div
           onClick={() => inputRef.current?.click()}
           onDragOver={(e) => {

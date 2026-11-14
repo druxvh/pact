@@ -79,6 +79,7 @@ export function KanbanColumn({ column, index, boardId, ids, tasksById, memberByI
               className="overflow-hidden"
             >
               <input
+                // biome-ignore lint/a11y/noAutofocus: the field appears because the person pressed “Add task”
                 autoFocus
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}

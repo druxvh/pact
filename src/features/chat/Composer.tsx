@@ -48,7 +48,6 @@ export function Composer({
   const saveTimer = useRef<number | undefined>(undefined);
 
   // New conversation → load its draft; focus the box.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the conversation changes
   useEffect(() => {
     setText(useChatStore.getState().drafts[conversationId] ?? '');
     setPending((p) => {
@@ -190,7 +189,6 @@ export function Composer({
                   className="group relative size-16 overflow-hidden rounded-xl border bg-muted"
                 >
                   {p.file.type.startsWith('video/') ? (
-                    // biome-ignore lint/a11y/useMediaCaption: preview thumbnail
                     <video src={p.url} className="size-full object-cover" muted />
                   ) : (
                     <img src={p.url} alt={p.file.name} className="size-full object-cover" />

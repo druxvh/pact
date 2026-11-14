@@ -104,6 +104,7 @@ export function CalcTool() {
         <div className="rounded-2xl border bg-muted/30 p-4">
           <input
             ref={inputRef}
+            // biome-ignore lint/a11y/noAutofocus: the calculator is the page; typing should start immediately
             autoFocus
             value={expr}
             onChange={(e) => setExpr(e.target.value)}

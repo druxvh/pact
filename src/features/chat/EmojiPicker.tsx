@@ -7,6 +7,27 @@ import { cn } from '@/lib/cn';
 type Props = { onPick: (emoji: string) => void; className?: string };
 
 /** Searchable emoji grid with categories and recents. */
+function EmojiGrid({ emojis, label, onPick }: { emojis: readonly string[]; label?: string; onPick: (emoji: string) => void }) {
+  return (
+    <div>
+      {label && <p className="px-1 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">{label}</p>}
+      <div className="grid grid-cols-8 gap-0.5">
+        {emojis.map((e) => (
+          <button
+            key={e}
+            type="button"
+            onClick={() => onPick(e)}
+            className="grid size-8 place-items-center rounded-lg text-xl transition-[transform,background-color] duration-100 hover:scale-125 hover:bg-accent active:scale-95"
+            aria-label={e}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function EmojiPicker({ onPick, className }: Props) {
   const recent = useChatStore((s) => s.recentEmoji);
   const pushRecent = useChatStore((s) => s.pushRecentEmoji);
@@ -22,30 +43,12 @@ export function EmojiPicker({ onPick, className }: Props) {
     onPick(e);
   };
 
-  const Grid = ({ emojis, label }: { emojis: readonly string[]; label?: string }) => (
-    <div>
-      {label && <p className="px-1 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">{label}</p>}
-      <div className="grid grid-cols-8 gap-0.5">
-        {emojis.map((e) => (
-          <button
-            key={e}
-            type="button"
-            onClick={() => pick(e)}
-            className="grid size-8 place-items-center rounded-lg text-xl transition-[transform,background-color] duration-100 hover:scale-125 hover:bg-accent active:scale-95"
-            aria-label={e}
-          >
-            {e}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <div className={cn('w-[19rem]', className)}>
       <div className="relative p-2 pb-1">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-[40%] text-muted-foreground" />
         <input
+          // biome-ignore lint/a11y/noAutofocus: the picker opens on request and search should be ready to type
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -80,14 +83,14 @@ export function EmojiPicker({ onPick, className }: Props) {
       <div className="h-56 overflow-y-auto px-2 pb-2">
         {searching ? (
           results.length ? (
-            <Grid emojis={results} />
+            <EmojiGrid emojis={results} onPick={pick} />
           ) : (
             <p className="py-10 text-center text-[13px] text-muted-foreground">No emoji for “{query}”</p>
           )
         ) : (
           <>
-            {recent.length > 0 && <Grid emojis={recent} label="Recent" />}
-            {cat && <Grid emojis={cat.emojis.map(([e]) => e)} label={cat.label} />}
+            {recent.length > 0 && <EmojiGrid emojis={recent} label="Recent" onPick={pick} />}
+            {cat && <EmojiGrid emojis={cat.emojis.map(([e]) => e)} label={cat.label} onPick={pick} />}
           </>
         )}
       </div>

@@ -64,7 +64,7 @@ export function Board({ boardId, tasks, members, dragDisabled, onOpen, onDelete 
           return;
         }
         const source = event.operation.source;
-        if (!source || source.type !== 'item') return;
+        if (source?.type !== 'item') return;
         const id = String(source.id);
         const final = latest.current;
         const col = COLUMNS.find((c) => final[c.id].includes(id))?.id;

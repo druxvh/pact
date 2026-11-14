@@ -42,6 +42,7 @@ export function NotesView() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: teammates/currentUser re-resolve member profiles
   const members = useMemo(() => (active ? membersOf(active.memberIds) : []), [active, teammates, currentUser]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: member names come from the user store; re-resolve when profiles change
   const groups = useMemo<GroupItem[]>(
     () =>
       notebooks.map((b) => ({
@@ -50,7 +51,6 @@ export function NotesView() {
         count: notes.filter((n) => n.notebookId === b.id).length,
         members: membersOf(b.memberIds).map((p) => ({ id: p.id, name: p.displayName })),
       })),
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-resolve when profiles change
     [notebooks, notes, teammates, currentUser],
   );
 

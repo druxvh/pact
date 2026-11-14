@@ -9,6 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  GroupLabel,
   IconButton,
   Input,
   Label,
@@ -150,7 +151,7 @@ export function TaskDialog({ target, members, onClose, onDelete }: Props) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>Status</Label>
+                <GroupLabel>Status</GroupLabel>
                 <Select<ColumnId>
                   aria-label="Status"
                   value={column}
@@ -159,7 +160,7 @@ export function TaskDialog({ target, members, onClose, onDelete }: Props) {
                 />
               </div>
               <div>
-                <Label>Assignee</Label>
+                <GroupLabel>Assignee</GroupLabel>
                 <Select
                   aria-label="Assignee"
                   value={assignee}
@@ -170,7 +171,7 @@ export function TaskDialog({ target, members, onClose, onDelete }: Props) {
             </div>
 
             <div>
-              <Label>Priority</Label>
+              <GroupLabel>Priority</GroupLabel>
               <Segmented<Priority>
                 aria-label="Priority"
                 fullWidth

@@ -1,6 +1,19 @@
 import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Avatar, Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from '@/components/ui';
+import {
+  Avatar,
+  Button,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  GroupLabel,
+  Input,
+  Label,
+} from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
 import { cn } from '@/lib/cn';
 import { useUserStore } from '@/store/useUserStore';
@@ -56,7 +69,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolea
               />
             </div>
             <div>
-              <Label>Members</Label>
+              <GroupLabel>Members</GroupLabel>
               {friends.length === 0 ? (
                 <p className="rounded-lg bg-muted/50 px-3 py-3 text-[13px] text-muted-foreground">Add some friends first, then you can create groups.</p>
               ) : (
@@ -65,16 +78,13 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolea
                     const on = selected.includes(p.id);
                     return (
                       <li key={p.id}>
-                        <button
-                          type="button"
-                          role="checkbox"
-                          aria-checked={on}
-                          onClick={() => toggle(p.id)}
+                        <label
                           className={cn(
-                            'flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors',
+                            'flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors focus-within:ring-2 focus-within:ring-ring/40',
                             on ? 'bg-brand-soft' : 'hover:bg-accent',
                           )}
                         >
+                          <input type="checkbox" className="sr-only" checked={on} onChange={() => toggle(p.id)} />
                           <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[13px] font-medium">{p.displayName}</span>
@@ -88,7 +98,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolea
                           >
                             {on && <Check className="size-3.5" />}
                           </span>
-                        </button>
+                        </label>
                       </li>
                     );
                   })}

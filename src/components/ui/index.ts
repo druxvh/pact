@@ -24,7 +24,7 @@ export {
 } from './DropdownMenu';
 export { EmptyState } from './EmptyState';
 export { IconButton } from './IconButton';
-export { Input, InputGroup, Label, Textarea } from './Input';
+export { GroupLabel, Input, InputGroup, Label, Textarea } from './Input';
 export { Kbd } from './Kbd';
 export { PageHeader } from './PageHeader';
 export { Popover, PopoverClose, PopoverContent, PopoverTrigger } from './Popover';

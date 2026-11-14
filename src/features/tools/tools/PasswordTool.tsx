@@ -79,6 +79,7 @@ export function PasswordTool() {
             <span className="font-medium">{strength.label}</span>
             <span className="tabular text-xs text-muted-foreground">{Math.round(bits)} bits of entropy</span>
           </div>
+          {/* biome-ignore lint/a11y/useSemanticElements: <meter> cannot host the animated fill, so the ARIA meter role carries the semantics */}
           <div
             className="h-2 overflow-hidden rounded-full bg-muted"
             role="meter"

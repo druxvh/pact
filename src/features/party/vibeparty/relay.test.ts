@@ -326,7 +326,8 @@ describe('relay hardening', () => {
 
     attacker.send({ t: 'chat', room: ROOM, peerId: 'attacker-1', id: 'legit', text: 'hi', at: 1 });
     await waitFor(() => victim.inbox.some((m) => m.t === 'chat'));
-    expect((victim.inbox.find((m) => m.t === 'chat')?.message as { name: string }).name).toBe('Eve'); // the relay, not the client, supplies the name
+    const forwarded = victim.inbox.find((m) => m.t === 'chat')?.message as { name: string } | undefined;
+    expect(forwarded?.name).toBe('Eve'); // the relay, not the client, supplies the name
   });
 
   it('cannot post into a room it has not joined', async () => {

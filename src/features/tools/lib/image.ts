@@ -24,7 +24,7 @@ function resolveMime(format: OutputFormat, original: string): string {
   return original === 'image/jpeg' || original === 'image/png' || original === 'image/webp' ? original : MIME.webp;
 }
 
-function fit(w: number, h: number, maxDim: number): { w: number; h: number } {
+function fitWithin(w: number, h: number, maxDim: number): { w: number; h: number } {
   if (!maxDim || Math.max(w, h) <= maxDim) return { w, h };
   const scale = maxDim / Math.max(w, h);
   return { w: Math.max(1, Math.round(w * scale)), h: Math.max(1, Math.round(h * scale)) };
@@ -56,7 +56,7 @@ export async function compressImage(file: File, opts: CompressOptions): Promise<
     const mimes = opts.format === 'original' && file.type === 'image/png' ? ['image/png', 'image/webp'] : [resolveMime(opts.format, file.type)];
 
     const attempt = async (mime: string): Promise<CompressResult> => {
-      let { w, h } = fit(bitmap.width, bitmap.height, opts.maxDimension);
+      let { w, h } = fitWithin(bitmap.width, bitmap.height, opts.maxDimension);
       let quality = Math.min(1, Math.max(0.1, opts.quality));
       let blob = await encode(bitmap, w, h, mime, quality);
       let iterations = 1;

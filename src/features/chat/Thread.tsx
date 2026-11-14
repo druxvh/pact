@@ -109,6 +109,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
   }, [typingIds.length]);
 
   // mark read whenever you're looking at the latest messages
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new message (msgs.length) while you're at the bottom must re-mark as read
   useEffect(() => {
     if (atBottom && document.visibilityState === 'visible') markRead(conversation.id);
   }, [atBottom, msgs.length, conversation.id, markRead]);
@@ -183,7 +184,6 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
   const offlineEverywhere = others.length > 0 && others.every((o) => !o.isOnline);
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: drop target for file attachments
     <section
       aria-label={`Conversation with ${title}`}
       className="relative flex min-w-0 flex-1 flex-col"

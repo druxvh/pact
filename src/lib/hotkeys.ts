@@ -27,7 +27,7 @@ export const MOD_KEY = isMac ? '⌘' : 'Ctrl';
 
 function isTypingTarget(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
-  if (!el || !el.tagName) return false;
+  if (!el?.tagName) return false;
   return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable;
 }
 

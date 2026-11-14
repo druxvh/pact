@@ -85,7 +85,7 @@
         const n = seconds * rate;
         const buf = new ArrayBuffer(44 + n);
         const v = new DataView(buf);
-        const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+        const w = (o, s) => [...s].forEach((c, i) => { v.setUint8(o + i, c.charCodeAt(0)); });
         w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
         v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
         v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
@@ -112,7 +112,7 @@
         uuid: () => crypto.randomUUID(),
         relay: null,
         send: (tabId, msg) => {
-          if (tabId === 1) queueMicrotask(() => listeners.forEach((fn) => fn(msg, {}, () => {})));
+          if (tabId === 1) queueMicrotask(() => { for (const fn of listeners) fn(msg, {}, () => {}); });
           else log(`→ Sam: ${msg.type.replace('vibeparty:', '')} ${msg.type === 'vibeparty:chat' ? JSON.stringify(msg.message.text) : ''}`);
         },
       });

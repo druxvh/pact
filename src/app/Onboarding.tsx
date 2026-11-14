@@ -38,9 +38,12 @@ const OPTIONS: Array<{ id: Start; title: string; body: string; icon: typeof Spar
 export function Onboarding() {
   const onboarded = useUserStore((s) => s.onboarded);
   const customised = useUserStore((s) => s.currentUser.displayName !== 'You');
-  const hasContent = useNotesStore((s) => s.notes.length > 0) || useKanbanStore((s) => s.tasks.length > 0) || useChatStore((s) => s.messages.length > 0);
+  // Each hook runs on every render (a `||` chain would skip the later ones and break the Rules of Hooks).
+  const hasNotes = useNotesStore((s) => s.notes.length > 0);
+  const hasTasks = useKanbanStore((s) => s.tasks.length > 0);
+  const hasMessages = useChatStore((s) => s.messages.length > 0);
   const complete = useUserStore((s) => s.completeOnboarding);
-  const existingUser = customised || hasContent;
+  const existingUser = customised || hasNotes || hasTasks || hasMessages;
 
   useEffect(() => {
     if (!onboarded && existingUser) complete({});

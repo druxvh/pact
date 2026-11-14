@@ -138,7 +138,7 @@ export function CommandPalette() {
   const statics = useStaticItems();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(() => (open ? buildItems(query, statics) : []), [open, query, statics]);
 
@@ -148,8 +148,12 @@ export function CommandPalette() {
       setIndex(0);
     }
   }, [open]);
-  useEffect(() => setIndex(0), [query]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: restart at the first result whenever the query changes
+  useEffect(() => {
+    setIndex(0);
+  }, [query]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keep the highlighted row in view as the selection or the results change
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [index, items]);
@@ -195,6 +199,7 @@ export function CommandPalette() {
             <div className="flex items-center gap-3 border-b px-4">
               <Search className="size-4 shrink-0 text-muted-foreground" />
               <input
+                // biome-ignore lint/a11y/noAutofocus: the palette opens on request and typing must start immediately
                 autoFocus
                 role="combobox"
                 aria-expanded="true"
@@ -211,16 +216,18 @@ export function CommandPalette() {
               <Kbd>esc</Kbd>
             </div>
 
-            <ul ref={listRef} id="cmd-list" role="listbox" className="max-h-[min(420px,55vh)] overflow-y-auto p-2">
-              {items.length === 0 && <li className="px-3 py-10 text-center text-sm text-muted-foreground">No results for “{query}”</li>}
+            <div ref={listRef} id="cmd-list" role="listbox" className="max-h-[min(420px,55vh)] overflow-y-auto p-2">
+              {items.length === 0 && <div className="px-3 py-10 text-center text-sm text-muted-foreground">No results for “{query}”</div>}
               {items.map((item, i) => {
                 const showHeader = item.group !== lastGroup;
                 lastGroup = item.group;
                 const selected = i === index;
                 const Icon = item.icon;
                 return (
-                  <li key={item.id} role="presentation">
+                  <div key={item.id} role="presentation">
                     {showHeader && <div className="px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">{item.group}</div>}
+                    {/* biome-ignore lint/a11y/useFocusableInteractive: options are chosen via aria-activedescendant on the combobox input */}
+                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard selection is handled by the combobox input (arrows + Enter) */}
                     <div
                       id={`cmd-${item.id}`}
                       role="option"
@@ -250,10 +257,10 @@ export function CommandPalette() {
                         {selected && !item.kbd && <ArrowRight className="size-3.5 text-muted-foreground" />}
                       </span>
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
 
             <div className="flex items-center gap-4 border-t px-4 py-2 text-[11px] text-subtle-foreground">
               <span className="flex items-center gap-1.5">

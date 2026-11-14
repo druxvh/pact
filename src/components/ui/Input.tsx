@@ -37,5 +37,11 @@ export function InputGroup({
 }
 
 export function Label({ className, ...props }: React.ComponentProps<'label'>) {
+  // biome-ignore lint/a11y/noLabelWithoutControl: generic label primitive — callers pass htmlFor or wrap a control
   return <label className={cn('mb-1.5 block text-xs font-medium text-muted-foreground', className)} {...props} />;
+}
+
+/** Caption for a *group* of controls (a picker, a list of options…) — not tied to a single input, so not a <label>. */
+export function GroupLabel({ className, ...props }: React.ComponentProps<'p'>) {
+  return <p className={cn('mb-1.5 block text-xs font-medium text-muted-foreground', className)} {...props} />;
 }

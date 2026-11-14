@@ -108,7 +108,7 @@ export const useUserStore = create<UserState>()(
       acceptRequest: (id) =>
         set((s) => {
           const req = s.friendRequests.find((r) => r.id === id);
-          if (!req || req.status !== 'pending') return s;
+          if (req?.status !== 'pending') return s;
           const other = req.fromId === ME_ID ? req.toId : req.fromId;
           return {
             friendRequests: s.friendRequests.map((r) => (r.id === id ? { ...r, status: 'accepted' as const } : r)),

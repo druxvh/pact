@@ -24,7 +24,7 @@ export function ShortcutsDialog() {
                     <span className="text-muted-foreground">{s.label}</span>
                     <span className="flex shrink-0 items-center gap-1">
                       {s.keys.map((k, i) => (
-                        <span key={`${k}-${i}`} className="flex items-center gap-1">
+                        <span key={k} className="flex items-center gap-1">
                           {i > 0 && s.group === 'Navigate' && <span className="text-[10px] text-subtle-foreground">then</span>}
                           <Kbd>{k}</Kbd>
                         </span>

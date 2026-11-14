@@ -51,7 +51,7 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
           </span>
           <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{n.body}</span>
         </span>
-        {!n.read && <span aria-label="Unread" className="mt-2 size-2 shrink-0 rounded-full bg-brand" />}
+        {!n.read && <span role="img" aria-label="Unread" className="mt-2 size-2 shrink-0 rounded-full bg-brand" />}
       </button>
       <IconButton
         label="Dismiss"

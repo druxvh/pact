@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from '@/components/ui';
+import {
+  Button,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  GroupLabel,
+  Input,
+  Label,
+} from '@/components/ui';
 import { SiteIcon } from '@/features/home/SiteIcon';
 import { type Shortcut, useHomeStore } from '@/features/home/store';
 import type { TopSite } from '@/lib/ext';
@@ -75,7 +87,7 @@ export function ShortcutDialog({ open, onOpenChange, editing, suggestions }: Pro
             </div>
             {!editing && suggestions.length > 0 && (
               <div>
-                <Label>From your most visited</Label>
+                <GroupLabel>From your most visited</GroupLabel>
                 <div className="flex flex-wrap gap-1.5">
                   {suggestions.slice(0, 6).map((s) => (
                     <button

@@ -1,6 +1,6 @@
 import { ArrowUpRight, Clock3, Globe, Link2, Search, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Kbd } from '@/components/ui';
 import { SiteIcon } from '@/features/home/SiteIcon';
 import { useHomeStore } from '@/features/home/store';
@@ -99,14 +99,17 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
 
   const resolved = useMemo(() => resolveInput(query), [query]);
 
-  const submit = (q: string) => {
-    const r = resolveInput(q);
-    if (r.kind === 'url') openUrl(r.url);
-    else if (r.query) {
-      pushRecent(r.query);
-      void webSearch(r.query);
-    }
-  };
+  const submit = useCallback(
+    (q: string) => {
+      const r = resolveInput(q);
+      if (r.kind === 'url') openUrl(r.url);
+      else if (r.query) {
+        pushRecent(r.query);
+        void webSearch(r.query);
+      }
+    },
+    [pushRecent],
+  );
 
   const items = useMemo<Suggestion[]>(() => {
     const q = query.trim();
@@ -143,25 +146,27 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s)
       .slice(0, 4)
-      .forEach(({ l }) =>
+      .forEach(({ l }) => {
         out.push({
           id: `link-${l.id}`,
           label: l.title,
           hint: hostnameOf(l.url),
           icon: <SiteIcon url={l.url} title={l.title} size={20} />,
           run: () => openUrl(l.url),
-        }),
-      );
+        });
+      });
     recent
       .filter((x) => x.toLowerCase().startsWith(q.toLowerCase()) && x.toLowerCase() !== q.toLowerCase())
       .slice(0, 3)
-      .forEach((x) => out.push({ id: `recent-${x}`, label: x, icon: <Clock3 className="size-4" />, run: () => submit(x) }));
+      .forEach((x) => {
+        out.push({ id: `recent-${x}`, label: x, icon: <Clock3 className="size-4" />, run: () => submit(x) });
+      });
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, recent, links]);
+  }, [query, recent, links, submit]);
 
   // First suggestion is pre-selected while typing so Enter does the obvious thing.
   useEffect(() => setIndex(query.trim() ? 0 : -1), [query]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keep the highlighted suggestion in view when the selection moves
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [index]);
@@ -184,6 +189,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
 
   return (
     <div className="relative w-full max-w-[680px]">
+      {/* biome-ignore lint/a11y/useSemanticElements: <form role=search> works everywhere we support; the <search> element only landed in Chrome 118 (we target 116+) */}
       <form
         role="search"
         onSubmit={(e) => {
@@ -295,6 +301,8 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
               </div>
             )}
             {items.map((item, i) => (
+              // biome-ignore lint/a11y/useFocusableInteractive: options are chosen via aria-activedescendant on the search input
+              // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard selection is handled by the search input (arrows + Enter)
               <div
                 key={item.id}
                 id={`omni-${item.id}`}

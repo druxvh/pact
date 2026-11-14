@@ -1,7 +1,7 @@
 import { AlertTriangle, Download, ImageDown, QrCode } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { Button, Input, Label, Segmented, Select, Slider, Switch, Textarea } from '@/components/ui';
+import { Button, GroupLabel, Input, Segmented, Select, Slider, Switch, Textarea } from '@/components/ui';
 import { contrastRatio, parseColor } from '@/features/tools/lib/color';
 import { type Ecc, type ModuleStyle, qrMatrix, qrPng, qrSvg, wifiPayload } from '@/features/tools/lib/qr';
 import { Field } from '@/features/tools/ui';
@@ -45,8 +45,8 @@ export function QrTool() {
     }
   }, [payload, ecc]);
 
-  const opts = { ecc, style, fg, bg, margin };
-  const svg = useMemo(() => (matrix ? qrSvg(matrix, opts, 512) : ''), [matrix, ecc, style, fg, bg, margin]); // eslint-disable-line
+  const opts = useMemo(() => ({ ecc, style, fg, bg, margin }), [ecc, style, fg, bg, margin]);
+  const svg = useMemo(() => (matrix ? qrSvg(matrix, opts, 512) : ''), [matrix, opts]);
   const src = svg ? `data:image/svg+xml;utf8,${encodeURIComponent(svg)}` : '';
 
   const fgC = parseColor(fg);
@@ -155,7 +155,7 @@ export function QrTool() {
               ] as const
             ).map(([label, val, set]) => (
               <div key={label}>
-                <Label>{label}</Label>
+                <GroupLabel>{label}</GroupLabel>
                 <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-card/50 px-2 transition-colors hover:border-foreground/25">
                   <span className="size-5 rounded-md border" style={{ background: val }} />
                   <span className="font-mono text-xs">{val}</span>

@@ -50,10 +50,13 @@ export function Clock() {
   return (
     <div className="text-center">
       <h1 className="tabular flex items-baseline justify-center gap-2 font-light leading-none tracking-tighter">
-        <span className="text-[clamp(64px,11vw,112px)]" aria-label={`${hour}:${minute}${period ? ` ${period}` : ''}`}>
-          {hour}
-          <span className="mx-[0.04em] animate-pulse text-brand-text/80 [animation-duration:2s]">:</span>
-          {minute}
+        <span className="text-[clamp(64px,11vw,112px)]">
+          <span className="sr-only">{`${hour}:${minute}${period ? ` ${period}` : ''}`}</span>
+          <span aria-hidden="true">
+            {hour}
+            <span className="mx-[0.04em] animate-pulse text-brand-text/80 [animation-duration:2s]">:</span>
+            {minute}
+          </span>
         </span>
         {period && <span className="text-[clamp(16px,2vw,24px)] font-normal uppercase tracking-widest text-muted-foreground">{period}</span>}
       </h1>
