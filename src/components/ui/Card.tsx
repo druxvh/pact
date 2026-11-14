@@ -1,44 +1,45 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '@/lib/cn';
 
-type CardProps = React.HTMLAttributes<HTMLDivElement> & {
-  title?: string;
+type CardProps = Omit<React.ComponentProps<'section'>, 'title'> & {
+  /** Optional header title (shorthand for a simple card). */
+  title?: React.ReactNode;
+  /** Optional header action slot, aligned right of the title. */
   action?: React.ReactNode;
-  hover?: boolean;
+  /** Lift + border highlight on hover. */
+  interactive?: boolean;
+  /** Cursor-following brand glow on hover. */
+  spotlight?: boolean;
 };
 
-export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ title, action, className, children, hover = false, ...props }, ref) => {
-    return (
-      <section
-        ref={ref}
-        data-slot="card"
-        className={cn(
-          'flex flex-col rounded-sm border bg-card text-card-foreground p-4 shadow-sm',
-          'transition-colors duration-150 ease-out',
-          hover && 'hover:border-ring/50 hover:bg-accent/30 cursor-pointer',
-          className,
-        )}
-        {...props}
-      >
-        {(title || action) && (
-          <header className="mb-3 flex items-center justify-between gap-3">
-            {title ? (
-              <h2 className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
-            ) : (
-              <span />
-            )}
-            {action}
-          </header>
-        )}
-        {children}
-      </section>
-    );
-  },
-);
-Card.displayName = 'Card';
+export function Card({ title, action, interactive, spotlight, className, children, ...props }: CardProps) {
+  return (
+    <section
+      data-spotlight={spotlight ? '' : undefined}
+      className={cn(
+        'flex flex-col rounded-xl border bg-card p-4 text-card-foreground shadow-xs',
+        'transition-[border-color,box-shadow,transform,background-color] duration-200 ease-out-quart',
+        interactive && 'cursor-pointer hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md',
+        spotlight && 'spotlight',
+        className,
+      )}
+      {...props}
+    >
+      {(title || action) && (
+        <header className="mb-3 flex items-center justify-between gap-3">
+          {title ? <h2 className="text-sm font-semibold tracking-tight">{title}</h2> : <span />}
+          {action}
+        </header>
+      )}
+      {children}
+    </section>
+  );
+}
 
-// Card inner wrapper that adds consistent padding — use where needed
-export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div data-slot="card-content" className={cn('p-4', className)} {...props} />;
+export function CardTitle({ className, ...props }: React.ComponentProps<'h3'>) {
+  return <h3 className={cn('text-sm font-semibold tracking-tight', className)} {...props} />;
+}
+
+export function CardDescription({ className, ...props }: React.ComponentProps<'p'>) {
+  return <p className={cn('text-[13px] text-muted-foreground', className)} {...props} />;
 }

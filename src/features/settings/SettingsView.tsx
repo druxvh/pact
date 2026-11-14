@@ -15,8 +15,8 @@ export function SettingsView() {
   const updateProfile = useUserStore((s) => s.updateProfile);
   const spaces = useUserStore((s) => s.spaces);
   const teammates = useUserStore((s) => s.teammates);
-  const theme = useThemeStore((s) => s.theme);
-  const setTheme = useThemeStore((s) => s.setTheme);
+  const theme = useThemeStore((s) => s.resolved);
+  const setTheme = useThemeStore((s) => s.setMode);
   const notifications = useNotificationStore((s) => s.notifications);
   const dismiss = useNotificationStore((s) => s.dismiss);
 

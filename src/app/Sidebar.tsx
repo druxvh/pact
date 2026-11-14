@@ -39,7 +39,7 @@ const BOTTOM_ITEMS: NavItem[] = [
 export function Sidebar() {
   const active = useNavStore((s) => s.active);
   const setActive = useNavStore((s) => s.setActive);
-  const theme = useThemeStore((s) => s.theme);
+  const theme = useThemeStore((s) => s.resolved);
   const toggle = useThemeStore((s) => s.toggle);
   const currentUser = useUserStore((s) => s.currentUser);
 
@@ -100,7 +100,7 @@ export function Sidebar() {
 
       <div className="flex flex-col items-center gap-1.5">
         <motion.button
-          onClick={toggle}
+          onClick={() => toggle()}
           aria-label="Toggle theme"
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           whileHover={{ scale: 1.05 }}

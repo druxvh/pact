@@ -8,7 +8,7 @@ import { NotificationBell } from '@/app/NotificationPopover';
 
 export function TopBar() {
   const active = useNavStore((s) => s.active);
-  const theme = useThemeStore((s) => s.theme);
+  const theme = useThemeStore((s) => s.resolved);
   const toggle = useThemeStore((s) => s.toggle);
   const currentUser = useUserStore((s) => s.currentUser);
   const isHome = active === 'home';
@@ -23,7 +23,7 @@ export function TopBar() {
         className="flex h-[56px] shrink-0 items-center justify-end gap-1.5 border-b border-transparent bg-transparent px-4 md:px-6"
       >
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-          <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8 rounded-sm border border-border bg-card" aria-label="Toggle theme">
+          <Button variant="ghost" size="icon" onClick={() => toggle()} className="h-8 w-8 rounded-sm border border-border bg-card" aria-label="Toggle theme">
             <AnimatePresence mode="wait" initial={false}>
               <motion.span key={theme} initial={{ rotate: -30, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 30, opacity: 0 }} transition={{ duration: 0.16 }}>
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -80,7 +80,7 @@ export function TopBar() {
 
       <div className="flex items-center gap-1.5">
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-          <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8 rounded-sm border border-border" aria-label="Toggle theme">
+          <Button variant="ghost" size="icon" onClick={() => toggle()} className="h-8 w-8 rounded-sm border border-border" aria-label="Toggle theme">
             <AnimatePresence mode="wait" initial={false}>
               <motion.span key={theme} initial={{ rotate: -30, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 30, opacity: 0 }} transition={{ duration: 0.16 }}>
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
