@@ -84,7 +84,12 @@ export function ConversationList({
           leading={<Search />}
           trailing={
             search ? (
-              <button type="button" aria-label="Clear search" onClick={() => setSearch('')} className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearch('')}
+                className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+              >
                 <X className="size-3.5" />
               </button>
             ) : undefined
@@ -102,7 +107,14 @@ export function ConversationList({
             const active = c.id === activeId;
             const typers = typing[c.id] ?? [];
             return (
-              <motion.li key={c.id} layout="position" transition={spring.soft} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+              <motion.li
+                key={c.id}
+                layout="position"
+                transition={spring.soft}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
                 <button
                   type="button"
                   onClick={() => onSelect(c.id)}
@@ -131,7 +143,11 @@ export function ConversationList({
                       <span className={cn('truncate text-xs', typers.length ? 'text-brand-text' : unread ? 'text-foreground' : 'text-muted-foreground')}>
                         {typers.length ? 'typing…' : previewOf(last, c, people)}
                       </span>
-                      {unread > 0 && !active && <Badge tone="brand" className="h-[18px] min-w-[18px] justify-center rounded-full bg-brand px-1.5 text-brand-foreground">{unread > 99 ? '99+' : unread}</Badge>}
+                      {unread > 0 && !active && (
+                        <Badge tone="brand" className="h-[18px] min-w-[18px] justify-center rounded-full bg-brand px-1.5 text-brand-foreground">
+                          {unread > 99 ? '99+' : unread}
+                        </Badge>
+                      )}
                     </span>
                   </span>
                 </button>

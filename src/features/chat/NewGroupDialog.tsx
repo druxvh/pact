@@ -1,20 +1,8 @@
 import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-  Avatar,
-  Button,
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-} from '@/components/ui';
-import { cn } from '@/lib/cn';
+import { Avatar, Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
+import { cn } from '@/lib/cn';
 import { useUserStore } from '@/store/useUserStore';
 
 export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: (id: string) => void }) {
@@ -55,7 +43,17 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolea
           <DialogBody className="space-y-4">
             <div>
               <Label htmlFor="grp-name">Group name</Label>
-              <Input id="grp-name" autoFocus value={name} maxLength={40} placeholder="e.g. Friday movie night" onChange={(e) => { setName(e.target.value); setError(null); }} />
+              <Input
+                id="grp-name"
+                autoFocus
+                value={name}
+                maxLength={40}
+                placeholder="e.g. Friday movie night"
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError(null);
+                }}
+              />
             </div>
             <div>
               <Label>Members</Label>
@@ -72,14 +70,22 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolea
                           role="checkbox"
                           aria-checked={on}
                           onClick={() => toggle(p.id)}
-                          className={cn('flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors', on ? 'bg-brand-soft' : 'hover:bg-accent')}
+                          className={cn(
+                            'flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors',
+                            on ? 'bg-brand-soft' : 'hover:bg-accent',
+                          )}
                         >
                           <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[13px] font-medium">{p.displayName}</span>
                             <span className="block truncate text-xs text-muted-foreground">@{p.username}</span>
                           </span>
-                          <span className={cn('grid size-5 place-items-center rounded-md border transition-colors', on ? 'border-brand bg-brand text-brand-foreground' : 'border-input')}>
+                          <span
+                            className={cn(
+                              'grid size-5 place-items-center rounded-md border transition-colors',
+                              on ? 'border-brand bg-brand text-brand-foreground' : 'border-input',
+                            )}
+                          >
                             {on && <Check className="size-3.5" />}
                           </span>
                         </button>

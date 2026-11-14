@@ -15,11 +15,9 @@ type ThemeState = {
   toggle: (origin?: Origin) => void;
 };
 
-const prefersDark = () =>
-  typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+const prefersDark = () => typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-const resolve = (mode: ThemeMode): ResolvedTheme =>
-  mode === 'system' ? (prefersDark() ? 'dark' : 'light') : mode;
+const resolve = (mode: ThemeMode): ResolvedTheme => (mode === 'system' ? (prefersDark() ? 'dark' : 'light') : mode);
 
 function paint(theme: ResolvedTheme) {
   if (typeof document === 'undefined') return;
@@ -35,8 +33,7 @@ function paint(theme: ResolvedTheme) {
 function applyTheme(theme: ResolvedTheme, origin?: Origin) {
   if (typeof document === 'undefined') return;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const vt = (document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } })
-    .startViewTransition;
+  const vt = (document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } }).startViewTransition;
   if (!vt || reduce || document.documentElement.classList.contains('dark') === (theme === 'dark')) {
     paint(theme);
     return;

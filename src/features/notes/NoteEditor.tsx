@@ -1,20 +1,6 @@
-import {
-  ArrowLeft,
-  Bold,
-  Check,
-  Code,
-  Copy,
-  Heading2,
-  Italic,
-  List,
-  ListChecks,
-  Pin,
-  PinOff,
-  Trash2,
-  UserRound,
-} from 'lucide-react';
+import { ArrowLeft, Bold, Check, Code, Copy, Heading2, Italic, List, ListChecks, Pin, PinOff, Trash2, UserRound } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Avatar,
   Badge,
@@ -27,7 +13,7 @@ import {
   Segmented,
   Skeleton,
 } from '@/components/ui';
-import { continueList, prefixLine, toggleTaskOnLine, wrapSelection, type EditResult } from '@/features/notes/editing';
+import { continueList, type EditResult, prefixLine, toggleTaskOnLine, wrapSelection } from '@/features/notes/editing';
 import { useNotesStore } from '@/features/notes/store';
 import type { Note } from '@/features/notes/types';
 import { copyText } from '@/lib/clipboard';
@@ -186,7 +172,14 @@ export function NoteEditor({ note, members, onBack }: Props) {
                 <span className="size-1.5 animate-pulse rounded-full bg-warning" /> Saving…
               </motion.span>
             ) : (
-              <motion.span key="saved" initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.snappy} className="flex items-center gap-1">
+              <motion.span
+                key="saved"
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={spring.snappy}
+                className="flex items-center gap-1"
+              >
                 <Check className="size-3 text-success-text" /> Saved
               </motion.span>
             )}
@@ -253,13 +246,25 @@ export function NoteEditor({ note, members, onBack }: Props) {
             className="overflow-hidden border-b"
           >
             <div className="flex items-center gap-0.5 px-2 py-1" role="toolbar" aria-label="Formatting">
-              <IconButton label="Bold" shortcut="⌘B" size="icon-xs" onClick={() => format('bold')}><Bold /></IconButton>
-              <IconButton label="Italic" shortcut="⌘I" size="icon-xs" onClick={() => format('italic')}><Italic /></IconButton>
-              <IconButton label="Code" size="icon-xs" onClick={() => format('code')}><Code /></IconButton>
+              <IconButton label="Bold" shortcut="⌘B" size="icon-xs" onClick={() => format('bold')}>
+                <Bold />
+              </IconButton>
+              <IconButton label="Italic" shortcut="⌘I" size="icon-xs" onClick={() => format('italic')}>
+                <Italic />
+              </IconButton>
+              <IconButton label="Code" size="icon-xs" onClick={() => format('code')}>
+                <Code />
+              </IconButton>
               <span className="mx-1 h-4 w-px bg-border" />
-              <IconButton label="Heading" size="icon-xs" onClick={() => format('heading')}><Heading2 /></IconButton>
-              <IconButton label="Bulleted list" size="icon-xs" onClick={() => format('bullet')}><List /></IconButton>
-              <IconButton label="Checklist" size="icon-xs" onClick={() => format('check')}><ListChecks /></IconButton>
+              <IconButton label="Heading" size="icon-xs" onClick={() => format('heading')}>
+                <Heading2 />
+              </IconButton>
+              <IconButton label="Bulleted list" size="icon-xs" onClick={() => format('bullet')}>
+                <List />
+              </IconButton>
+              <IconButton label="Checklist" size="icon-xs" onClick={() => format('check')}>
+                <ListChecks />
+              </IconButton>
             </div>
           </motion.div>
         )}

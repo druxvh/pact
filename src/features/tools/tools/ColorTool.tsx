@@ -2,17 +2,7 @@ import { ArrowLeftRight, Pipette, Wand2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { Badge, Button, IconButton, Input } from '@/components/ui';
-import {
-  type RGB,
-  contrastRatio,
-  parseColor,
-  suggestForeground,
-  toHex,
-  toHslString,
-  toOklchString,
-  toRgbString,
-  wcag,
-} from '@/features/tools/lib/color';
+import { contrastRatio, parseColor, type RGB, suggestForeground, toHex, toHslString, toOklchString, toRgbString, wcag } from '@/features/tools/lib/color';
 import { Field, ResultRow } from '@/features/tools/ui';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
@@ -26,7 +16,10 @@ function ColorInput({ label, value, onChange, valid }: { label: string; value: s
   return (
     <Field label={label}>
       <div className="flex items-center gap-2">
-        <label className="relative size-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border shadow-xs" style={{ background: rgb ? toRgbString(rgb) : 'transparent' }}>
+        <label
+          className="relative size-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border shadow-xs"
+          style={{ background: rgb ? toRgbString(rgb) : 'transparent' }}
+        >
           <input
             type="color"
             aria-label={`${label} colour picker`}
@@ -72,7 +65,10 @@ function Check({ pass, label }: { pass: boolean; label: string }) {
     <motion.div
       layout
       transition={spring.snappy}
-      className={cn('flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-[13px]', pass ? 'border-success/30 bg-success-soft' : 'border-destructive/30 bg-destructive-soft')}
+      className={cn(
+        'flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-[13px]',
+        pass ? 'border-success/30 bg-success-soft' : 'border-destructive/30 bg-destructive-soft',
+      )}
     >
       <span className="text-muted-foreground">{label}</span>
       <Badge tone={pass ? 'success' : 'destructive'}>{pass ? 'Pass' : 'Fail'}</Badge>
@@ -96,12 +92,13 @@ export function ColorTool() {
     if (fg && bg) setFgText(toHex(suggestForeground(fg, bg, 4.5)));
   };
 
-  const conversions = (c: RGB) => [
-    ['HEX', toHex(c)],
-    ['RGB', toRgbString(c)],
-    ['HSL', toHslString(c)],
-    ['OKLCH', toOklchString(c)],
-  ] as const;
+  const conversions = (c: RGB) =>
+    [
+      ['HEX', toHex(c)],
+      ['RGB', toRgbString(c)],
+      ['HSL', toHslString(c)],
+      ['OKLCH', toOklchString(c)],
+    ] as const;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">

@@ -10,14 +10,14 @@ import { botReply, typingDuration } from '@/features/chat/bots';
 import { clearBlobs } from '@/features/chat/idb';
 import { useChatStore } from '@/features/chat/store';
 import type { Attachment, Message } from '@/features/chat/types';
-import { DEFAULT_BOARD_ID, useKanbanStore } from '@/features/kanban/store';
 import type { Task } from '@/features/kanban/store';
+import { DEFAULT_BOARD_ID, useKanbanStore } from '@/features/kanban/store';
 import { DEFAULT_NOTEBOOK_ID, useNotesStore } from '@/features/notes/store';
 import type { Note } from '@/features/notes/types';
 import { uid } from '@/lib/format';
-import { findPerson, ME_ID, useUserStore } from '@/store/useUserStore';
 import { useNavStore } from '@/store/useNavStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { findPerson, ME_ID, useUserStore } from '@/store/useUserStore';
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const wait = (min: number, spread = 0) => min + Math.random() * spread;
@@ -42,8 +42,7 @@ export const STORAGE_KEYS = [
 function deliver(conversationId: string, personId: string, body: string) {
   const chat = useChatStore.getState();
   chat.addMessage({ conversationId, senderId: personId, body });
-  const watching =
-    chat.activeId === conversationId && useNavStore.getState().section === 'chat' && document.visibilityState === 'visible';
+  const watching = chat.activeId === conversationId && useNavStore.getState().section === 'chat' && document.visibilityState === 'visible';
   if (watching) {
     chat.markRead(conversationId);
     return;
@@ -88,10 +87,13 @@ function scheduleReplies(msg: Message) {
 
   const reactor = online[0];
   if (reactor && Math.random() < 0.35) {
-    window.setTimeout(() => {
-      const emoji = EMOJI_REACTIONS[Math.floor(Math.random() * EMOJI_REACTIONS.length)] ?? '👍';
-      useChatStore.getState().toggleReaction(msg.id, emoji, reactor.id);
-    }, wait(900, 900));
+    window.setTimeout(
+      () => {
+        const emoji = EMOJI_REACTIONS[Math.floor(Math.random() * EMOJI_REACTIONS.length)] ?? '👍';
+        useChatStore.getState().toggleReaction(msg.id, emoji, reactor.id);
+      },
+      wait(900, 900),
+    );
   }
 }
 
@@ -137,12 +139,15 @@ export function requestFriend(username: string) {
   }
   const { requestId, personId } = r;
   if (requestId) {
-    window.setTimeout(() => {
-      const req = useUserStore.getState().friendRequests.find((x) => x.id === requestId);
-      if (req?.status !== 'pending') return;
-      useUserStore.getState().acceptRequest(requestId);
-      welcomeFriend(personId);
-    }, wait(1500, 1500));
+    window.setTimeout(
+      () => {
+        const req = useUserStore.getState().friendRequests.find((x) => x.id === requestId);
+        if (req?.status !== 'pending') return;
+        useUserStore.getState().acceptRequest(requestId);
+        welcomeFriend(personId);
+      },
+      wait(1500, 1500),
+    );
   }
   return r;
 }
@@ -199,14 +204,25 @@ export function loadSampleWorkspace() {
   });
   const designNb = { id: 'nb-design-jam', name: 'design jam', memberIds: [ME_ID, 'alex', 'jordan'], nextNumber: 3, createdAt: ago(60 * 24) };
   useNotesStore.setState({
-    notebooks: [
-      { id: DEFAULT_NOTEBOOK_ID, name: 'Personal', memberIds: [ME_ID], nextNumber: 3, createdAt: ago(60 * 48) },
-      designNb,
-    ],
+    notebooks: [{ id: DEFAULT_NOTEBOOK_ID, name: 'Personal', memberIds: [ME_ID], nextNumber: 3, createdAt: ago(60 * 48) }, designNb],
     notes: [
-      mk(1, DEFAULT_NOTEBOOK_ID, 'Welcome to pact ✨', '## A new tab that does more\n\nPress **⌘K** for the command palette, or **/** on Home to search.\n\n- [x] Open pact\n- [ ] Try the Focus timer\n- [ ] Add a shortcut to Home\n- [ ] Start a VibeParty with a friend\n\n> Notes are Markdown. Tick the boxes in Preview.', 5, { pinned: true }),
+      mk(
+        1,
+        DEFAULT_NOTEBOOK_ID,
+        'Welcome to pact ✨',
+        '## A new tab that does more\n\nPress **⌘K** for the command palette, or **/** on Home to search.\n\n- [x] Open pact\n- [ ] Try the Focus timer\n- [ ] Add a shortcut to Home\n- [ ] Start a VibeParty with a friend\n\n> Notes are Markdown. Tick the boxes in Preview.',
+        5,
+        { pinned: true },
+      ),
       mk(2, DEFAULT_NOTEBOOK_ID, 'Reading list', '- *The Design of Everyday Things*\n- *Shape Up*\n- *Refactoring UI*', 60 * 20),
-      mk(1, designNb.id, 'Utility tools list', 'Converters, QR, colour contrast, image compress ≤ 5 MB.\n\n| Tool | Status |\n| --- | --- |\n| QR | ✅ |\n| Image | ✅ |', 60 * 6, { assigneeId: 'alex' }),
+      mk(
+        1,
+        designNb.id,
+        'Utility tools list',
+        'Converters, QR, colour contrast, image compress ≤ 5 MB.\n\n| Tool | Status |\n| --- | --- |\n| QR | ✅ |\n| Image | ✅ |',
+        60 * 6,
+        { assigneeId: 'alex' },
+      ),
       mk(2, designNb.id, 'Chat vibe', 'Discord × Telegram. Reactions, replies, emoji, attachments ≤ 5 MB.', 60 * 3, { assigneeId: 'jordan' }),
     ],
     activeNotebookId: DEFAULT_NOTEBOOK_ID,
@@ -240,7 +256,12 @@ export function loadSampleWorkspace() {
     boards: [{ id: DEFAULT_BOARD_ID, name: 'Personal', memberIds: [ME_ID], nextNumber: 4, createdAt: ago(60 * 48) }, jam],
     tasks: [
       t(DEFAULT_BOARD_ID, 'todo', 1, 1000, 'Pick a favourite shortcut set for Home', { priority: 'low' }),
-      t(DEFAULT_BOARD_ID, 'in_progress', 2, 1000, 'Write the launch post', { priority: 'high', due: day(1), assigneeId: ME_ID, description: 'Short, playful, one gif.' }),
+      t(DEFAULT_BOARD_ID, 'in_progress', 2, 1000, 'Write the launch post', {
+        priority: 'high',
+        due: day(1),
+        assigneeId: ME_ID,
+        description: 'Short, playful, one gif.',
+      }),
       t(DEFAULT_BOARD_ID, 'done', 3, 1000, 'Black theme shipped'),
       t(jam.id, 'todo', 1, 1000, 'Onboarding copy', { assigneeId: 'alex', priority: 'medium', due: day(3) }),
       t(jam.id, 'todo', 4, 2000, 'Fix notification badge', { assigneeId: ME_ID, priority: 'high', due: day(-1) }),
@@ -275,8 +296,24 @@ export function loadSampleWorkspace() {
 
   useNotificationStore.setState({
     notifications: [
-      { id: uid('n'), title: 'Friend request', body: 'Riley Chen wants to connect', createdAt: ago(180), read: false, kind: 'friend', link: { section: 'chat' } },
-      { id: uid('n'), title: 'Alex Rivera', body: 'Standup in 10 — you in?', createdAt: ago(10), read: false, kind: 'chat', link: { section: 'chat', sub: dmAlex } },
+      {
+        id: uid('n'),
+        title: 'Friend request',
+        body: 'Riley Chen wants to connect',
+        createdAt: ago(180),
+        read: false,
+        kind: 'friend',
+        link: { section: 'chat' },
+      },
+      {
+        id: uid('n'),
+        title: 'Alex Rivera',
+        body: 'Standup in 10 — you in?',
+        createdAt: ago(10),
+        read: false,
+        kind: 'chat',
+        link: { section: 'chat', sub: dmAlex },
+      },
     ],
   });
 }

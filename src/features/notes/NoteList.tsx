@@ -23,9 +23,7 @@ type Props = {
 export function NoteList({ notes, query, onQuery, selectedId, onSelect, onNew, notebookName, shared }: Props) {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = q
-      ? notes.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q))
-      : notes;
+    const list = q ? notes.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q)) : notes;
     return sortNotes(list);
   }, [notes, query]);
 
@@ -39,7 +37,12 @@ export function NoteList({ notes, query, onQuery, selectedId, onSelect, onNew, n
           leading={<Search />}
           trailing={
             query ? (
-              <button type="button" aria-label="Clear search" onClick={() => onQuery('')} className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => onQuery('')}
+                className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+              >
                 <X className="size-3.5" />
               </button>
             ) : undefined
@@ -96,9 +99,7 @@ export function NoteList({ notes, query, onQuery, selectedId, onSelect, onNew, n
                       {n.pinned && <Pin className="size-3 shrink-0 fill-current text-brand-text" aria-label="Pinned" />}
                       <span className="shrink-0 text-[11px] text-subtle-foreground">{relativeTime(n.updatedAt)}</span>
                     </span>
-                    <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">
-                      {excerpt(n.body) || 'No content'}
-                    </span>
+                    <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">{excerpt(n.body) || 'No content'}</span>
                     {(shared || selected) && (
                       <span className="mt-1.5 flex items-center gap-1.5">
                         <Badge mono>#{n.number}</Badge>

@@ -1,5 +1,5 @@
 /** Unit conversion data + maths. Linear units convert through a base unit; temperature is special-cased. */
-export type Unit = { id: string; label: string; symbol: string; /** multiply to reach the base unit */ factor: number };
+export type Unit = { id: string; label: string; symbol: string /** multiply to reach the base unit */; factor: number };
 export type Category = { id: string; label: string; base: string; units: Unit[] };
 
 const u = (id: string, label: string, symbol: string, factor: number): Unit => ({ id, label, symbol, factor });

@@ -120,9 +120,7 @@ export function TimerView() {
         icon={Timer}
         title="Focus"
         description={
-          today.sessions
-            ? `${pluralize(today.sessions, 'session')} · ${formatMinutes(today.minutes)} focused today`
-            : 'Deep-work timer — one thing at a time'
+          today.sessions ? `${pluralize(today.sessions, 'session')} · ${formatMinutes(today.minutes)} focused today` : 'Deep-work timer — one thing at a time'
         }
         actions={
           <IconButton label="Timer settings" variant="outline" onClick={() => setSettingsOpen(true)}>
@@ -290,7 +288,10 @@ export function TimerView() {
             )}
             {linked && (
               <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-                Linked: <span className="font-medium text-foreground">#{linked.number} {linked.title}</span>
+                Linked:{' '}
+                <span className="font-medium text-foreground">
+                  #{linked.number} {linked.title}
+                </span>
               </p>
             )}
           </Card>

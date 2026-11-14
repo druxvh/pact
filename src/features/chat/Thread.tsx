@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   Avatar,
   AvatarGroup,
+  confirm,
   DropdownContent,
   DropdownItem,
   DropdownMenu,
@@ -12,7 +13,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  confirm,
 } from '@/components/ui';
 import { Composer } from '@/features/chat/Composer';
 import { MessageBubble } from '@/features/chat/MessageBubble';
@@ -62,7 +62,10 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
 
   const isGroup = conversation.kind === 'group';
   const people = useMemo(() => new Map<string, Person>([[me.id, me], ...teammates.map((t) => [t.id, t] as const)]), [me, teammates]);
-  const others = conversation.participantIds.filter((id) => id !== ME_ID).map((id) => people.get(id)).filter((p): p is Person => Boolean(p));
+  const others = conversation.participantIds
+    .filter((id) => id !== ME_ID)
+    .map((id) => people.get(id))
+    .filter((p): p is Person => Boolean(p));
   const peer = !isGroup ? others[0] : undefined;
   const title = isGroup ? (conversation.name ?? 'Group') : (peer?.displayName ?? 'Conversation');
 
@@ -265,74 +268,82 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
         aria-relevant="additions"
       >
         <div ref={content}>
-        {rows.length === 0 ? (
-          <div className="grid h-full place-items-center">
-            <div className="max-w-xs text-center">
-              {isGroup ? (
-                <span className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand-text">
-                  <Users className="size-7" />
-                </span>
-              ) : (
-                <Avatar name={title} size="xl" className="mx-auto mb-3" />
-              )}
-              <p className="text-sm font-semibold">{isGroup ? `Welcome to ${title}` : `Say hi to ${title.split(' ')[0]} 👋`}</p>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                {offlineEverywhere ? 'They’re offline right now, but they’ll see your message later.' : 'Your messages, reactions and images show up here.'}
-              </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {['👋 Say hi', '🍿 Watch something?', '🔥 What are you building?'].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => sendMessage({ conversationId: conversation.id, body: t.replace(/^\S+\s/, '') })}
-                    className="rounded-full border px-3 py-1.5 text-xs transition-colors hover:bg-accent"
-                  >
-                    {t}
-                  </button>
-                ))}
+          {rows.length === 0 ? (
+            <div className="grid h-full place-items-center">
+              <div className="max-w-xs text-center">
+                {isGroup ? (
+                  <span className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand-text">
+                    <Users className="size-7" />
+                  </span>
+                ) : (
+                  <Avatar name={title} size="xl" className="mx-auto mb-3" />
+                )}
+                <p className="text-sm font-semibold">{isGroup ? `Welcome to ${title}` : `Say hi to ${title.split(' ')[0]} 👋`}</p>
+                <p className="mt-1 text-[13px] text-muted-foreground">
+                  {offlineEverywhere ? 'They’re offline right now, but they’ll see your message later.' : 'Your messages, reactions and images show up here.'}
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {['👋 Say hi', '🍿 Watch something?', '🔥 What are you building?'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => sendMessage({ conversationId: conversation.id, body: t.replace(/^\S+\s/, '') })}
+                      className="rounded-full border px-3 py-1.5 text-xs transition-colors hover:bg-accent"
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          rows.map((row) =>
-            row.kind === 'date' ? (
-              <div key={row.key} className="sticky top-0 z-[1] my-3 flex justify-center">
-                <span className="rounded-full border bg-background/90 px-3 py-0.5 text-[11px] font-medium text-muted-foreground shadow-xs backdrop-blur">{row.label}</span>
-              </div>
-            ) : (
-              <MessageBubble
-                key={row.key}
-                message={row.m}
-                sender={people.get(row.m.senderId)}
-                position={row.position}
-                showName={row.showName}
-                replyTarget={row.m.replyTo ? byId.get(row.m.replyTo) : undefined}
-                replyAuthor={row.m.replyTo ? (byId.get(row.m.replyTo)?.senderId === ME_ID ? 'You' : people.get(byId.get(row.m.replyTo)?.senderId ?? '')?.displayName) : undefined}
-                onReply={onReply}
-                onReact={onReact}
-                onDelete={onDelete}
-                onJump={jumpTo}
-                onJoinParty={joinParty}
-              />
-            ),
-          )
-        )}
-
-        <AnimatePresence>
-          {typingIds.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 4 }}
-              className="mt-3 flex items-center gap-2 pl-11 text-muted-foreground"
-              aria-live="off"
-            >
-              <span className="rounded-2xl border bg-muted/70 px-3 py-2.5">
-                <TypingDots />
-              </span>
-            </motion.div>
+          ) : (
+            rows.map((row) =>
+              row.kind === 'date' ? (
+                <div key={row.key} className="sticky top-0 z-[1] my-3 flex justify-center">
+                  <span className="rounded-full border bg-background/90 px-3 py-0.5 text-[11px] font-medium text-muted-foreground shadow-xs backdrop-blur">
+                    {row.label}
+                  </span>
+                </div>
+              ) : (
+                <MessageBubble
+                  key={row.key}
+                  message={row.m}
+                  sender={people.get(row.m.senderId)}
+                  position={row.position}
+                  showName={row.showName}
+                  replyTarget={row.m.replyTo ? byId.get(row.m.replyTo) : undefined}
+                  replyAuthor={
+                    row.m.replyTo
+                      ? byId.get(row.m.replyTo)?.senderId === ME_ID
+                        ? 'You'
+                        : people.get(byId.get(row.m.replyTo)?.senderId ?? '')?.displayName
+                      : undefined
+                  }
+                  onReply={onReply}
+                  onReact={onReact}
+                  onDelete={onDelete}
+                  onJump={jumpTo}
+                  onJoinParty={joinParty}
+                />
+              ),
+            )
           )}
-        </AnimatePresence>
+
+          <AnimatePresence>
+            {typingIds.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                className="mt-3 flex items-center gap-2 pl-11 text-muted-foreground"
+                aria-live="off"
+              >
+                <span className="rounded-2xl border bg-muted/70 px-3 py-2.5">
+                  <TypingDots />
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

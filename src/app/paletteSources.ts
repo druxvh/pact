@@ -76,7 +76,11 @@ export function buildDataItems(query: string): PaletteItem[] {
   for (const c of conversations) {
     const peer = c.kind === 'dm' ? teammates.find((t) => c.participantIds.includes(t.id)) : undefined;
     const title = c.kind === 'group' ? (c.name ?? 'Group') : (peer?.displayName ?? 'Conversation');
-    const recent = messages.filter((m) => m.conversationId === c.id && !m.deleted).slice(-30).map((m) => m.body).join(' ');
+    const recent = messages
+      .filter((m) => m.conversationId === c.id && !m.deleted)
+      .slice(-30)
+      .map((m) => m.body)
+      .join(' ');
     items.push({
       id: `chat-${c.id}`,
       group: 'Chats',

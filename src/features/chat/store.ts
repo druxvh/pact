@@ -188,8 +188,7 @@ export const useChatStore = create<ChatState>()(
           return { typing: { ...s.typing, [conversationId]: next } };
         }),
 
-      pushRecentEmoji: (emoji) =>
-        set((s) => ({ recentEmoji: [emoji, ...s.recentEmoji.filter((e) => e !== emoji)].slice(0, MAX_RECENT_EMOJI) })),
+      pushRecentEmoji: (emoji) => set((s) => ({ recentEmoji: [emoji, ...s.recentEmoji.filter((e) => e !== emoji)].slice(0, MAX_RECENT_EMOJI) })),
     }),
     {
       name: 'pact-chat',
@@ -246,10 +245,7 @@ syncAcrossTabs('pact-chat', useChatStore);
 // ── selectors / helpers ───────────────────────────────────────────────────────
 
 export function unreadCount(c: Conversation, messages: Message[]): number {
-  return messages.reduce(
-    (n, m) => (m.conversationId === c.id && m.senderId !== ME_ID && !m.deleted && m.createdAt > c.lastReadAt ? n + 1 : n),
-    0,
-  );
+  return messages.reduce((n, m) => (m.conversationId === c.id && m.senderId !== ME_ID && !m.deleted && m.createdAt > c.lastReadAt ? n + 1 : n), 0);
 }
 
 export const selectTotalUnread = (s: ChatState) => s.conversations.reduce((n, c) => n + unreadCount(c, s.messages), 0);

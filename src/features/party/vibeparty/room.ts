@@ -5,7 +5,7 @@
  * server runs one per party for everyone — the exact same rules in both places is what lets a local party
  * and a live party behave identically. No timers, no I/O: the clock is injected so every rule is testable.
  */
-import { LIMITS, type ChatMessage, type MediaEventName, type MediaSnapshot, type PeerInfo, type QueueItem, type RoomState } from './protocol.ts';
+import { type ChatMessage, LIMITS, type MediaEventName, type MediaSnapshot, type PeerInfo, type QueueItem, type RoomState } from './protocol.ts';
 import { cleanChat, cleanId, cleanMediaTime, cleanPeers, cleanQueue, cleanVideoId } from './sanitize.ts';
 
 /** `mediaTime` was true at local time `at` (ms). Extrapolated forward while `playing`. */
@@ -184,9 +184,7 @@ export class Room {
 
   /** Most votes first; ties go to whoever was queued first. */
   sortedQueue(): QueueItem[] {
-    return [...this.queueItems].sort(
-      (a, b) => b.voters.length - a.voters.length || a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1),
-    );
+    return [...this.queueItems].sort((a, b) => b.voters.length - a.voters.length || a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1));
   }
 
   // ── whole-room ────────────────────────────────────────────────────────────

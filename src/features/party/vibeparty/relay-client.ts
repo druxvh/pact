@@ -175,9 +175,12 @@ export class RelayClient implements RelayLike {
     if (this.stopped || this.reconnectTimer) return;
     this.attempts += 1;
     const delay = Math.min(this.maxDelayMs, this.baseDelayMs * 2 ** (this.attempts - 1));
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = undefined;
-      this.connect();
-    }, delay + Math.random() * 400); // jitter so a relay restart isn't a thundering herd
+    this.reconnectTimer = setTimeout(
+      () => {
+        this.reconnectTimer = undefined;
+        this.connect();
+      },
+      delay + Math.random() * 400,
+    ); // jitter so a relay restart isn't a thundering herd
   }
 }

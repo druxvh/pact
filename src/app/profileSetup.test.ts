@@ -29,7 +29,12 @@ describe('user store migration', () => {
   it('drops the legacy "spaces" and keeps what still matters', () => {
     const migrate = useUserStore.persist.getOptions().migrate;
     const out = migrate?.(
-      { currentUser: { id: 'local-user', displayName: 'Sam', username: 'sam', isOnline: true }, spaces: [{ id: 's1', name: 'old' }], friendIds: ['alex'], onboarded: true },
+      {
+        currentUser: { id: 'local-user', displayName: 'Sam', username: 'sam', isOnline: true },
+        spaces: [{ id: 's1', name: 'old' }],
+        friendIds: ['alex'],
+        onboarded: true,
+      },
       3,
     ) as unknown as Record<string, unknown>;
     expect(out).not.toHaveProperty('spaces');

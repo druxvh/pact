@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lastDays, streak, todayStats, totalFocusMinutes } from '@/features/timer/stats';
-import { type SessionRecord, remainingNow, useTimerStore } from '@/features/timer/store';
+import { remainingNow, type SessionRecord, useTimerStore } from '@/features/timer/store';
 
 const fresh = () => {
   localStorage.clear();

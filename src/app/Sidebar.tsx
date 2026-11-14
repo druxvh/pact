@@ -1,25 +1,15 @@
 import { LayoutGroup, motion } from 'motion/react';
+import { ProfileMenu } from '@/app/ProfileMenu';
+import { SECTIONS, type SectionMeta } from '@/app/routes';
 import { Logo } from '@/components/Logo';
 import { Tooltip } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
-import { ProfileMenu } from '@/app/ProfileMenu';
-import { SECTIONS, type SectionMeta } from '@/app/routes';
 import { type Section, useNavStore } from '@/store/useNavStore';
 
 type Badges = Partial<Record<Section, number | 'dot'>>;
 
-function RailItem({
-  item,
-  active,
-  badge,
-  onSelect,
-}: {
-  item: SectionMeta;
-  active: boolean;
-  badge?: number | 'dot';
-  onSelect: () => void;
-}) {
+function RailItem({ item, active, badge, onSelect }: { item: SectionMeta; active: boolean; badge?: number | 'dot'; onSelect: () => void }) {
   const Icon = item.icon;
   return (
     <Tooltip content={item.label} shortcut={`G ${item.hotkey.toUpperCase()}`} side="right">
@@ -61,10 +51,7 @@ export function Sidebar({ badges = {} }: { badges?: Badges }) {
   const settings = SECTIONS.find((s) => s.id === 'settings');
 
   return (
-    <aside
-      aria-label="Primary"
-      className="hidden w-[68px] shrink-0 flex-col items-center border-r bg-background/70 py-3 md:flex"
-    >
+    <aside aria-label="Primary" className="hidden w-[68px] shrink-0 flex-col items-center border-r bg-background/70 py-3 md:flex">
       <Tooltip content="pact" side="right">
         <button type="button" aria-label="pact home" onClick={() => go('home')} className="mb-4 rounded-xl outline-offset-4">
           <Logo />
@@ -79,9 +66,7 @@ export function Sidebar({ badges = {} }: { badges?: Badges }) {
         </nav>
 
         <div className="flex flex-col items-center gap-2">
-          {settings && (
-            <RailItem item={settings} active={section === 'settings'} onSelect={() => go('settings')} />
-          )}
+          {settings && <RailItem item={settings} active={section === 'settings'} onSelect={() => go('settings')} />}
           <ProfileMenu />
         </div>
       </LayoutGroup>
@@ -94,10 +79,7 @@ export function MobileNav({ badges = {} }: { badges?: Badges }) {
   const section = useNavStore((s) => s.section);
   const go = useNavStore((s) => s.go);
   return (
-    <nav
-      aria-label="Sections"
-      className="surface-glass flex shrink-0 items-center justify-around border-t px-1 pb-[env(safe-area-inset-bottom)] md:hidden"
-    >
+    <nav aria-label="Sections" className="surface-glass flex shrink-0 items-center justify-around border-t px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
       {SECTIONS.map((item) => {
         const Icon = item.icon;
         const active = section === item.id;

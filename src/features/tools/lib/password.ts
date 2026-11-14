@@ -16,9 +16,7 @@ const AMBIGUOUS = /[Il1O0o|]/g;
 export type PasswordOptions = { length: number; sets: Record<SetKey, boolean>; excludeAmbiguous: boolean };
 
 export function poolFor(opts: PasswordOptions): string[] {
-  const pools = (Object.keys(SETS) as SetKey[])
-    .filter((k) => opts.sets[k])
-    .map((k) => (opts.excludeAmbiguous ? SETS[k].replace(AMBIGUOUS, '') : SETS[k]));
+  const pools = (Object.keys(SETS) as SetKey[]).filter((k) => opts.sets[k]).map((k) => (opts.excludeAmbiguous ? SETS[k].replace(AMBIGUOUS, '') : SETS[k]));
   return pools;
 }
 

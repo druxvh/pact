@@ -2,15 +2,7 @@ import { RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useCallback, useEffect, useState } from 'react';
 import { IconButton, Slider, Switch } from '@/components/ui';
-import {
-  type PasswordOptions,
-  SETS,
-  type SetKey,
-  entropyBits,
-  generatePassword,
-  randomId,
-  strengthLabel,
-} from '@/features/tools/lib/password';
+import { entropyBits, generatePassword, type PasswordOptions, randomId, SETS, type SetKey, strengthLabel } from '@/features/tools/lib/password';
 import { CopyButton, Field, ResultRow } from '@/features/tools/ui';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
@@ -87,8 +79,20 @@ export function PasswordTool() {
             <span className="font-medium">{strength.label}</span>
             <span className="tabular text-xs text-muted-foreground">{Math.round(bits)} bits of entropy</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted" role="meter" aria-valuenow={Math.round(bits)} aria-valuemin={0} aria-valuemax={128} aria-label="Password strength">
-            <motion.div className={cn('h-full rounded-full', BAR[strength.tone])} initial={false} animate={{ width: `${strength.pct}%` }} transition={spring.soft} />
+          <div
+            className="h-2 overflow-hidden rounded-full bg-muted"
+            role="meter"
+            aria-valuenow={Math.round(bits)}
+            aria-valuemin={0}
+            aria-valuemax={128}
+            aria-label="Password strength"
+          >
+            <motion.div
+              className={cn('h-full rounded-full', BAR[strength.tone])}
+              initial={false}
+              animate={{ width: `${strength.pct}%` }}
+              transition={spring.soft}
+            />
           </div>
         </div>
 
@@ -111,7 +115,11 @@ export function PasswordTool() {
           ))}
           <label className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-[13px] sm:col-span-2">
             Avoid look-alike characters (I, l, 1, O, 0)
-            <Switch aria-label="Avoid look-alike characters" checked={opts.excludeAmbiguous} onCheckedChange={(v) => setOpts((o) => ({ ...o, excludeAmbiguous: v }))} />
+            <Switch
+              aria-label="Avoid look-alike characters"
+              checked={opts.excludeAmbiguous}
+              onCheckedChange={(v) => setOpts((o) => ({ ...o, excludeAmbiguous: v }))}
+            />
           </label>
         </div>
       </div>

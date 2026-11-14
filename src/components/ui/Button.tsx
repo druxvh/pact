@@ -3,15 +3,7 @@ import type * as React from 'react';
 import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/lib/cn';
 
-export type ButtonVariant =
-  | 'primary'
-  | 'secondary'
-  | 'outline'
-  | 'ghost'
-  | 'soft'
-  | 'destructive'
-  | 'danger'
-  | 'link';
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'soft' | 'destructive' | 'danger' | 'link';
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'icon-xs' | 'icon-sm' | 'icon' | 'icon-lg';
 
 const base =
@@ -20,8 +12,7 @@ const base =
   'active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4';
 
 const variants: Record<ButtonVariant, string> = {
-  primary:
-    'bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28),0_1px_2px_oklch(0_0_0/0.25)] hover:brightness-110 active:brightness-95',
+  primary: 'bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28),0_1px_2px_oklch(0_0_0/0.25)] hover:brightness-110 active:brightness-95',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
   outline: 'border border-input bg-transparent text-foreground hover:bg-accent',
   ghost: 'text-muted-foreground hover:bg-accent hover:text-foreground data-[pressed]:bg-accent data-[popup-open]:bg-accent data-[popup-open]:text-foreground',

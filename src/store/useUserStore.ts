@@ -81,8 +81,7 @@ export const useUserStore = create<UserState>()(
 
       updateProfile: (patch) => set((s) => ({ currentUser: { ...s.currentUser, ...patch, id: ME_ID } })),
 
-      completeOnboarding: (patch) =>
-        set((s) => ({ currentUser: { ...s.currentUser, ...patch, id: ME_ID }, onboarded: true })),
+      completeOnboarding: (patch) => set((s) => ({ currentUser: { ...s.currentUser, ...patch, id: ME_ID }, onboarded: true })),
 
       sendFriendRequest: (rawUsername) => {
         const clean = normalizeUsername(rawUsername);
@@ -134,9 +133,7 @@ export const useUserStore = create<UserState>()(
           currentUser: p.currentUser ?? DEFAULT_ME,
           teammates: DEMO_DIRECTORY,
           friendRequests: reqs,
-          friendIds:
-            p.friendIds ??
-            reqs.filter((r) => r.status === 'accepted').map((r) => (r.fromId === ME_ID ? r.toId : r.fromId)),
+          friendIds: p.friendIds ?? reqs.filter((r) => r.status === 'accepted').map((r) => (r.fromId === ME_ID ? r.toId : r.fromId)),
           onboarded: p.onboarded ?? false,
         } as UserState;
       },

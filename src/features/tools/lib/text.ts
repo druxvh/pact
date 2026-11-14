@@ -16,11 +16,23 @@ export const CASES = {
   lower: (s: string) => s.toLowerCase(),
   title: (s: string) => s.toLowerCase().replace(/(^|[\s\-–—(["'])(\p{L})/gu, (_m, pre: string, ch: string) => pre + ch.toUpperCase()),
   sentence: (s: string) => s.toLowerCase().replace(/(^\s*|[.!?]\s+)(\p{L})/gu, (_m, pre: string, ch: string) => pre + ch.toUpperCase()),
-  camel: (s: string) => words(s).map((w, i) => (i === 0 ? w.toLowerCase() : cap(w))).join(''),
+  camel: (s: string) =>
+    words(s)
+      .map((w, i) => (i === 0 ? w.toLowerCase() : cap(w)))
+      .join(''),
   pascal: (s: string) => words(s).map(cap).join(''),
-  snake: (s: string) => words(s).map((w) => w.toLowerCase()).join('_'),
-  kebab: (s: string) => words(s).map((w) => w.toLowerCase()).join('-'),
-  constant: (s: string) => words(s).map((w) => w.toUpperCase()).join('_'),
+  snake: (s: string) =>
+    words(s)
+      .map((w) => w.toLowerCase())
+      .join('_'),
+  kebab: (s: string) =>
+    words(s)
+      .map((w) => w.toLowerCase())
+      .join('-'),
+  constant: (s: string) =>
+    words(s)
+      .map((w) => w.toUpperCase())
+      .join('_'),
   slug: (s: string) =>
     s
       .normalize('NFKD')
@@ -35,15 +47,29 @@ export type CaseKind = keyof typeof CASES;
 export function reverseText(s: string): string {
   const Seg = (Intl as unknown as { Segmenter?: new (l?: string, o?: object) => { segment: (s: string) => Iterable<{ segment: string }> } }).Segmenter;
   if (!Seg) return Array.from(s).reverse().join('');
-  return Array.from(new Seg(undefined, { granularity: 'grapheme' }).segment(s), (x) => x.segment).reverse().join('');
+  return Array.from(new Seg(undefined, { granularity: 'grapheme' }).segment(s), (x) => x.segment)
+    .reverse()
+    .join('');
 }
 
 export const LINES = {
-  sort: (s: string) => s.split('\n').sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).join('\n'),
+  sort: (s: string) =>
+    s
+      .split('\n')
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+      .join('\n'),
   reverse: (s: string) => s.split('\n').reverse().join('\n'),
   unique: (s: string) => [...new Set(s.split('\n'))].join('\n'),
-  dropEmpty: (s: string) => s.split('\n').filter((l) => l.trim() !== '').join('\n'),
-  trim: (s: string) => s.split('\n').map((l) => l.trim()).join('\n'),
+  dropEmpty: (s: string) =>
+    s
+      .split('\n')
+      .filter((l) => l.trim() !== '')
+      .join('\n'),
+  trim: (s: string) =>
+    s
+      .split('\n')
+      .map((l) => l.trim())
+      .join('\n'),
 } as const;
 export type LineKind = keyof typeof LINES;
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Segmented, Switch, Textarea } from '@/components/ui';
-import { type Result, base64Decode, base64Encode, formatJson, minifyJson, urlDecode, urlEncode } from '@/features/tools/lib/encode';
+import { base64Decode, base64Encode, formatJson, minifyJson, type Result, urlDecode, urlEncode } from '@/features/tools/lib/encode';
 import { Field, OutputBox } from '@/features/tools/ui';
 
 type Kind = 'url' | 'base64' | 'json';

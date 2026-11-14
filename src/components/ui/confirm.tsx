@@ -45,11 +45,7 @@ export function ConfirmHost() {
         <A.Viewport className="fixed inset-0 z-[70] grid place-items-center p-4">
           <A.Popup className="w-full max-w-sm rounded-2xl border bg-popover p-5 text-popover-foreground shadow-pop outline-none transition-[opacity,transform] duration-200 ease-out-expo data-[starting-style]:translate-y-2 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
             <A.Title className="text-base font-semibold tracking-tight">{options?.title}</A.Title>
-            {options?.description && (
-              <A.Description className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
-                {options.description}
-              </A.Description>
-            )}
+            {options?.description && <A.Description className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{options.description}</A.Description>}
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="ghost" onClick={() => settle(false)}>
                 {options?.cancelLabel ?? 'Cancel'}

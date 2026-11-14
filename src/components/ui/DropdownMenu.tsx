@@ -21,12 +21,7 @@ export function DropdownContent({
   return (
     <M.Portal>
       <M.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={12} className="z-50">
-        <M.Popup
-          className={cn(
-            'popup-motion min-w-44 rounded-xl border bg-popover p-1 text-popover-foreground shadow-pop outline-none',
-            className,
-          )}
-        >
+        <M.Popup className={cn('popup-motion min-w-44 rounded-xl border bg-popover p-1 text-popover-foreground shadow-pop outline-none', className)}>
           {children}
         </M.Popup>
       </M.Positioner>
@@ -71,9 +66,5 @@ export function DropdownSeparator() {
 }
 
 export function DropdownLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="px-2 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">
-      {children}
-    </div>
-  );
+  return <div className="px-2 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">{children}</div>;
 }

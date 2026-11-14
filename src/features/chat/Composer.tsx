@@ -73,7 +73,10 @@ export function Composer({
         continue;
       }
       if (file.size > MAX_ATTACHMENT_BYTES) {
-        notify.error('File too large', `${file.name} is ${formatBytes(file.size)} — the limit is ${formatBytes(MAX_ATTACHMENT_BYTES)}. Try the Image tool to shrink it.`);
+        notify.error(
+          'File too large',
+          `${file.name} is ${formatBytes(file.size)} — the limit is ${formatBytes(MAX_ATTACHMENT_BYTES)}. Try the Image tool to shrink it.`,
+        );
         continue;
       }
       ok.push({ key: uid('p'), file, url: URL.createObjectURL(file) });
@@ -109,7 +112,15 @@ export function Composer({
         const id = uid('att');
         await putBlob(id, p.file);
         const isVideo = p.file.type.startsWith('video/');
-        const dims = isVideo ? null : await createImageBitmap(p.file).then((b) => { const d = { width: b.width, height: b.height }; b.close(); return d; }).catch(() => null);
+        const dims = isVideo
+          ? null
+          : await createImageBitmap(p.file)
+              .then((b) => {
+                const d = { width: b.width, height: b.height };
+                b.close();
+                return d;
+              })
+              .catch(() => null);
         attachments.push({ id, kind: isVideo ? 'video' : 'image', name: p.file.name, size: p.file.size, mime: p.file.type, ...dims });
       }
       sendMessage({ conversationId, body: text, attachments, replyTo: replyId ?? undefined });
@@ -171,7 +182,13 @@ export function Composer({
           >
             <div className="mb-2 flex flex-wrap gap-2">
               {pending.map((p) => (
-                <motion.div key={p.key} layout initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="group relative size-16 overflow-hidden rounded-xl border bg-muted">
+                <motion.div
+                  key={p.key}
+                  layout
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="group relative size-16 overflow-hidden rounded-xl border bg-muted"
+                >
                   {p.file.type.startsWith('video/') ? (
                     // biome-ignore lint/a11y/useMediaCaption: preview thumbnail
                     <video src={p.url} className="size-full object-cover" muted />

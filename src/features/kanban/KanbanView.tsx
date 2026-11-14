@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
 import { GroupBar, type GroupItem } from '@/components/GroupBar';
 import { InviteDialog } from '@/components/InviteDialog';
-import { Button, InputGroup, Kbd, PageHeader, Segmented, confirm, promptText } from '@/components/ui';
+import { Button, confirm, InputGroup, Kbd, PageHeader, promptText, Segmented } from '@/components/ui';
 import { Board } from '@/features/kanban/Board';
 import { type Task, useKanbanStore } from '@/features/kanban/store';
 import { TaskDialog, type TaskDialogTarget } from '@/features/kanban/TaskDialog';
@@ -129,11 +129,7 @@ export function KanbanView() {
       <PageHeader
         icon={Columns3}
         title="Kanban"
-        description={
-          boardTasks.length
-            ? `${done} of ${boardTasks.length} tasks done on ${board.name}`
-            : `Plan work on ${board.name}`
-        }
+        description={boardTasks.length ? `${done} of ${boardTasks.length} tasks done on ${board.name}` : `Plan work on ${board.name}`}
         actions={
           <Button variant="primary" onClick={() => setDialog({ kind: 'create', boardId: board.id, columnId: 'todo' })}>
             <Plus /> New task <Kbd className="ml-1 hidden border-brand-foreground/20 bg-brand-foreground/10 text-brand-foreground sm:inline-flex">N</Kbd>
@@ -161,7 +157,12 @@ export function KanbanView() {
           leading={<Search />}
           trailing={
             query ? (
-              <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setQuery('')}
+                className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+              >
                 <X className="size-3.5" />
               </button>
             ) : undefined

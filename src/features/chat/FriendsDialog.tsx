@@ -196,10 +196,19 @@ export function FriendsDialog({ open, onOpenChange, onOpenChat }: { open: boolea
 
           {tab === 'friends' && (
             <ul className="-mx-2">
-              {friends.length === 0 && <li className="px-2 py-6 text-center text-[13px] text-muted-foreground">No friends yet — add someone in the first tab.</li>}
+              {friends.length === 0 && (
+                <li className="px-2 py-6 text-center text-[13px] text-muted-foreground">No friends yet — add someone in the first tab.</li>
+              )}
               <AnimatePresence initial={false}>
                 {friends.map((p) => (
-                  <motion.li key={p.id} layout transition={spring.soft} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 rounded-lg px-2 py-1.5">
+                  <motion.li
+                    key={p.id}
+                    layout
+                    transition={spring.soft}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex items-center gap-3 rounded-lg px-2 py-1.5"
+                  >
                     <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{p.displayName}</p>

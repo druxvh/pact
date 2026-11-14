@@ -1,6 +1,6 @@
-import { registerTimerBackground } from '@/features/timer/background';
-import { initVibePartyBackground } from '@/features/party/vibeparty/background';
 import { browser } from 'wxt/browser';
+import { initVibePartyBackground } from '@/features/party/vibeparty/background';
+import { registerTimerBackground } from '@/features/timer/background';
 
 /** Section keywords for the `pact <keyword>` omnibox shortcut. */
 const SECTIONS: Array<{ id: string; label: string; keywords: string[] }> = [
@@ -38,10 +38,7 @@ function registerOmnibox(): void {
       content: `go:${s.id}`,
       description: `Open <match>${escapeXml(s.label)}</match> in pact`,
     }));
-    suggest([
-      ...pages,
-      { content: text, description: `Search the web for <match>${escapeXml(text)}</match>` },
-    ]);
+    suggest([...pages, { content: text, description: `Search the web for <match>${escapeXml(text)}</match>` }]);
   });
 
   omnibox.onInputEntered.addListener(async (text, disposition) => {

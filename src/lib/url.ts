@@ -6,8 +6,36 @@ const LOCAL = /^(?:localhost|(?:\d{1,3}\.){3}\d{1,3}|\[[0-9a-f:]+\])(?::\d{2,5})
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+([a-z]{2,})(?::\d{2,5})?(?:[/?#]\S*)?$/i;
 
 const COMMON_TLDS = new Set([
-  'com', 'org', 'net', 'io', 'dev', 'app', 'ai', 'co', 'edu', 'gov', 'info', 'me', 'tv', 'xyz', 'tech', 'cloud',
-  'blog', 'site', 'online', 'store', 'shop', 'news', 'club', 'live', 'design', 'page', 'new', 'run', 'so', 'gg',
+  'com',
+  'org',
+  'net',
+  'io',
+  'dev',
+  'app',
+  'ai',
+  'co',
+  'edu',
+  'gov',
+  'info',
+  'me',
+  'tv',
+  'xyz',
+  'tech',
+  'cloud',
+  'blog',
+  'site',
+  'online',
+  'store',
+  'shop',
+  'news',
+  'club',
+  'live',
+  'design',
+  'page',
+  'new',
+  'run',
+  'so',
+  'gg',
 ]);
 // Two-letter "TLDs" that people far more often mean as file extensions.
 const FILE_LIKE = new Set(['js', 'ts', 'md', 'py', 'rb', 'sh', 'cs', 'rs', 'cc', 'pl', 'ps', 'jsx', 'mjs', 'cjs']);

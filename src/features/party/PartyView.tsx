@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   Badge,
   Button,
+  buttonClass,
   Card,
   DropdownContent,
   DropdownItem,
@@ -15,14 +16,13 @@ import {
   Label,
   PageHeader,
   Skeleton,
-  buttonClass,
 } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from '@/features/party/roomCode';
 import { usePartyStore } from '@/features/party/store';
 import { type AppStatus, type ConnectionMode, type OpenResult, VIBEPARTY_NAME_KEY } from '@/features/party/vibeparty/protocol';
-import { cn } from '@/lib/cn';
 import { copyText } from '@/lib/clipboard';
+import { cn } from '@/lib/cn';
 import { sendToBackground, storeLocal } from '@/lib/ext';
 import { relativeTime } from '@/lib/format';
 import { fadeUp, spring, stagger } from '@/lib/motion';
@@ -76,15 +76,27 @@ function ModeBadge({ status }: { status: AppStatus | null | undefined }) {
   if (status === undefined) return <Skeleton className="h-6 w-28 rounded-full" />;
   if (status === null) {
     return (
-      <Badge tone="outline" className="h-6 gap-1.5 px-2.5 text-xs" title="pact is running as a plain web page, so there is no browser to start a party in. Load it as an extension.">
+      <Badge
+        tone="outline"
+        className="h-6 gap-1.5 px-2.5 text-xs"
+        title="pact is running as a plain web page, so there is no browser to start a party in. Load it as an extension."
+      >
         <Info /> Preview mode
       </Badge>
     );
   }
   const watching = status.rooms.reduce((n, r) => n + r.peers, 0);
   const mode: Record<ConnectionMode, { tone: 'neutral' | 'success' | 'warning'; label: string; hint: string }> = {
-    local: { tone: 'neutral', label: 'This browser', hint: 'Parties sync the YouTube tabs in this browser. A relay is needed to watch with friends elsewhere.' },
-    live: { tone: 'success', label: watching > 0 ? `Live · ${watching} watching` : 'Live', hint: 'Connected to a relay — friends can join from anywhere with the room code.' },
+    local: {
+      tone: 'neutral',
+      label: 'This browser',
+      hint: 'Parties sync the YouTube tabs in this browser. A relay is needed to watch with friends elsewhere.',
+    },
+    live: {
+      tone: 'success',
+      label: watching > 0 ? `Live · ${watching} watching` : 'Live',
+      hint: 'Connected to a relay — friends can join from anywhere with the room code.',
+    },
     reconnecting: { tone: 'warning', label: 'Reconnecting…', hint: 'The relay is unreachable. Changes stay on this browser until it’s back.' },
   };
   const m = mode[status.mode];
@@ -109,8 +121,8 @@ function ModeExplainer({ status }: { status: AppStatus | null | undefined }) {
         <p className="flex items-start gap-2 text-[13px] text-muted-foreground">
           <Info className="mt-0.5 size-4 shrink-0" />
           <span>
-            You’re viewing pact as a regular web page, so VibeParty can’t reach a browser to start a party in. Load the built extension (<code className="font-mono text-xs">bun run dev</code> opens a
-            browser with it installed) to try it for real.
+            You’re viewing pact as a regular web page, so VibeParty can’t reach a browser to start a party in. Load the built extension (
+            <code className="font-mono text-xs">bun run dev</code> opens a browser with it installed) to try it for real.
           </span>
         </p>
       </Card>
@@ -129,16 +141,16 @@ function ModeExplainer({ status }: { status: AppStatus | null | undefined }) {
       <p className="text-[13px] leading-relaxed text-muted-foreground">{text}</p>
       {status.mode === 'local' && (
         <div className="mt-3 space-y-2 rounded-lg border bg-muted/40 p-3 text-[12.5px]">
-          <p className="text-muted-foreground">
-            Start a relay (needs Bun or Node), then rebuild with its address:
-          </p>
+          <p className="text-muted-foreground">Start a relay (needs Bun or Node), then rebuild with its address:</p>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">bun run relay</code>
             <IconButton label="Copy command" size="icon-sm" onClick={copyCmd}>
               <Copy />
             </IconButton>
           </div>
-          <code className="block truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">WXT_VIBEPARTY_WS_URL=wss://your-relay.example bun run build</code>
+          <code className="block truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">
+            WXT_VIBEPARTY_WS_URL=wss://your-relay.example bun run build
+          </code>
           <p className="text-subtle-foreground">Remote relays must use wss:// — the extension refuses unencrypted ones. See the README for deployment.</p>
         </div>
       )}
@@ -210,7 +222,12 @@ export function PartyView() {
   return (
     <motion.div variants={stagger(0.06)} initial="hidden" animate="show" className="mx-auto w-full max-w-3xl space-y-4">
       <motion.div variants={fadeUp}>
-        <PageHeader icon={Disc3} title="VibeParty" description="Watch YouTube in sync — with chat, reactions and a shared queue" actions={<ModeBadge status={status} />} />
+        <PageHeader
+          icon={Disc3}
+          title="VibeParty"
+          description="Watch YouTube in sync — with chat, reactions and a shared queue"
+          actions={<ModeBadge status={status} />}
+        />
       </motion.div>
 
       <motion.div variants={fadeUp}>
@@ -232,7 +249,13 @@ export function PartyView() {
                 />
                 <AnimatePresence>
                   {valid && (
-                    <motion.span initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} transition={spring.bouncy} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-success-text">
+                    <motion.span
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={spring.bouncy}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-success-text"
+                    >
                       <Check className="size-4" />
                     </motion.span>
                   )}
@@ -261,7 +284,14 @@ export function PartyView() {
                 }}
               >
                 <AnimatePresence mode="wait" initial={false}>
-                  <motion.span key={copied === 'code' ? 'ok' : 'copy'} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} transition={{ duration: 0.12 }} className="grid place-items-center">
+                  <motion.span
+                    key={copied === 'code' ? 'ok' : 'copy'}
+                    initial={{ scale: 0.6, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.6, opacity: 0 }}
+                    transition={{ duration: 0.12 }}
+                    className="grid place-items-center"
+                  >
                     {copied === 'code' ? <Check className="text-success-text" /> : <Copy />}
                   </motion.span>
                 </AnimatePresence>
@@ -278,7 +308,14 @@ export function PartyView() {
 
           <div className="max-w-xs">
             <Label htmlFor="party-name">Your name in the party</Label>
-            <Input id="party-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} placeholder={profileName || 'guest'} autoComplete="nickname" />
+            <Input
+              id="party-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={24}
+              placeholder={profileName || 'guest'}
+              autoComplete="nickname"
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -316,7 +353,13 @@ export function PartyView() {
 
           <AnimatePresence>
             {unavailable && (
-              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-text">
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                role="status"
+                className="flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-text"
+              >
                 <Info className="mt-0.5 size-4 shrink-0" />
                 VibeParty needs pact to be installed as an extension — there’s no browser to open YouTube in from a plain web page.
               </motion.p>
@@ -368,8 +411,21 @@ export function PartyView() {
             <ul className="flex flex-wrap gap-2">
               <AnimatePresence initial={false}>
                 {recent.map((r) => (
-                  <motion.li key={r.code} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={spring.snappy} className="group flex items-center rounded-full border bg-background/50 pl-3 pr-1 transition-colors hover:border-foreground/25">
-                    <button type="button" onClick={() => setCode(r.code)} className="flex items-center gap-2 py-1 pr-1 text-left outline-offset-2" title="Use this code again">
+                  <motion.li
+                    key={r.code}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={spring.snappy}
+                    className="group flex items-center rounded-full border bg-background/50 pl-3 pr-1 transition-colors hover:border-foreground/25"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setCode(r.code)}
+                      className="flex items-center gap-2 py-1 pr-1 text-left outline-offset-2"
+                      title="Use this code again"
+                    >
                       <span className="font-mono text-xs font-medium">#{r.code}</span>
                       <span className="flex items-center gap-1 text-[11px] text-subtle-foreground">
                         <Clock className="size-3" /> {relativeTime(r.at)}

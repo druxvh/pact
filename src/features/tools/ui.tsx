@@ -80,7 +80,17 @@ export function ResultRow({ label, value, mono = true }: { label: string; value:
 }
 
 /** Output box with an optional error state. */
-export function OutputBox({ value, error, className, placeholder = 'Result appears here' }: { value: string; error?: string | null; className?: string; placeholder?: string }) {
+export function OutputBox({
+  value,
+  error,
+  className,
+  placeholder = 'Result appears here',
+}: {
+  value: string;
+  error?: string | null;
+  className?: string;
+  placeholder?: string;
+}) {
   return (
     <div
       className={cn(

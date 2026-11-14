@@ -21,7 +21,5 @@ export function resolveInvite(memberIds: string[], rawUsername: string): InviteR
 /** Resolve member ids (incl. the current user) to people, preserving order. */
 export function membersOf(memberIds: string[]): Person[] {
   const { teammates, currentUser } = useUserStore.getState();
-  return memberIds
-    .map((id) => (id === currentUser.id ? currentUser : teammates.find((t) => t.id === id)))
-    .filter((p): p is Person => Boolean(p));
+  return memberIds.map((id) => (id === currentUser.id ? currentUser : teammates.find((t) => t.id === id))).filter((p): p is Person => Boolean(p));
 }

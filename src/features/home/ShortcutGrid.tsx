@@ -1,19 +1,12 @@
 import { EyeOff, MoreHorizontal, Pencil, Pin, Plus, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
+import { confirm, DropdownContent, DropdownItem, DropdownMenu, DropdownSeparator, DropdownTrigger } from '@/components/ui';
+import type { SearchableLink } from '@/features/home/OmniSearch';
 import { ShortcutDialog } from '@/features/home/ShortcutDialog';
 import { SiteIcon } from '@/features/home/SiteIcon';
 import { type Shortcut, useHomeStore } from '@/features/home/store';
-import {
-  DropdownContent,
-  DropdownItem,
-  DropdownMenu,
-  DropdownSeparator,
-  DropdownTrigger,
-  confirm,
-} from '@/components/ui';
-import type { SearchableLink } from '@/features/home/OmniSearch';
-import { type TopSite, getTopSites, openUrl } from '@/lib/ext';
+import { getTopSites, openUrl, type TopSite } from '@/lib/ext';
 import { spring } from '@/lib/motion';
 import { notify } from '@/lib/toast';
 import { hostnameOf } from '@/lib/url';
@@ -73,10 +66,7 @@ export function useHomeLinks() {
       })
       .map<Tile>((t) => ({ id: `top-${hostnameOf(t.url)}`, title: t.title || hostnameOf(t.url), url: t.url, kind: 'top' }));
     // Pinned shortcuts always show; the cap only limits auto-filled most-visited sites.
-    return [
-      ...pinned.map<Tile>((p) => ({ ...p, kind: 'pinned' })),
-      ...fromTop.slice(0, Math.max(0, MAX_TILES - pinned.length)),
-    ];
+    return [...pinned.map<Tile>((p) => ({ ...p, kind: 'pinned' })), ...fromTop.slice(0, Math.max(0, MAX_TILES - pinned.length))];
   }, [pinned, top, hiddenHosts]);
 
   return { tiles, top, links: tiles as SearchableLink[] };

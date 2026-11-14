@@ -22,25 +22,12 @@ type Props<T extends string> = {
 };
 
 /** Pill-style single-select with a sliding highlight (pure CSS, driven by Base UI's active-tab variables). */
-export function Segmented<T extends string>({
-  value,
-  onValueChange,
-  options,
-  size = 'md',
-  className,
-  fullWidth,
-  disabled,
-  ...aria
-}: Props<T>) {
+export function Segmented<T extends string>({ value, onValueChange, options, size = 'md', className, fullWidth, disabled, ...aria }: Props<T>) {
   return (
     <Tabs.Root value={value} onValueChange={(v) => onValueChange(v as T)}>
       <Tabs.List
         aria-label={aria['aria-label']}
-        className={cn(
-          'relative inline-flex items-center rounded-lg bg-muted p-0.5',
-          fullWidth && 'flex w-full',
-          className,
-        )}
+        className={cn('relative inline-flex items-center rounded-lg bg-muted p-0.5', fullWidth && 'flex w-full', className)}
       >
         {options.map((o) => (
           <Tabs.Tab

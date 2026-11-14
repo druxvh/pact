@@ -14,10 +14,7 @@ export function toggleTaskOnLine(source: string, line: number): string {
   const idx = line - 1;
   const text = lines[idx];
   if (text === undefined) return source;
-  const next = text.replace(
-    /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/,
-    (_m, a: string, c: string, b: string) => `${a}${c === ' ' ? 'x' : ' '}${b}`,
-  );
+  const next = text.replace(/^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/, (_m, a: string, c: string, b: string) => `${a}${c === ' ' ? 'x' : ' '}${b}`);
   if (next === text) return source;
   lines[idx] = next;
   return lines.join('\n');

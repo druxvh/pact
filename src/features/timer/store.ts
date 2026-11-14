@@ -108,8 +108,7 @@ export const useTimerStore = create<TimerState>()(
           return { phase: next, status: 'idle', endsAt: null, remainingMs: minutesToMs(s.durations[next]) };
         }),
 
-      setPhase: (phase) =>
-        set((s) => ({ phase, status: 'idle', endsAt: null, remainingMs: minutesToMs(s.durations[phase]) })),
+      setPhase: (phase) => set((s) => ({ phase, status: 'idle', endsAt: null, remainingMs: minutesToMs(s.durations[phase]) })),
 
       setDurations: (patch) =>
         set((s) => {

@@ -2,7 +2,7 @@ import { ArrowRight, Download, ImagePlus, RefreshCw, TrendingDown, TrendingUp, X
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Button, IconButton, Segmented, Select, Slider, Spinner, Switch } from '@/components/ui';
-import { type CompressResult, type OutputFormat, compressImage, extensionFor } from '@/features/tools/lib/image';
+import { type CompressResult, compressImage, extensionFor, type OutputFormat } from '@/features/tools/lib/image';
 import { Field } from '@/features/tools/ui';
 import { cn } from '@/lib/cn';
 import { formatBytes } from '@/lib/format';
@@ -154,17 +154,35 @@ export function ImageTool() {
             over ? 'scale-[1.01] border-brand bg-brand-soft' : 'hover:border-foreground/30 hover:bg-accent/50',
           )}
         >
-          <motion.span animate={over ? { y: -6, scale: 1.1 } : { y: 0, scale: 1 }} transition={spring.bouncy} className="grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand-text">
+          <motion.span
+            animate={over ? { y: -6, scale: 1.1 } : { y: 0, scale: 1 }}
+            transition={spring.bouncy}
+            className="grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand-text"
+          >
             <ImagePlus className="size-7" />
           </motion.span>
           <div>
             <p className="text-sm font-medium">{over ? 'Drop it here' : 'Drop an image, paste, or browse'}</p>
             <p className="mt-1 text-[13px] text-muted-foreground">JPEG, PNG or WebP · compressed on this device — nothing is uploaded</p>
           </div>
-          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              inputRef.current?.click();
+            }}
+          >
             Choose file
           </Button>
-          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => void load(e.target.files?.[0])} aria-label="Choose an image" />
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            onChange={(e) => void load(e.target.files?.[0])}
+            aria-label="Choose an image"
+          />
         </div>
       </div>
     );
@@ -178,8 +196,12 @@ export function ImageTool() {
             <img src={loaded.url} alt="Original" className="max-h-full max-w-full object-contain" />
           </div>
           <figcaption className="flex items-center justify-between gap-2 border-t px-3 py-2 text-[13px]">
-            <span className="min-w-0 truncate font-medium" title={loaded.file.name}>{loaded.file.name}</span>
-            <span className="tabular shrink-0 text-muted-foreground">{formatBytes(loaded.file.size)} · {loaded.width}×{loaded.height}</span>
+            <span className="min-w-0 truncate font-medium" title={loaded.file.name}>
+              {loaded.file.name}
+            </span>
+            <span className="tabular shrink-0 text-muted-foreground">
+              {formatBytes(loaded.file.size)} · {loaded.width}×{loaded.height}
+            </span>
           </figcaption>
         </figure>
 
@@ -204,9 +226,7 @@ export function ImageTool() {
                 </motion.span>
               )}
             </AnimatePresence>
-            <span className="tabular text-muted-foreground">
-              {result ? `${formatBytes(result.blob.size)} · ${result.width}×${result.height}` : '…'}
-            </span>
+            <span className="tabular text-muted-foreground">{result ? `${formatBytes(result.blob.size)} · ${result.width}×${result.height}` : '…'}</span>
           </figcaption>
         </figure>
       </div>
@@ -227,7 +247,14 @@ export function ImageTool() {
           />
         </Field>
         <Field label={`Quality: ${quality}%`} hint={format === 'png' ? 'PNG is lossless' : undefined}>
-          <Slider aria-label="Quality" value={quality} min={10} max={100} onValueChange={setQuality} className={cn(format === 'png' && 'pointer-events-none opacity-40')} />
+          <Slider
+            aria-label="Quality"
+            value={quality}
+            min={10}
+            max={100}
+            onValueChange={setQuality}
+            className={cn(format === 'png' && 'pointer-events-none opacity-40')}
+          />
         </Field>
         <Field label="Max dimension">
           <Select
@@ -273,8 +300,17 @@ export function ImageTool() {
         >
           <X />
         </IconButton>
-        <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => void load(e.target.files?.[0])} aria-label="Choose another image" />
-        {result && result.iterations > 1 && <span className="text-xs text-muted-foreground">Tuned over {result.iterations} passes to reach the size target.</span>}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          onChange={(e) => void load(e.target.files?.[0])}
+          aria-label="Choose another image"
+        />
+        {result && result.iterations > 1 && (
+          <span className="text-xs text-muted-foreground">Tuned over {result.iterations} passes to reach the size target.</span>
+        )}
       </div>
     </div>
   );

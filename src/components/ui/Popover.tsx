@@ -13,14 +13,7 @@ type ContentProps = Omit<React.ComponentProps<typeof P.Popup>, 'className'> & {
   sideOffset?: number;
 };
 
-export function PopoverContent({
-  className,
-  side = 'bottom',
-  align = 'center',
-  sideOffset = 8,
-  children,
-  ...props
-}: ContentProps) {
+export function PopoverContent({ className, side = 'bottom', align = 'center', sideOffset = 8, children, ...props }: ContentProps) {
   return (
     <P.Portal>
       <P.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={12} className="z-50">

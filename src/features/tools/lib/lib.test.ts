@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, parseColor, suggestForeground, toHex, toHslString, toOklchString, toRgbString, wcag } from '@/features/tools/lib/color';
 import { base64Decode, base64Encode, formatJson, minifyJson, urlDecode, urlEncode } from '@/features/tools/lib/encode';
-import { SETS, entropyBits, generatePassword, randomInt, strengthLabel } from '@/features/tools/lib/password';
+import { entropyBits, generatePassword, randomInt, SETS, strengthLabel } from '@/features/tools/lib/password';
 import { CASES, LINES, reverseText, textStats } from '@/features/tools/lib/text';
 import { convert, formatUnit } from '@/features/tools/lib/units';
 

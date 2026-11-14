@@ -38,12 +38,7 @@ export function ConvertTool() {
   return (
     <div className="space-y-6">
       <div className="no-scrollbar -mx-1 overflow-x-auto px-1 pb-1">
-        <Segmented
-          aria-label="Category"
-          value={categoryId}
-          onValueChange={setCategoryId}
-          options={CATEGORIES.map((c) => ({ value: c.id, label: c.label }))}
-        />
+        <Segmented aria-label="Category" value={categoryId} onValueChange={setCategoryId} options={CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} />
       </div>
 
       <div className="grid items-end gap-3 md:grid-cols-[1fr_auto_1fr]">
@@ -98,9 +93,7 @@ export function ConvertTool() {
       </div>
 
       <div>
-        <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-          {valid ? `${formatUnit(n)} ${symbol(from)} equals…` : 'Enter a number'}
-        </h3>
+        <h3 className="mb-2 text-xs font-medium text-muted-foreground">{valid ? `${formatUnit(n)} ${symbol(from)} equals…` : 'Enter a number'}</h3>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {category.units
             .filter((u) => u.id !== from)

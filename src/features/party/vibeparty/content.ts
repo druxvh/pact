@@ -11,12 +11,12 @@ import {
   type BackgroundToContent,
   type ContentToBackground,
   type MediaSnapshot,
+  parseYouTubeId,
   VIBEPARTY_NAME_KEY,
   VIBEPARTY_PREFS_KEY,
-  parseYouTubeId,
   watchUrlFor,
 } from './protocol.ts';
-import { SyncEngine, getYouTubeVideoId } from './sync-engine.ts';
+import { getYouTubeVideoId, SyncEngine } from './sync-engine.ts';
 
 const PING_MS = 20_000;
 const TITLE_TIMEOUT_MS = 3_000;

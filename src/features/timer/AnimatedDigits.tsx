@@ -24,7 +24,12 @@ function Digit({ ch }: { ch: string }) {
 /** "24:07" with each digit sliding independently when it changes. */
 export function AnimatedDigits({ value, className, running }: { value: string; className?: string; running?: boolean }) {
   return (
-    <span role="timer" aria-live="off" aria-label={value} className={cn('tabular inline-flex items-center font-light leading-none tracking-tighter', className)}>
+    <span
+      role="timer"
+      aria-live="off"
+      aria-label={value}
+      className={cn('tabular inline-flex items-center font-light leading-none tracking-tighter', className)}
+    >
       {Array.from(value).map((ch, i) =>
         ch === ':' ? (
           // biome-ignore lint/suspicious/noArrayIndexKey: positional by design — each slot is a fixed digit position

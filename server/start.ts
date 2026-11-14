@@ -18,7 +18,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',')
 const relay = await startRelay({ port, host, allowedOrigins, log: (line) => console.log(`[relay] ${line}`) });
 console.log(`VibeParty relay listening on ws://${host}:${relay.port}`);
 if (!allowedOrigins?.length) console.log('Tip: set ALLOWED_ORIGINS=chrome-extension://<your-extension-id> so random web pages can’t connect.');
-if (host !== '127.0.0.1' && host !== 'localhost') console.log('Tip: terminate TLS in front of this (Caddy / nginx / Cloudflare) — the extension requires wss:// for remote relays.');
+if (host !== '127.0.0.1' && host !== 'localhost')
+  console.log('Tip: terminate TLS in front of this (Caddy / nginx / Cloudflare) — the extension requires wss:// for remote relays.');
 
 const shutdown = async () => {
   await relay.close();

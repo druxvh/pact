@@ -14,15 +14,7 @@ type Props<T extends string> = {
   'aria-label'?: string;
 };
 
-export function Select<T extends string>({
-  value,
-  onValueChange,
-  options,
-  placeholder,
-  className,
-  size = 'md',
-  ...aria
-}: Props<T>) {
+export function Select<T extends string>({ value, onValueChange, options, placeholder, className, size = 'md', ...aria }: Props<T>) {
   return (
     <S.Root
       value={value}

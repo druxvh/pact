@@ -10,12 +10,7 @@ const tones = {
   outline: 'border text-muted-foreground',
 } as const;
 
-export function Badge({
-  tone = 'neutral',
-  mono,
-  className,
-  ...props
-}: React.ComponentProps<'span'> & { tone?: keyof typeof tones; mono?: boolean }) {
+export function Badge({ tone = 'neutral', mono, className, ...props }: React.ComponentProps<'span'> & { tone?: keyof typeof tones; mono?: boolean }) {
   return (
     <span
       className={cn(

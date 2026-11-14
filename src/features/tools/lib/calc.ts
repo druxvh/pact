@@ -9,13 +9,7 @@
 export type AngleMode = 'deg' | 'rad';
 export type CalcResult = { ok: true; value: number } | { ok: false; error: string };
 
-type Token =
-  | { t: 'num'; v: number }
-  | { t: 'id'; v: string }
-  | { t: 'op'; v: '+' | '-' | '*' | '/' | '%' | '^' | '!' }
-  | { t: '(' }
-  | { t: ')' }
-  | { t: ',' };
+type Token = { t: 'num'; v: number } | { t: 'id'; v: string } | { t: 'op'; v: '+' | '-' | '*' | '/' | '%' | '^' | '!' } | { t: '(' } | { t: ')' } | { t: ',' };
 
 const CONSTANTS: Record<string, number> = {
   pi: Math.PI,
@@ -32,13 +26,7 @@ function own<T>(table: Record<string, T>, key: string): T | undefined {
 }
 
 function tokenize(input: string): Token[] {
-  const src = input
-    .replace(/×/g, '*')
-    .replace(/÷/g, '/')
-    .replace(/[−–—]/g, '-')
-    .replace(/π/g, ' pi ')
-    .replace(/√/g, ' sqrt ')
-    .replace(/\*\*/g, '^');
+  const src = input.replace(/×/g, '*').replace(/÷/g, '/').replace(/[−–—]/g, '-').replace(/π/g, ' pi ').replace(/√/g, ' sqrt ').replace(/\*\*/g, '^');
   const out: Token[] = [];
   let i = 0;
   while (i < src.length) {

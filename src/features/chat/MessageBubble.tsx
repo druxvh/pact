@@ -6,9 +6,9 @@ import { AttachmentView } from '@/features/chat/AttachmentView';
 import { EmojiPicker } from '@/features/chat/EmojiPicker';
 import { QUICK_REACTIONS } from '@/features/chat/emoji-data';
 import { Linkified } from '@/features/chat/Linkified';
-import { findRoomCode } from '@/features/party/roomCode';
 import type { RunPosition } from '@/features/chat/rows';
 import type { Message } from '@/features/chat/types';
+import { findRoomCode } from '@/features/party/roomCode';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
@@ -58,11 +58,7 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
       data-message-id={m.id}
       className={cn('group/msg relative flex items-end gap-2 px-1', mine ? 'justify-end' : 'justify-start', joinedAbove ? 'mt-0.5' : 'mt-3')}
     >
-      {!mine && (
-        <span className="w-8 shrink-0">
-          {showAvatar && sender && <Avatar name={sender.displayName} src={sender.avatarUrl} size="md" />}
-        </span>
-      )}
+      {!mine && <span className="w-8 shrink-0">{showAvatar && sender && <Avatar name={sender.displayName} src={sender.avatarUrl} size="md" />}</span>}
 
       <div className={cn('flex max-w-[min(34rem,78%)] flex-col', mine ? 'items-end' : 'items-start')}>
         {showName && sender && <span className="mb-0.5 ml-1 text-[11px] font-medium text-muted-foreground">{sender.displayName}</span>}
@@ -197,9 +193,7 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
           </div>
         )}
 
-        {(position === 'last' || position === 'single') && (
-          <span className="mt-1 px-1 text-[10px] text-subtle-foreground">{time(m.createdAt)}</span>
-        )}
+        {(position === 'last' || position === 'single') && <span className="mt-1 px-1 text-[10px] text-subtle-foreground">{time(m.createdAt)}</span>}
       </div>
     </motion.div>
   );

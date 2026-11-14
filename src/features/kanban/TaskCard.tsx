@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/react/sortable';
 import { CalendarDays, Flag, Pencil, Trash2 } from 'lucide-react';
 import { useRef } from 'react';
 import { Avatar, Badge, IconButton } from '@/components/ui';
-import { type Priority, type Task, describeDue } from '@/features/kanban/store';
+import { describeDue, type Priority, type Task } from '@/features/kanban/store';
 import { cn } from '@/lib/cn';
 import type { Person } from '@/types/user';
 
@@ -71,12 +71,7 @@ export function SortableTaskCard({ task, index, assignee, dragDisabled, onOpen, 
         )}
       </div>
 
-      <p
-        className={cn(
-          'mt-2 text-[13.5px] font-medium leading-snug',
-          done && 'text-muted-foreground line-through decoration-muted-foreground/40',
-        )}
-      >
+      <p className={cn('mt-2 text-[13.5px] font-medium leading-snug', done && 'text-muted-foreground line-through decoration-muted-foreground/40')}>
         {task.title}
       </p>
       {task.description && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{task.description}</p>}

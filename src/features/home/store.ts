@@ -45,11 +45,9 @@ export const useHomeStore = create<HomeState>()(
       recent: [],
       seeded: false,
 
-      addShortcut: (title, url) =>
-        set((s) => ({ pinned: [...s.pinned, { id: uid('sc'), title: title.trim() || hostnameOf(url), url }] })),
+      addShortcut: (title, url) => set((s) => ({ pinned: [...s.pinned, { id: uid('sc'), title: title.trim() || hostnameOf(url), url }] })),
 
-      updateShortcut: (id, patch) =>
-        set((s) => ({ pinned: s.pinned.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
+      updateShortcut: (id, patch) => set((s) => ({ pinned: s.pinned.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
 
       removeShortcut: (id) => set((s) => ({ pinned: s.pinned.filter((p) => p.id !== id) })),
 
@@ -61,10 +59,7 @@ export const useHomeStore = create<HomeState>()(
 
       resetHidden: () => set({ hiddenHosts: [] }),
 
-      seedStarters: () =>
-        set((s) =>
-          s.seeded ? s : { seeded: true, pinned: STARTERS.map((st) => ({ ...st, id: uid('sc') })) },
-        ),
+      seedStarters: () => set((s) => (s.seeded ? s : { seeded: true, pinned: STARTERS.map((st) => ({ ...st, id: uid('sc') })) })),
 
       pushRecent: (q) =>
         set((s) => {

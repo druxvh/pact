@@ -89,7 +89,15 @@ describe('notes store', () => {
 
   it('migrates the original v1 shape (flat notes, no notebooks)', () => {
     const migrate = useNotesStore.persist.getOptions().migrate;
-    const out = migrate?.({ notes: [{ id: 'a', title: 'one', body: 'x' }, { id: 'b', title: 'two', body: 'y' }] }, 1) as ReturnType<typeof useNotesStore.getState>;
+    const out = migrate?.(
+      {
+        notes: [
+          { id: 'a', title: 'one', body: 'x' },
+          { id: 'b', title: 'two', body: 'y' },
+        ],
+      },
+      1,
+    ) as ReturnType<typeof useNotesStore.getState>;
     expect(out.notebooks).toHaveLength(1);
     expect(out.notes.map((n) => n.number)).toEqual([1, 2]);
     expect(out.notes.every((n) => n.notebookId === out.notebooks[0]?.id)).toBe(true);

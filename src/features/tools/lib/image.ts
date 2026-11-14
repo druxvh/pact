@@ -53,8 +53,7 @@ export async function compressImage(file: File, opts: CompressOptions): Promise<
   try {
     // "Auto" on a PNG tries both lossless PNG and lossy WebP and keeps whichever is smaller —
     // flat screenshots win as PNG, photos win as WebP. (A plain "keep PNG" can't shrink a photo.)
-    const mimes =
-      opts.format === 'original' && file.type === 'image/png' ? ['image/png', 'image/webp'] : [resolveMime(opts.format, file.type)];
+    const mimes = opts.format === 'original' && file.type === 'image/png' ? ['image/png', 'image/webp'] : [resolveMime(opts.format, file.type)];
 
     const attempt = async (mime: string): Promise<CompressResult> => {
       let { w, h } = fit(bitmap.width, bitmap.height, opts.maxDimension);

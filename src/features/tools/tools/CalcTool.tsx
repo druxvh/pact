@@ -10,11 +10,36 @@ import { spring } from '@/lib/motion';
 type Key = { label: string; insert?: string; action?: 'clear' | 'back' | 'equals'; tone?: 'op' | 'accent' | 'fn' };
 
 const PAD: Key[][] = [
-  [{ label: 'C', action: 'clear', tone: 'fn' }, { label: '( )', insert: '(', tone: 'fn' }, { label: '%', insert: '%', tone: 'fn' }, { label: '÷', insert: '÷', tone: 'op' }],
-  [{ label: '7', insert: '7' }, { label: '8', insert: '8' }, { label: '9', insert: '9' }, { label: '×', insert: '×', tone: 'op' }],
-  [{ label: '4', insert: '4' }, { label: '5', insert: '5' }, { label: '6', insert: '6' }, { label: '−', insert: '−', tone: 'op' }],
-  [{ label: '1', insert: '1' }, { label: '2', insert: '2' }, { label: '3', insert: '3' }, { label: '+', insert: '+', tone: 'op' }],
-  [{ label: '0', insert: '0' }, { label: '.', insert: '.' }, { label: '⌫', action: 'back', tone: 'fn' }, { label: '=', action: 'equals', tone: 'accent' }],
+  [
+    { label: 'C', action: 'clear', tone: 'fn' },
+    { label: '( )', insert: '(', tone: 'fn' },
+    { label: '%', insert: '%', tone: 'fn' },
+    { label: '÷', insert: '÷', tone: 'op' },
+  ],
+  [
+    { label: '7', insert: '7' },
+    { label: '8', insert: '8' },
+    { label: '9', insert: '9' },
+    { label: '×', insert: '×', tone: 'op' },
+  ],
+  [
+    { label: '4', insert: '4' },
+    { label: '5', insert: '5' },
+    { label: '6', insert: '6' },
+    { label: '−', insert: '−', tone: 'op' },
+  ],
+  [
+    { label: '1', insert: '1' },
+    { label: '2', insert: '2' },
+    { label: '3', insert: '3' },
+    { label: '+', insert: '+', tone: 'op' },
+  ],
+  [
+    { label: '0', insert: '0' },
+    { label: '.', insert: '.' },
+    { label: '⌫', action: 'back', tone: 'fn' },
+    { label: '=', action: 'equals', tone: 'accent' },
+  ],
 ];
 
 const FUNCTIONS = ['sin(', 'cos(', 'tan(', '√(', 'ln(', 'log(', 'π', 'e', '^', '!', 'abs(', 'round('];

@@ -2,7 +2,7 @@ import { NotebookPen, PenLine, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { GroupBar, type GroupItem } from '@/components/GroupBar';
 import { InviteDialog } from '@/components/InviteDialog';
-import { Button, EmptyState, Kbd, PageHeader, confirm, promptText } from '@/components/ui';
+import { Button, confirm, EmptyState, Kbd, PageHeader, promptText } from '@/components/ui';
 import { NoteEditor } from '@/features/notes/NoteEditor';
 import { NoteList } from '@/features/notes/NoteList';
 import { useNotesStore } from '@/features/notes/store';
@@ -146,12 +146,7 @@ export function NotesView() {
             <NoteEditor key={selected.id} note={selected} members={members} onBack={() => setMobileEditor(false)} />
           ) : (
             <div className="grid min-h-[240px] place-items-center rounded-2xl border border-dashed p-6">
-              <EmptyState
-                icon={PenLine}
-                title="Pick a note to read or edit"
-                description="Your changes save automatically as you type."
-                className="border-0"
-              />
+              <EmptyState icon={PenLine} title="Pick a note to read or edit" description="Your changes save automatically as you type." className="border-0" />
             </div>
           ))}
       </div>

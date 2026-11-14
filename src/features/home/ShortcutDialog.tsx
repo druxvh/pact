@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from '@/components/ui';
 import { SiteIcon } from '@/features/home/SiteIcon';
 import { type Shortcut, useHomeStore } from '@/features/home/store';
-import {
-  Button,
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-} from '@/components/ui';
 import type { TopSite } from '@/lib/ext';
 import { notify } from '@/lib/toast';
 import { hostnameOf, normalizeUrl } from '@/lib/url';

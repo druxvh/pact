@@ -7,8 +7,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'pact',
-    description:
-      'A fun, fast new tab: search, notes, kanban, focus timer, tiny tools, chat — and watch YouTube in sync with friends.',
+    description: 'A fun, fast new tab: search, notes, kanban, focus timer, tiny tools, chat — and watch YouTube in sync with friends.',
     minimum_chrome_version: '116',
     // Each permission is used by a feature and shows in the install prompt, so keep this list tight:
     //  storage       VibeParty remembers your display name / panel prefs; the YouTube tab ↔ background hand-off

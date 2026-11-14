@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PENDING_TTL_MS, PartyController, STALE_MEMBER_MS } from './controller';
+import { PartyController, PENDING_TTL_MS, STALE_MEMBER_MS } from './controller';
 import { type BackgroundToContent, type ClientMessage, type ServerMessage, watchUrlFor } from './protocol';
 
 const ROOM = 'friday-vibes';
@@ -63,7 +63,11 @@ describe('joining & presence', () => {
     expect(joined).toMatchObject({ selfId: 'id-1', mode: 'local', state: { room: ROOM, peers: [{ id: 'id-1', name: 'Alex' }] } });
 
     join(c, 2, 'Sam');
-    expect(to(1, 'vibeparty:presence').at(-1)?.peers.map((p) => p.name)).toEqual(['Alex', 'Sam']);
+    expect(
+      to(1, 'vibeparty:presence')
+        .at(-1)
+        ?.peers.map((p) => p.name),
+    ).toEqual(['Alex', 'Sam']);
     expect(to(2, 'vibeparty:joined')[0]?.state.peers).toHaveLength(2);
     expect(to(2, 'vibeparty:presence')).toHaveLength(0); // the joiner gets `joined`, not a redundant presence
   });
@@ -82,8 +86,17 @@ describe('joining & presence', () => {
     join(c, 1, 'Alex');
     join(c, 2, 'Sam');
     join(c, 1, 'Alex', 'other-room');
-    expect(to(2, 'vibeparty:presence').at(-1)?.peers.map((p) => p.name)).toEqual(['Sam']);
-    expect(c.appStatus().rooms.map((r) => r.room).sort()).toEqual(['friday-vibes', 'other-room']);
+    expect(
+      to(2, 'vibeparty:presence')
+        .at(-1)
+        ?.peers.map((p) => p.name),
+    ).toEqual(['Sam']);
+    expect(
+      c
+        .appStatus()
+        .rooms.map((r) => r.room)
+        .sort(),
+    ).toEqual(['friday-vibes', 'other-room']);
   });
 
   it('reports an invalid code and ignores hostile input without throwing', () => {
@@ -91,7 +104,8 @@ describe('joining & presence', () => {
     expect(c.joinTab(1, '!!', 'x')).toBe(false);
     expect(to(1, 'vibeparty:error')[0]?.message).toMatch(/isn’t valid/);
     sent.length = 0;
-    for (const junk of [null, 'x', 5, [], {}, { type: 'vibeparty:media' }, { type: 'vibeparty:chat', text: 5 }]) expect(() => c.handleContent(1, junk)).not.toThrow();
+    for (const junk of [null, 'x', 5, [], {}, { type: 'vibeparty:media' }, { type: 'vibeparty:chat', text: 5 }])
+      expect(() => c.handleContent(1, junk)).not.toThrow();
     expect(sent).toHaveLength(0);
   });
 
@@ -101,7 +115,11 @@ describe('joining & presence', () => {
     join(c, 2, 'Sam');
     c.handleContent(2, { type: 'vibeparty:leave' });
     expect(to(2, 'vibeparty:left')).toHaveLength(1);
-    expect(to(1, 'vibeparty:presence').at(-1)?.peers.map((p) => p.name)).toEqual(['Alex']);
+    expect(
+      to(1, 'vibeparty:presence')
+        .at(-1)
+        ?.peers.map((p) => p.name),
+    ).toEqual(['Alex']);
     c.tabClosed(1);
     expect(c.appStatus().rooms).toEqual([]);
   });
@@ -140,7 +158,11 @@ describe('joining & presence', () => {
     c.handleContent(1, { type: 'vibeparty:ping', room: ROOM, name: 'Alex' }); // Alex is alive, Ghost isn't
     advance(2000);
     c.prune();
-    expect(to(1, 'vibeparty:presence').at(-1)?.peers.map((p) => p.name)).toEqual(['Alex']);
+    expect(
+      to(1, 'vibeparty:presence')
+        .at(-1)
+        ?.peers.map((p) => p.name),
+    ).toEqual(['Alex']);
   });
 });
 
@@ -213,7 +235,11 @@ describe('chat, reactions & queue', () => {
 
     const twoId = q[1]?.id ?? '';
     c.handleContent(1, { type: 'vibeparty:queue:vote', id: twoId });
-    expect(to(2, 'vibeparty:queue').at(-1)?.items.map((i) => i.title)).toEqual(['Two', 'One']); // 2 votes now leads
+    expect(
+      to(2, 'vibeparty:queue')
+        .at(-1)
+        ?.items.map((i) => i.title),
+    ).toEqual(['Two', 'One']); // 2 votes now leads
     expect(to(2, 'vibeparty:queue').at(-1)?.items[0]?.voters).toEqual(['id-2', 'id-1']);
 
     c.handleContent(1, { type: 'vibeparty:queue:add', url: watchUrlFor(VID), title: 'Again' });
@@ -222,7 +248,11 @@ describe('chat, reactions & queue', () => {
     c.handleContent(1, { type: 'vibeparty:queue:remove', id: twoId }); // Sam's item
     expect(to(1, 'vibeparty:queue').at(-1)?.items).toHaveLength(2);
     c.handleContent(2, { type: 'vibeparty:queue:remove', id: twoId });
-    expect(to(1, 'vibeparty:queue').at(-1)?.items.map((i) => i.title)).toEqual(['One']);
+    expect(
+      to(1, 'vibeparty:queue')
+        .at(-1)
+        ?.items.map((i) => i.title),
+    ).toEqual(['One']);
   });
 });
 
@@ -239,7 +269,11 @@ describe('local mode: the queue advances when a video ends', () => {
     c.handleContent(1, { type: 'vibeparty:media', ev: 'ended', mediaTime: 212, playing: false, videoId: VID });
     for (const tab of [1, 2]) {
       expect(to(tab, 'vibeparty:media')[0]?.media).toMatchObject({ videoId: VID2, playing: true, reason: 'advance' });
-      expect(to(tab, 'vibeparty:queue').at(-1)?.items.map((i) => i.title)).toEqual(['Two']);
+      expect(
+        to(tab, 'vibeparty:queue')
+          .at(-1)
+          ?.items.map((i) => i.title),
+      ).toEqual(['Two']);
     }
 
     clear();
@@ -326,8 +360,19 @@ describe('live mode (relay connected)', () => {
     expect(to(2, 'vibeparty:reaction')).toHaveLength(0);
     expect(to(1, 'vibeparty:reaction')).toHaveLength(1);
 
-    c.relayMessage({ t: 'presence', room: ROOM, peers: [{ id: 'id-1', name: 'Alex' }, { id: 'remote-1', name: 'Remote' }] });
-    expect(to(2, 'vibeparty:presence').at(-1)?.peers.map((p) => p.name)).toEqual(['Alex', 'Remote']);
+    c.relayMessage({
+      t: 'presence',
+      room: ROOM,
+      peers: [
+        { id: 'id-1', name: 'Alex' },
+        { id: 'remote-1', name: 'Remote' },
+      ],
+    });
+    expect(
+      to(2, 'vibeparty:presence')
+        .at(-1)
+        ?.peers.map((p) => p.name),
+    ).toEqual(['Alex', 'Remote']);
   });
 
   it('a relay `state` replaces the room and re-sends `joined` to every local tab', () => {
@@ -336,7 +381,10 @@ describe('live mode (relay connected)', () => {
     const state: Extract<ServerMessage, { t: 'state' }> = {
       t: 'state',
       room: ROOM,
-      peers: [{ id: 'id-1', name: 'Alex' }, { id: 'r', name: 'Remote' }],
+      peers: [
+        { id: 'id-1', name: 'Alex' },
+        { id: 'r', name: 'Remote' },
+      ],
       queue: [],
       chat: [{ id: 'old', peerId: 'r', name: 'Remote', text: 'earlier', at: 1 }],
       media: { playing: false, mediaTime: 33, videoId: VID, controllerPeerId: 'r' },

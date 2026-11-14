@@ -1,15 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Slider,
-  Switch,
-  confirm,
-} from '@/components/ui';
+import { Button, confirm, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, Slider, Switch } from '@/components/ui';
 import { PHASE_LABEL, PHASES, type Phase, useTimerStore } from '@/features/timer/store';
 import { notify } from '@/lib/toast';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -82,7 +71,9 @@ export function TimerSettings({ open, onOpenChange }: { open: boolean; onOpenCha
           <div className="flex items-center justify-between border-t pt-4">
             <div>
               <p className="text-sm font-medium">History</p>
-              <p className="text-xs text-muted-foreground">{sessionCount} recorded {sessionCount === 1 ? 'phase' : 'phases'}</p>
+              <p className="text-xs text-muted-foreground">
+                {sessionCount} recorded {sessionCount === 1 ? 'phase' : 'phases'}
+              </p>
             </div>
             <Button
               variant="danger"

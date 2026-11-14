@@ -1,4 +1,4 @@
-import { type ComponentType, type LazyExoticComponent, Suspense, lazy, useEffect } from 'react';
+import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react';
 import { AppShell } from '@/app/AppShell';
 import { Skeleton } from '@/components/ui';
 import { type Section, useNavStore } from '@/store/useNavStore';
@@ -18,9 +18,10 @@ const loaders: Record<Section, () => Promise<{ default: ComponentType }>> = {
   settings: () => import('@/features/settings/SettingsView').then((m) => ({ default: m.SettingsView })),
 };
 
-const views = Object.fromEntries(
-  (Object.keys(loaders) as Section[]).map((id) => [id, lazy(loaders[id])]),
-) as Record<Section, LazyExoticComponent<ComponentType>>;
+const views = Object.fromEntries((Object.keys(loaders) as Section[]).map((id) => [id, lazy(loaders[id])])) as Record<
+  Section,
+  LazyExoticComponent<ComponentType>
+>;
 
 function ViewFallback() {
   return (

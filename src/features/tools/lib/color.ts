@@ -66,7 +66,7 @@ export function rgbToHsl({ r, g, b }: RGB): { h: number; s: number; l: number } 
   if (d === 0) return { h: 0, s: 0, l };
   const s = d / (1 - Math.abs(2 * l - 1));
   const h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
-  return { h: Math.round(((h * 60) % 360 + 360) % 360), s, l };
+  return { h: Math.round((((h * 60) % 360) + 360) % 360), s, l };
 }
 
 const lin = (c: number) => {

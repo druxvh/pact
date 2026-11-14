@@ -1,14 +1,4 @@
-import {
-  Clock3,
-  Columns3,
-  Disc3,
-  House,
-  type LucideIcon,
-  MessageCircleMore,
-  NotebookPen,
-  Settings,
-  Wrench,
-} from 'lucide-react';
+import { Clock3, Columns3, Disc3, House, type LucideIcon, MessageCircleMore, NotebookPen, Settings, Wrench } from 'lucide-react';
 import { MOD_KEY } from '@/lib/hotkeys';
 import type { Section } from '@/store/useNavStore';
 
@@ -46,9 +36,7 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   { keys: ['/'], label: 'Focus search (Home)', group: 'General' },
   { keys: ['?'], label: 'Keyboard shortcuts', group: 'General' },
   { keys: ['Esc'], label: 'Close dialog / menu', group: 'General' },
-  ...SECTIONS.map(
-    (s): ShortcutDef => ({ keys: ['G', s.hotkey.toUpperCase()], label: `Go to ${s.label}`, group: 'Navigate' }),
-  ),
+  ...SECTIONS.map((s): ShortcutDef => ({ keys: ['G', s.hotkey.toUpperCase()], label: `Go to ${s.label}`, group: 'Navigate' })),
   { keys: ['N'], label: 'New note / task / chat (current page)', group: 'Context' },
   { keys: ['Space'], label: 'Start / pause timer (Focus)', group: 'Context' },
   { keys: ['R'], label: 'Reset timer (Focus)', group: 'Context' },

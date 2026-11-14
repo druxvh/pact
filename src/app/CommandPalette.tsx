@@ -1,24 +1,12 @@
 import { Dialog as D } from '@base-ui/react/dialog';
-import {
-  ArrowRight,
-  BellOff,
-  CornerDownLeft,
-  FilePlus2,
-  Globe,
-  ListPlus,
-  Keyboard,
-  type LucideIcon,
-  Moon,
-  Search,
-  SunMoon,
-} from 'lucide-react';
+import { ArrowRight, BellOff, CornerDownLeft, FilePlus2, Globe, Keyboard, ListPlus, type LucideIcon, Moon, Search, SunMoon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildDataItems } from '@/app/paletteSources';
 import { SECTIONS } from '@/app/routes';
 import { Kbd } from '@/components/ui';
 import { useNotesStore } from '@/features/notes/store';
-import { webSearch, openUrl } from '@/lib/ext';
+import { openUrl, webSearch } from '@/lib/ext';
 import { bestScore } from '@/lib/fuzzy';
 import { resolveInput } from '@/lib/url';
 import { useNavStore } from '@/store/useNavStore';
@@ -57,10 +45,37 @@ function useStaticItems(): PaletteItem[] {
         kbd: ['G', s.hotkey.toUpperCase()],
         run: () => go(s.id),
       })),
-      { id: 'act-note', group: 'Actions', label: 'Create a new note', icon: FilePlus2, keywords: 'write add', run: () => { useNotesStore.getState().addNote(); go('notes'); } },
-      { id: 'act-task', group: 'Actions', label: 'Create a new task', icon: ListPlus, keywords: 'todo kanban add', run: () => { useUiStore.getState().setPendingNewTask(true); go('kanban'); } },
+      {
+        id: 'act-note',
+        group: 'Actions',
+        label: 'Create a new note',
+        icon: FilePlus2,
+        keywords: 'write add',
+        run: () => {
+          useNotesStore.getState().addNote();
+          go('notes');
+        },
+      },
+      {
+        id: 'act-task',
+        group: 'Actions',
+        label: 'Create a new task',
+        icon: ListPlus,
+        keywords: 'todo kanban add',
+        run: () => {
+          useUiStore.getState().setPendingNewTask(true);
+          go('kanban');
+        },
+      },
       { id: 'act-theme', group: 'Actions', label: 'Toggle light / dark theme', icon: SunMoon, keywords: 'appearance mode', run: () => toggleTheme() },
-      { id: 'act-dark', group: 'Actions', label: 'Use system theme', icon: Moon, keywords: 'appearance auto', run: () => useThemeStore.getState().setMode('system') },
+      {
+        id: 'act-dark',
+        group: 'Actions',
+        label: 'Use system theme',
+        icon: Moon,
+        keywords: 'appearance auto',
+        run: () => useThemeStore.getState().setMode('system'),
+      },
       { id: 'act-keys', group: 'Actions', label: 'Show keyboard shortcuts', icon: Keyboard, kbd: ['?'], run: () => setShortcutsOpen(true) },
       { id: 'act-read', group: 'Actions', label: 'Mark all notifications as read', icon: BellOff, run: () => markAllRead() },
     ],
@@ -97,9 +112,7 @@ function buildItems(query: string, statics: PaletteItem[]): PaletteItem[] {
     arr.push(s);
     grouped.set(s.item.group, arr);
   }
-  const groupNames = [...grouped.keys()].sort(
-    (a, b) => (GROUP_ORDER.indexOf(a) + 100) % 100 - ((GROUP_ORDER.indexOf(b) + 100) % 100),
-  );
+  const groupNames = [...grouped.keys()].sort((a, b) => ((GROUP_ORDER.indexOf(a) + 100) % 100) - ((GROUP_ORDER.indexOf(b) + 100) % 100));
   for (const g of groupNames) {
     const arr = grouped.get(g) ?? [];
     if (q) arr.sort((a, b) => b.score - a.score);
@@ -199,9 +212,7 @@ export function CommandPalette() {
             </div>
 
             <ul ref={listRef} id="cmd-list" role="listbox" className="max-h-[min(420px,55vh)] overflow-y-auto p-2">
-              {items.length === 0 && (
-                <li className="px-3 py-10 text-center text-sm text-muted-foreground">No results for “{query}”</li>
-              )}
+              {items.length === 0 && <li className="px-3 py-10 text-center text-sm text-muted-foreground">No results for “{query}”</li>}
               {items.map((item, i) => {
                 const showHeader = item.group !== lastGroup;
                 lastGroup = item.group;
@@ -209,11 +220,7 @@ export function CommandPalette() {
                 const Icon = item.icon;
                 return (
                   <li key={item.id} role="presentation">
-                    {showHeader && (
-                      <div className="px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">
-                        {item.group}
-                      </div>
-                    )}
+                    {showHeader && <div className="px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">{item.group}</div>}
                     <div
                       id={`cmd-${item.id}`}
                       role="option"
@@ -249,8 +256,16 @@ export function CommandPalette() {
             </ul>
 
             <div className="flex items-center gap-4 border-t px-4 py-2 text-[11px] text-subtle-foreground">
-              <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> navigate</span>
-              <span className="flex items-center gap-1.5"><Kbd><CornerDownLeft className="size-3" /></Kbd> select</span>
+              <span className="flex items-center gap-1.5">
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd> navigate
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Kbd>
+                  <CornerDownLeft className="size-3" />
+                </Kbd>{' '}
+                select
+              </span>
               <span className="ml-auto hidden sm:block">Type a URL to open it, anything else to search</span>
             </div>
           </D.Popup>

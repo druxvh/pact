@@ -5,8 +5,8 @@ import { Button, Input, Label, Segmented, Select, Slider, Switch, Textarea } fro
 import { contrastRatio, parseColor } from '@/features/tools/lib/color';
 import { type Ecc, type ModuleStyle, qrMatrix, qrPng, qrSvg, wifiPayload } from '@/features/tools/lib/qr';
 import { Field } from '@/features/tools/ui';
-import { notify } from '@/lib/toast';
 import { spring } from '@/lib/motion';
+import { notify } from '@/lib/toast';
 
 type Mode = 'text' | 'wifi';
 type Security = 'WPA' | 'WEP' | 'nopass';
@@ -95,7 +95,12 @@ export function QrTool() {
               <Input value={ssid} onChange={(e) => setSsid(e.target.value)} placeholder="My Wi-Fi" autoFocus />
             </Field>
             <Field label="Password">
-              <Input value={wifiPass} onChange={(e) => setWifiPass(e.target.value)} disabled={security === 'nopass'} placeholder={security === 'nopass' ? 'Open network' : 'Password'} />
+              <Input
+                value={wifiPass}
+                onChange={(e) => setWifiPass(e.target.value)}
+                disabled={security === 'nopass'}
+                placeholder={security === 'nopass' ? 'Open network' : 'Password'}
+              />
             </Field>
             <Field label="Security">
               <Select
@@ -195,7 +200,12 @@ export function QrTool() {
                 draggable={false}
               />
             ) : (
-              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-2 text-center text-neutral-400">
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center gap-2 text-center text-neutral-400"
+              >
                 <QrCode className="size-16" strokeWidth={1.2} />
                 <p className="max-w-[16ch] text-[13px]">{error ?? (mode === 'wifi' ? 'Enter a network name' : 'Type something to encode')}</p>
               </motion.div>

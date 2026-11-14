@@ -29,7 +29,12 @@ export function AttachmentView({ attachment: a }: { attachment: Attachment }) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="group relative block overflow-hidden rounded-xl outline-offset-2" aria-label={`Open ${a.name}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="group relative block overflow-hidden rounded-xl outline-offset-2"
+        aria-label={`Open ${a.name}`}
+      >
         <img
           src={url}
           alt={a.name}
@@ -48,7 +53,13 @@ export function AttachmentView({ attachment: a }: { attachment: Attachment }) {
               {a.name} · {formatBytes(a.size)}
             </span>
             <span className="flex items-center gap-1">
-              <D.Close render={<IconButton label="Close preview" tooltip={false} size="icon-sm" className="text-white/80 hover:bg-white/10 hover:text-white"><X /></IconButton>} />
+              <D.Close
+                render={
+                  <IconButton label="Close preview" tooltip={false} size="icon-sm" className="text-white/80 hover:bg-white/10 hover:text-white">
+                    <X />
+                  </IconButton>
+                }
+              />
               <IconButton
                 label="Download"
                 tooltip={false}

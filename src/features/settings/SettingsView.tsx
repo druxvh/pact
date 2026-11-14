@@ -1,32 +1,7 @@
-import {
-  Download,
-  Info,
-  Keyboard,
-  Laptop,
-  Moon,
-  Palette,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  Sun,
-  Trash2,
-  Upload,
-  UserRound,
-} from 'lucide-react';
+import { Download, Info, Keyboard, Laptop, Moon, Palette, Settings, ShieldCheck, Sparkles, Sun, Trash2, Upload, UserRound } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ReactNode, useRef, useState } from 'react';
-import {
-  Avatar,
-  Button,
-  Card,
-  Input,
-  Label,
-  PageHeader,
-  Segmented,
-  Switch,
-  Textarea,
-  confirm,
-} from '@/components/ui';
+import { Avatar, Button, Card, confirm, Input, Label, PageHeader, Segmented, Switch, Textarea } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
 import { useHomeStore } from '@/features/home/store';
 import { useKanbanStore } from '@/features/kanban/store';
@@ -135,7 +110,16 @@ function ProfileSection() {
           </div>
           <div>
             <Label htmlFor="set-username">Username</Label>
-            <Input id="set-username" value={form.username} onChange={set('username')} maxLength={21} placeholder="you" autoComplete="username" aria-invalid={usernameError ? true : undefined} aria-describedby="set-username-err" />
+            <Input
+              id="set-username"
+              value={form.username}
+              onChange={set('username')}
+              maxLength={21}
+              placeholder="you"
+              autoComplete="username"
+              aria-invalid={usernameError ? true : undefined}
+              aria-describedby="set-username-err"
+            />
             <p id="set-username-err" className="mt-1 min-h-4 text-xs text-destructive-text" role="alert">
               {usernameError}
             </p>
@@ -146,7 +130,17 @@ function ProfileSection() {
           </div>
           <div>
             <Label htmlFor="set-email">Email (optional)</Label>
-            <Input id="set-email" type="email" value={form.email} onChange={set('email')} maxLength={120} placeholder="you@example.com" autoComplete="email" aria-invalid={emailError ? true : undefined} aria-describedby="set-email-err" />
+            <Input
+              id="set-email"
+              type="email"
+              value={form.email}
+              onChange={set('email')}
+              maxLength={120}
+              placeholder="you@example.com"
+              autoComplete="email"
+              aria-invalid={emailError ? true : undefined}
+              aria-describedby="set-email-err"
+            />
             <p id="set-email-err" className="mt-1 min-h-4 text-xs text-destructive-text" role="alert">
               {emailError}
             </p>
@@ -240,10 +234,17 @@ function HomeSection() {
       <Row label="Greeting" description="“Good evening, Sam” above the search box." htmlFor="set-greeting">
         <Switch id="set-greeting" checked={showGreeting} onCheckedChange={(v) => set('showGreeting', v)} aria-label="Greeting" />
       </Row>
-      <Row label="Most visited sites" description="Tiles from your browser’s history. pact asks the browser; nothing leaves your device." htmlFor="set-topsites">
+      <Row
+        label="Most visited sites"
+        description="Tiles from your browser’s history. pact asks the browser; nothing leaves your device."
+        htmlFor="set-topsites"
+      >
         <Switch id="set-topsites" checked={showTopSites} onCheckedChange={(v) => set('showTopSites', v)} aria-label="Most visited sites" />
       </Row>
-      <Row label="Hidden sites" description={hidden ? `${hidden} site${hidden === 1 ? '' : 's'} removed from Home.` : 'You haven’t removed any sites from Home.'}>
+      <Row
+        label="Hidden sites"
+        description={hidden ? `${hidden} site${hidden === 1 ? '' : 's'} removed from Home.` : 'You haven’t removed any sites from Home.'}
+      >
         <Button
           variant="outline"
           disabled={hidden === 0}
@@ -332,7 +333,11 @@ function DataSection() {
   };
 
   return (
-    <Section icon={ShieldCheck} title="Your data" description="Stored on this device only — in your browser’s local storage. Nothing is uploaded and nothing syncs between devices.">
+    <Section
+      icon={ShieldCheck}
+      title="Your data"
+      description="Stored on this device only — in your browser’s local storage. Nothing is uploaded and nothing syncs between devices."
+    >
       <div className="pb-4">
         <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {stats.map(([label, value]) => (

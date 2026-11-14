@@ -17,10 +17,10 @@ import {
   type MediaEventName,
   type MediaSnapshot,
   type PeerInfo,
+  parseYouTubeId,
   type QueueItem,
   type ReactionEvent,
   type ServerMessage,
-  parseYouTubeId,
   watchUrlFor,
 } from './protocol.ts';
 
@@ -37,10 +37,7 @@ const INVISIBLE_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0x2060, 0x2069], // word joiner, invisible operators, bidi isolates
   [0xfeff, 0xfeff], // BOM / zero-width no-break space
 ];
-const INVISIBLE = new RegExp(
-  `[${INVISIBLE_RANGES.map(([a, b]) => `${String.fromCodePoint(a)}-${String.fromCodePoint(b)}`).join('')}]`,
-  'g',
-);
+const INVISIBLE = new RegExp(`[${INVISIBLE_RANGES.map(([a, b]) => `${String.fromCodePoint(a)}-${String.fromCodePoint(b)}`).join('')}]`, 'g');
 
 /** Truncate by code point so we never cut an emoji (surrogate pair) in half. */
 function truncate(s: string, max: number): string {
@@ -115,9 +112,7 @@ export function cleanQueueItem(v: unknown): QueueItem | null {
   const addedBy = cleanId(v.addedBy);
   const createdAt = cleanTimestamp(v.createdAt);
   if (!id || !videoId || !addedBy || createdAt === null) return null;
-  const voters = Array.isArray(v.voters)
-    ? [...new Set(v.voters.map(cleanId).filter((x): x is string => x !== null))].slice(0, LIMITS.votersPerItem)
-    : [];
+  const voters = Array.isArray(v.voters) ? [...new Set(v.voters.map(cleanId).filter((x): x is string => x !== null))].slice(0, LIMITS.votersPerItem) : [];
   return {
     id,
     videoId,
@@ -217,9 +212,7 @@ export function parseContentMessage(raw: unknown): ContentToBackground | null {
     }
     case 'vibeparty:queue:add': {
       const videoId = typeof raw.url === 'string' ? parseYouTubeId(raw.url) : null;
-      return videoId
-        ? { type: raw.type, url: watchUrlFor(videoId), title: cleanText(raw.title, LIMITS.title) || videoId }
-        : null;
+      return videoId ? { type: raw.type, url: watchUrlFor(videoId), title: cleanText(raw.title, LIMITS.title) || videoId } : null;
     }
     case 'vibeparty:queue:vote':
     case 'vibeparty:queue:remove': {
@@ -277,9 +270,7 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
     case 'queue:add': {
       const id = cleanId(raw.id);
       const videoId = typeof raw.url === 'string' ? parseYouTubeId(raw.url) : null;
-      return id && videoId
-        ? { t: 'queue:add', room, peerId, id, url: watchUrlFor(videoId), title: cleanText(raw.title, LIMITS.title) || videoId }
-        : null;
+      return id && videoId ? { t: 'queue:add', room, peerId, id, url: watchUrlFor(videoId), title: cleanText(raw.title, LIMITS.title) || videoId } : null;
     }
     case 'queue:vote':
     case 'queue:remove': {

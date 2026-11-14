@@ -64,7 +64,7 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props = {}, ...
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-// Static, trusted path data (Lucide, ISC licence) — the only innerHTML in this file.
+// Static, trusted path data (Lucide, ISC licence).
 const ICONS = {
   disc: '<circle cx="12" cy="12" r="10"/><path d="M6 12c0-3.31 2.69-6 6-6"/><path d="M18 12c0 3.31-2.69 6-6 6"/><circle cx="12" cy="12" r="1.5"/>',
   minus: '<path d="M5 12h14"/>',
@@ -82,12 +82,17 @@ const ICONS = {
   sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
 } as const;
 
+const iconPrototypes = new Map<string, SVGSVGElement>();
+
+/** Parsed once from the static markup above, then cloned — no `innerHTML` anywhere in the overlay. */
 function icon(name: keyof typeof ICONS): SVGSVGElement {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = ICONS[name];
-  return svg;
+  let prototype = iconPrototypes.get(name);
+  if (!prototype) {
+    const doc = new DOMParser().parseFromString(`<svg xmlns="${SVG_NS}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`, 'image/svg+xml');
+    prototype = document.importNode(doc.documentElement, true) as unknown as SVGSVGElement;
+    iconPrototypes.set(name, prototype);
+  }
+  return prototype.cloneNode(true) as SVGSVGElement;
 }
 
 const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -222,7 +227,8 @@ export class VibePartyOverlay {
     const text = { local: 'This browser', live: 'Live', reconnecting: 'Reconnecting…' }[mode];
     this.modeText.textContent = text;
     this.modeChip.title = {
-      local: 'Local party: syncs the YouTube tabs in this browser. Watching with friends on other computers needs a pact relay (see the VibeParty page in pact).',
+      local:
+        'Local party: syncs the YouTube tabs in this browser. Watching with friends on other computers needs a pact relay (see the VibeParty page in pact).',
       live: 'Connected — friends on other computers can join with the same code.',
       reconnecting: 'The relay is unreachable. Your changes stay on this browser until it’s back.',
     }[mode];
@@ -330,7 +336,15 @@ export class VibePartyOverlay {
       this.fabDot,
     );
 
-    this.panel = h('div', { class: 'vp-panel' }, this.buildHeader(), this.buildNotice(), this.buildJoin(), this.buildParty(), (this.toast = h('div', { class: 'vp-toast', hidden: true, role: 'status' })));
+    this.panel = h(
+      'div',
+      { class: 'vp-panel' },
+      this.buildHeader(),
+      this.buildNotice(),
+      this.buildJoin(),
+      this.buildParty(),
+      (this.toast = h('div', { class: 'vp-toast', hidden: true, role: 'status' })),
+    );
 
     this.root = h('aside', { class: 'vp', 'aria-label': 'VibeParty', 'data-view': 'join', 'data-collapsed': 'false' }, this.fab, this.panel);
     return this.root;
@@ -338,12 +352,24 @@ export class VibePartyOverlay {
 
   private buildHeader(): HTMLElement {
     this.roomChip = h('span', { class: 'vp-room' });
-    this.copyBtn = h('button', { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Copy room code', title: 'Copy room code', onclick: () => void this.copyCode() }, icon('copy'));
+    this.copyBtn = h(
+      'button',
+      { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Copy room code', title: 'Copy room code', onclick: () => void this.copyCode() },
+      icon('copy'),
+    );
     this.modeText = h('span', {});
     this.modeChip = h('span', { class: 'vp-mode', 'data-mode': 'local' }, h('span', { class: 'vp-pulse' }), this.modeText);
 
-    const leave = h('button', { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Leave party', title: 'Leave party', onclick: () => this.cb.onLeave() }, icon('logout'));
-    const minimize = h('button', { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Minimize VibeParty', title: 'Minimize', onclick: () => this.setCollapsed(true) }, icon('minus'));
+    const leave = h(
+      'button',
+      { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Leave party', title: 'Leave party', onclick: () => this.cb.onLeave() },
+      icon('logout'),
+    );
+    const minimize = h(
+      'button',
+      { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Minimize VibeParty', title: 'Minimize', onclick: () => this.setCollapsed(true) },
+      icon('minus'),
+    );
 
     return h(
       'header',
@@ -375,7 +401,14 @@ export class VibePartyOverlay {
         this.joinError.textContent = '';
       },
     });
-    this.nameInput = h('input', { class: 'vp-input', id: 'vp-name', type: 'text', placeholder: 'How should friends see you?', maxlength: LIMITS.name, autocomplete: 'nickname' });
+    this.nameInput = h('input', {
+      class: 'vp-input',
+      id: 'vp-name',
+      type: 'text',
+      placeholder: 'How should friends see you?',
+      maxlength: LIMITS.name,
+      autocomplete: 'nickname',
+    });
     this.joinError = h('p', { class: 'vp-error', role: 'alert' });
 
     const submit = () => {
@@ -414,7 +447,12 @@ export class VibePartyOverlay {
     return h(
       'section',
       { class: 'vp-join', 'aria-label': 'Join a party' },
-      h('div', { class: 'vp-hero' }, h('span', { class: 'vp-hero-icon' }, icon('disc')), h('div', {}, h('h2', { class: 'vp-h' }, 'Watch together'), h('p', { class: 'vp-sub' }, 'Same code = synced playback, chat and a shared queue.'))),
+      h(
+        'div',
+        { class: 'vp-hero' },
+        h('span', { class: 'vp-hero-icon' }, icon('disc')),
+        h('div', {}, h('h2', { class: 'vp-h' }, 'Watch together'), h('p', { class: 'vp-sub' }, 'Same code = synced playback, chat and a shared queue.')),
+      ),
       h('label', { class: 'vp-label', for: 'vp-room' }, 'Room code'),
       h('div', { class: 'vp-row' }, this.roomInput, create),
       h('label', { class: 'vp-label', for: 'vp-name' }, 'Your name'),
@@ -431,7 +469,12 @@ export class VibePartyOverlay {
     this.chatDot = h('span', { class: 'vp-dot vp-dot--inline', hidden: true });
     this.queueCount = h('span', { class: 'vp-count', hidden: true });
     const chatTab = h('button', { class: 'vp-tab', type: 'button', role: 'tab', id: 'vp-tab-chat', 'aria-controls': 'vp-pane-chat' }, 'Chat', this.chatDot);
-    const queueTab = h('button', { class: 'vp-tab', type: 'button', role: 'tab', id: 'vp-tab-queue', 'aria-controls': 'vp-pane-queue' }, 'Queue', this.queueCount);
+    const queueTab = h(
+      'button',
+      { class: 'vp-tab', type: 'button', role: 'tab', id: 'vp-tab-queue', 'aria-controls': 'vp-pane-queue' },
+      'Queue',
+      this.queueCount,
+    );
     this.tabIndicator = h('span', { class: 'vp-indicator', 'aria-hidden': 'true' });
     const tablist = h('div', { class: 'vp-tabs', role: 'tablist', 'aria-label': 'VibeParty sections' }, chatTab, queueTab, this.tabIndicator);
 
@@ -662,7 +705,14 @@ export class VibePartyOverlay {
     const el = h(
       'div',
       { class: `vp-msg${mine ? ' vp-msg--mine' : ''}${grouped ? ' vp-msg--grouped' : ''}${animate ? ' vp-msg--new' : ''}`, 'data-message-id': m.id },
-      grouped ? null : h('div', { class: 'vp-msg-head' }, h('span', { class: 'vp-msg-name' }, mine ? 'You' : m.name), h('time', { datetime: new Date(m.at).toISOString() }, clock(m.at))),
+      grouped
+        ? null
+        : h(
+            'div',
+            { class: 'vp-msg-head' },
+            h('span', { class: 'vp-msg-name' }, mine ? 'You' : m.name),
+            h('time', { datetime: new Date(m.at).toISOString() }, clock(m.at)),
+          ),
       h('div', { class: 'vp-msg-text' }, m.text),
     );
     el.addEventListener('dblclick', () => this.sendReaction('❤️', m.id, el));
@@ -716,10 +766,13 @@ export class VibePartyOverlay {
 
     // The list is rebuilt on every change; remember which button had keyboard focus so it isn't lost.
     const active = this.shadow?.activeElement as HTMLElement | null;
-    const focused = active && this.queueList.contains(active) ? { id: active.closest<HTMLElement>('[data-id]')?.dataset.id, action: active.dataset.action } : null;
+    const focused =
+      active && this.queueList.contains(active) ? { id: active.closest<HTMLElement>('[data-id]')?.dataset.id, action: active.dataset.action } : null;
 
     if (items.length === 0) {
-      this.queueList.replaceChildren(h('li', { class: 'vp-empty' }, h('strong', {}, 'The queue is empty'), h('span', {}, 'Add a link above — the most upvoted video plays next.')));
+      this.queueList.replaceChildren(
+        h('li', { class: 'vp-empty' }, h('strong', {}, 'The queue is empty'), h('span', {}, 'Add a link above — the most upvoted video plays next.')),
+      );
       return;
     }
     this.queueList.replaceChildren(...items.map((item) => this.queueRow(item)));
@@ -731,11 +784,19 @@ export class VibePartyOverlay {
       const id = li.dataset.id ?? '';
       const was = before.get(id);
       if (was === undefined) {
-        if (before.size > 0) li.animate?.([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+        if (before.size > 0)
+          li.animate?.(
+            [
+              { opacity: 0, transform: 'translateY(8px)' },
+              { opacity: 1, transform: 'none' },
+            ],
+            { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+          );
         continue;
       }
       const dy = was - li.getBoundingClientRect().top;
-      if (Math.abs(dy) > 1) li.animate?.([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 320, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+      if (Math.abs(dy) > 1)
+        li.animate?.([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 320, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
     }
   }
 
@@ -748,7 +809,15 @@ export class VibePartyOverlay {
     thumb.addEventListener('error', () => thumb.remove());
     const play = h(
       'button',
-      { class: 'vp-thumb', type: 'button', 'data-action': 'play', 'aria-label': playing ? `${item.title} is playing` : `Play ${item.title}`, title: playing ? 'Playing now' : 'Play now', disabled: playing, onclick: () => this.cb.onQueuePlay(item.videoId) },
+      {
+        class: 'vp-thumb',
+        type: 'button',
+        'data-action': 'play',
+        'aria-label': playing ? `${item.title} is playing` : `Play ${item.title}`,
+        title: playing ? 'Playing now' : 'Play now',
+        disabled: playing,
+        onclick: () => this.cb.onQueuePlay(item.videoId),
+      },
       thumb,
       playing ? h('span', { class: 'vp-eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')) : h('span', { class: 'vp-thumb-play' }, icon('play')),
     );
@@ -771,9 +840,25 @@ export class VibePartyOverlay {
       'li',
       { class: `vp-item${playing ? ' vp-item--playing' : ''}`, 'data-id': item.id },
       play,
-      h('div', { class: 'vp-item-info' }, h('span', { class: 'vp-item-title', title: item.title }, item.title), h('span', { class: 'vp-item-meta' }, playing ? 'Now playing' : `Added by ${item.addedByName}`)),
+      h(
+        'div',
+        { class: 'vp-item-info' },
+        h('span', { class: 'vp-item-title', title: item.title }, item.title),
+        h('span', { class: 'vp-item-meta' }, playing ? 'Now playing' : `Added by ${item.addedByName}`),
+      ),
       mine
-        ? h('button', { class: 'vp-icon-btn vp-icon-btn--danger', type: 'button', 'data-action': 'remove', 'aria-label': `Remove ${item.title} from the queue`, title: 'Remove', onclick: () => this.cb.onQueueRemove(item.id) }, icon('trash'))
+        ? h(
+            'button',
+            {
+              class: 'vp-icon-btn vp-icon-btn--danger',
+              type: 'button',
+              'data-action': 'remove',
+              'aria-label': `Remove ${item.title} from the queue`,
+              title: 'Remove',
+              onclick: () => this.cb.onQueueRemove(item.id),
+            },
+            icon('trash'),
+          )
         : null,
       vote,
     );

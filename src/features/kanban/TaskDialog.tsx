@@ -16,22 +16,12 @@ import {
   Select,
   Textarea,
 } from '@/components/ui';
-import {
-  COLUMNS,
-  type ColumnId,
-  type Priority,
-  type Task,
-  toDateKey,
-  useKanbanStore,
-} from '@/features/kanban/store';
+import { COLUMNS, type ColumnId, type Priority, type Task, toDateKey, useKanbanStore } from '@/features/kanban/store';
 import { cn } from '@/lib/cn';
 import { notify } from '@/lib/toast';
 import type { Person } from '@/types/user';
 
-export type TaskDialogTarget =
-  | { kind: 'edit'; id: string }
-  | { kind: 'create'; boardId: string; columnId: ColumnId }
-  | null;
+export type TaskDialogTarget = { kind: 'edit'; id: string } | { kind: 'create'; boardId: string; columnId: ColumnId } | null;
 
 type Props = {
   target: TaskDialogTarget;
@@ -174,10 +164,7 @@ export function TaskDialog({ target, members, onClose, onDelete }: Props) {
                   aria-label="Assignee"
                   value={assignee}
                   onValueChange={setAssignee}
-                  options={[
-                    { value: UNASSIGNED, label: 'Unassigned' },
-                    ...members.map((m) => ({ value: m.id, label: m.displayName })),
-                  ]}
+                  options={[{ value: UNASSIGNED, label: 'Unassigned' }, ...members.map((m) => ({ value: m.id, label: m.displayName }))]}
                 />
               </div>
             </div>
@@ -212,13 +199,7 @@ export function TaskDialog({ target, members, onClose, onDelete }: Props) {
                   Next week
                 </Button>
                 {/* Always rendered (just invisible when empty) so the row never reflows. */}
-                <IconButton
-                  label="Clear due date"
-                  size="icon-sm"
-                  onClick={() => setDue('')}
-                  className={cn(!due && 'invisible')}
-                  tabIndex={due ? 0 : -1}
-                >
+                <IconButton label="Clear due date" size="icon-sm" onClick={() => setDue('')} className={cn(!due && 'invisible')} tabIndex={due ? 0 : -1}>
                   <X />
                 </IconButton>
               </div>

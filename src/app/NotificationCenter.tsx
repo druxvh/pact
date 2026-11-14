@@ -6,12 +6,7 @@ import { cn } from '@/lib/cn';
 import { relativeTime } from '@/lib/format';
 import { spring } from '@/lib/motion';
 import { useNavStore } from '@/store/useNavStore';
-import {
-  type Notification,
-  type NotificationKind,
-  selectUnreadCount,
-  useNotificationStore,
-} from '@/store/useNotificationStore';
+import { type Notification, type NotificationKind, selectUnreadCount, useNotificationStore } from '@/store/useNotificationStore';
 
 const ICONS: Record<NotificationKind, React.ComponentType<{ className?: string }>> = {
   chat: MessageCircleMore,
@@ -90,11 +85,7 @@ export function NotificationCenter() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <IconButton label={unread ? `Notifications (${unread} unread)` : 'Notifications'} className="relative" />
-        }
-      >
+      <PopoverTrigger render={<IconButton label={unread ? `Notifications (${unread} unread)` : 'Notifications'} className="relative" />}>
         <Bell />
         <AnimatePresence>
           {unread > 0 && (

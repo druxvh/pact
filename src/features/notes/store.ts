@@ -99,7 +99,8 @@ export const useNotesStore = create<NotesState>()(
           notebooks,
           notes,
           activeNotebookId,
-          selectedId: s.activeNotebookId === id ? nextSelection(sortNotes(notes.filter((n) => n.notebookId === activeNotebookId)), activeNotebookId) : s.selectedId,
+          selectedId:
+            s.activeNotebookId === id ? nextSelection(sortNotes(notes.filter((n) => n.notebookId === activeNotebookId)), activeNotebookId) : s.selectedId,
         });
         return { notebook, notes: removedNotes };
       },
@@ -124,9 +125,7 @@ export const useNotesStore = create<NotesState>()(
 
       removeMember: (notebookId, personId) =>
         set((s) => ({
-          notebooks: s.notebooks.map((b) =>
-            b.id === notebookId && personId !== ME_ID ? { ...b, memberIds: b.memberIds.filter((m) => m !== personId) } : b,
-          ),
+          notebooks: s.notebooks.map((b) => (b.id === notebookId && personId !== ME_ID ? { ...b, memberIds: b.memberIds.filter((m) => m !== personId) } : b)),
           // Anything assigned to the removed person becomes unassigned.
           notes: s.notes.map((n) => (n.notebookId === notebookId && n.assigneeId === personId ? { ...n, assigneeId: null } : n)),
         })),
@@ -181,11 +180,7 @@ export const useNotesStore = create<NotesState>()(
       },
 
       restoreNote: (note) =>
-        set((s) =>
-          s.notes.some((n) => n.id === note.id)
-            ? s
-            : { notes: [...s.notes, note], activeNotebookId: note.notebookId, selectedId: note.id },
-        ),
+        set((s) => (s.notes.some((n) => n.id === note.id) ? s : { notes: [...s.notes, note], activeNotebookId: note.notebookId, selectedId: note.id })),
     }),
     {
       name: 'pact-notes',
@@ -213,9 +208,7 @@ export const useNotesStore = create<NotesState>()(
         }));
         const notebooks: Notebook[] = baseNotebooks.map((b) => ({
           ...b,
-          nextNumber:
-            (b as Partial<Notebook>).nextNumber ??
-            notes.filter((n) => n.notebookId === b.id).reduce((m, n) => Math.max(m, n.number), 0) + 1,
+          nextNumber: (b as Partial<Notebook>).nextNumber ?? notes.filter((n) => n.notebookId === b.id).reduce((m, n) => Math.max(m, n.number), 0) + 1,
         }));
         return {
           notebooks,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { type QueueItem, LIMITS, watchUrlFor } from './protocol';
+import { LIMITS, type QueueItem, watchUrlFor } from './protocol';
 import { Room } from './room';
 
 let t = 0;
@@ -181,7 +181,10 @@ describe('serialisation', () => {
   it('re-validates what it loads and rejects garbage', () => {
     expect(Room.fromJSON(null)).toBeNull();
     expect(Room.fromJSON({ id: 5 })).toBeNull();
-    const r = Room.fromJSON({ id: 'abcd', peers: 'x', queue: [{ id: 'q', videoId: 'bad' }], chat: [null], anchor: { playing: 'no', mediaTime: 1, at: 1 } }, clock);
+    const r = Room.fromJSON(
+      { id: 'abcd', peers: 'x', queue: [{ id: 'q', videoId: 'bad' }], chat: [null], anchor: { playing: 'no', mediaTime: 1, at: 1 } },
+      clock,
+    );
     expect(r?.state()).toMatchObject({ peers: [], queue: [], chat: [], media: null });
   });
 });

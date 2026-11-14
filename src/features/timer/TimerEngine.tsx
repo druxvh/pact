@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { baseTitle } from '@/app/routes';
-import { PHASE_LABEL, type Completion, useTimerStore } from '@/features/timer/store';
 import { useKanbanStore } from '@/features/kanban/store';
+import { type Completion, PHASE_LABEL, useTimerStore } from '@/features/timer/store';
 import { clearAlarm, scheduleAlarm } from '@/lib/ext';
 import { formatClock } from '@/lib/format';
 import { playChime } from '@/lib/sound';
@@ -105,15 +105,18 @@ export function TimerEngine() {
     if (!fresh || document.visibilityState !== 'visible') return;
 
     const { title, body } = copyFor(lastCompleted);
-    const task = lastCompleted.taskId
-      ? useKanbanStore.getState().tasks.find((t) => t.id === lastCompleted.taskId)
-      : undefined;
+    const task = lastCompleted.taskId ? useKanbanStore.getState().tasks.find((t) => t.id === lastCompleted.taskId) : undefined;
     if (lastCompleted.phase === 'focus' && task && task.columnId !== 'done') {
-      notify.action(title, `Mark #${task.number} done`, () => {
-        const col = useKanbanStore.getState().tasks.filter((t) => t.boardId === task.boardId && t.columnId === 'done').length;
-        useKanbanStore.getState().moveTask(task.id, 'done', col);
-        notify.success(`#${task.number} marked done`);
-      }, body);
+      notify.action(
+        title,
+        `Mark #${task.number} done`,
+        () => {
+          const col = useKanbanStore.getState().tasks.filter((t) => t.boardId === task.boardId && t.columnId === 'done').length;
+          useKanbanStore.getState().moveTask(task.id, 'done', col);
+          notify.success(`#${task.number} marked done`);
+        },
+        body,
+      );
     } else {
       notify.success(title, body);
     }

@@ -39,7 +39,11 @@ export function base64Decode(s: string): Result {
 function sortKeys(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(sortKeys);
   if (v && typeof v === 'object') {
-    return Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([k, x]) => [k, sortKeys(x)]));
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, x]) => [k, sortKeys(x)]),
+    );
   }
   return v;
 }

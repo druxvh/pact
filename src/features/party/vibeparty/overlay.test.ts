@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OVERLAY_HOST_ID, type OverlayCallbacks, VibePartyOverlay } from './overlay';
 import type { ChatMessage, QueueItem } from './protocol';
 import { watchUrlFor } from './protocol';
-import { OVERLAY_HOST_ID, type OverlayCallbacks, VibePartyOverlay } from './overlay';
 
 const noop = () => {};
 function callbacks(over: Partial<OverlayCallbacks> = {}): OverlayCallbacks {

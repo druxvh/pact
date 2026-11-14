@@ -9,7 +9,12 @@ import { ME_ID } from '@/store/useUserStore';
 const reset = () =>
   useChatStore.setState({ conversations: [], messages: [], activeId: null, drafts: {}, typing: {}, replyingTo: {}, recentEmoji: [], search: '' });
 
-const msg = (over: Partial<Message> & Pick<Message, 'senderId' | 'createdAt'>): Message => ({ id: crypto.randomUUID(), conversationId: 'c', body: 'x', ...over });
+const msg = (over: Partial<Message> & Pick<Message, 'senderId' | 'createdAt'>): Message => ({
+  id: crypto.randomUUID(),
+  conversationId: 'c',
+  body: 'x',
+  ...over,
+});
 
 describe('chat store', () => {
   beforeEach(reset);
@@ -95,14 +100,32 @@ describe('chat store', () => {
       {
         conversations: [
           { id: 'dm-alex', participantIds: ['local-user', 'alex'], lastMessageAt: '2026-01-02T00:00:00.000Z' },
-          { id: 'space-design', participantIds: ['local-user', 'alex', 'jordan'], isSpace: true, spaceName: 'design jam', lastMessageAt: '2026-01-02T00:00:00.000Z' },
+          {
+            id: 'space-design',
+            participantIds: ['local-user', 'alex', 'jordan'],
+            isSpace: true,
+            spaceName: 'design jam',
+            lastMessageAt: '2026-01-02T00:00:00.000Z',
+          },
         ],
-        messages: [{ id: 'm1', conversationId: 'dm-alex', senderId: 'alex', body: 'hi', createdAt: '2026-01-01T00:00:00.000Z', attachments: [{ id: 'a', type: 'image', url: 'blob:dead' }] }],
+        messages: [
+          {
+            id: 'm1',
+            conversationId: 'dm-alex',
+            senderId: 'alex',
+            body: 'hi',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            attachments: [{ id: 'a', type: 'image', url: 'blob:dead' }],
+          },
+        ],
         activeId: 'dm-alex',
       },
       1,
     ) as ReturnType<typeof useChatStore.getState>;
-    expect(out.conversations.map((c) => [c.kind, c.name])).toEqual([['dm', undefined], ['group', 'design jam']]);
+    expect(out.conversations.map((c) => [c.kind, c.name])).toEqual([
+      ['dm', undefined],
+      ['group', 'design jam'],
+    ]);
     expect(out.messages[0]).not.toHaveProperty('attachments');
     expect(out.conversations[0]?.lastReadAt).toBe(out.conversations[0]?.lastMessageAt);
     expect(out.activeId).toBe('dm-alex');

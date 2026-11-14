@@ -12,8 +12,7 @@ type Props = {
 type State = { error: Error | null };
 
 /** A lazy chunk that can't be fetched (typically: the extension updated while this tab was open). */
-const isChunkError = (e: Error) =>
-  /dynamically imported module|importing a module script failed|loading chunk|chunkloaderror|failed to fetch/i.test(e.message);
+const isChunkError = (e: Error) => /dynamically imported module|importing a module script failed|loading chunk|chunkloaderror|failed to fetch/i.test(e.message);
 
 /**
  * Without this, a single render error (or a failed lazy import) unmounts the whole React tree and

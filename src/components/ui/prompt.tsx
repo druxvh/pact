@@ -77,9 +77,7 @@ export function PromptHost() {
           <D.Popup className="w-full max-w-sm rounded-2xl border bg-popover text-popover-foreground shadow-pop outline-none transition-[opacity,transform] duration-200 ease-out-expo data-[starting-style]:translate-y-2 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
             <form onSubmit={submit} className="p-5">
               <D.Title className="text-base font-semibold tracking-tight">{options?.title}</D.Title>
-              {options?.description && (
-                <D.Description className="mt-1 text-[13px] text-muted-foreground">{options.description}</D.Description>
-              )}
+              {options?.description && <D.Description className="mt-1 text-[13px] text-muted-foreground">{options.description}</D.Description>}
               <div className="mt-4">
                 <Label htmlFor="prompt-input">{options?.label ?? 'Name'}</Label>
                 <Input

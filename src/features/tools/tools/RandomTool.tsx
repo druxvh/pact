@@ -61,7 +61,9 @@ function Dice() {
 
       <div className="flex min-h-36 flex-wrap items-center justify-center gap-4 rounded-2xl border bg-muted/30 p-6">
         {values.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Roll {count} × d{sides}</p>
+          <p className="text-sm text-muted-foreground">
+            Roll {count} × d{sides}
+          </p>
         ) : (
           values.map((v, i) => (
             <motion.div
@@ -123,7 +125,9 @@ function Coin() {
               key={f}
               className={cn(
                 'absolute inset-0 grid place-items-center rounded-full border-4 border-warning/70 text-5xl font-bold shadow-lg [backface-visibility:hidden]',
-                f === 'heads' ? 'bg-gradient-to-br from-warning via-brand to-warning text-brand-foreground' : 'bg-gradient-to-br from-muted-foreground/40 via-secondary to-muted-foreground/40 text-foreground [transform:rotateY(180deg)]',
+                f === 'heads'
+                  ? 'bg-gradient-to-br from-warning via-brand to-warning text-brand-foreground'
+                  : 'bg-gradient-to-br from-muted-foreground/40 via-secondary to-muted-foreground/40 text-foreground [transform:rotateY(180deg)]',
               )}
             >
               {f === 'heads' ? 'H' : 'T'}
@@ -135,7 +139,14 @@ function Coin() {
       <div className="h-8 text-center" aria-live="polite">
         <AnimatePresence mode="wait">
           {side && !flipping && (
-            <motion.p key={side + tally.heads + tally.tails} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={spring.bouncy} className="text-xl font-semibold capitalize">
+            <motion.p
+              key={side + tally.heads + tally.tails}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={spring.bouncy}
+              className="text-xl font-semibold capitalize"
+            >
               {side}!
             </motion.p>
           )}
@@ -161,7 +172,10 @@ function Picker() {
   const alive = useRef(true);
   useEffect(() => () => void (alive.current = false), []);
 
-  const options = raw.split('\n').map((s) => s.trim()).filter(Boolean);
+  const options = raw
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   const choose = async () => {
     if (busy || options.length < 2) return;
@@ -200,7 +214,16 @@ function Picker() {
         <label htmlFor="picker-options" className="text-xs font-medium text-muted-foreground">
           Options — one per line
         </label>
-        <Textarea id="picker-options" rows={9} value={raw} onChange={(e) => { setRaw(e.target.value); setWinner(null); }} className="min-h-52" />
+        <Textarea
+          id="picker-options"
+          rows={9}
+          value={raw}
+          onChange={(e) => {
+            setRaw(e.target.value);
+            setWinner(null);
+          }}
+          className="min-h-52"
+        />
         <div className="flex gap-2">
           <Button variant="primary" onClick={() => void choose()} disabled={busy || options.length < 2}>
             <Sparkles /> {busy ? 'Picking…' : 'Pick one'}

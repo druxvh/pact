@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react';
-import { IconButton, Kbd, ThemeToggle } from '@/components/ui';
 import { NotificationCenter } from '@/app/NotificationCenter';
 import { ProfileMenu } from '@/app/ProfileMenu';
+import { IconButton, Kbd, ThemeToggle } from '@/components/ui';
 import { TimerPill } from '@/features/timer/TimerPill';
 import { cn } from '@/lib/cn';
 import { MOD_KEY } from '@/lib/hotkeys';

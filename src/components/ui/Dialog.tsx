@@ -60,10 +60,7 @@ export function DialogTitle({ className, ...props }: Omit<React.ComponentProps<t
   return <D.Title className={cn('text-base font-semibold tracking-tight', className)} {...props} />;
 }
 
-export function DialogDescription({
-  className,
-  ...props
-}: Omit<React.ComponentProps<typeof D.Description>, 'className'> & { className?: string }) {
+export function DialogDescription({ className, ...props }: Omit<React.ComponentProps<typeof D.Description>, 'className'> & { className?: string }) {
   return <D.Description className={cn('text-[13px] text-muted-foreground', className)} {...props} />;
 }
 

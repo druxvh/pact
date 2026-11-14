@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  DEFAULT_BOARD_ID,
-  columnTasks,
-  describeDue,
-  orderBetween,
-  toDateKey,
-  useKanbanStore,
-} from '@/features/kanban/store';
+import { columnTasks, DEFAULT_BOARD_ID, describeDue, orderBetween, toDateKey, useKanbanStore } from '@/features/kanban/store';
 
 const reset = () =>
   useKanbanStore.setState({
@@ -15,8 +8,7 @@ const reset = () =>
     activeBoardId: DEFAULT_BOARD_ID,
   });
 
-const order = (col: 'todo' | 'in_progress' | 'done') =>
-  columnTasks(useKanbanStore.getState().tasks, DEFAULT_BOARD_ID, col).map((t) => t.title);
+const order = (col: 'todo' | 'in_progress' | 'done') => columnTasks(useKanbanStore.getState().tasks, DEFAULT_BOARD_ID, col).map((t) => t.title);
 
 describe('orderBetween (fractional indexing)', () => {
   it('lands strictly between neighbours', () => {

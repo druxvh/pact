@@ -1,8 +1,20 @@
 import { ArrowRight, AtSign, FileText, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, InputGroup, Label } from '@/components/ui';
 import { profileStepError, suggestUsername } from '@/app/profileSetup';
+import {
+  Button,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  InputGroup,
+  Label,
+} from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
 import { useKanbanStore } from '@/features/kanban/store';
 import { useNotesStore } from '@/features/notes/store';
@@ -65,7 +77,9 @@ export function Onboarding() {
         <DialogHeader>
           <DialogTitle>{step === 0 ? 'Welcome to pact' : 'How do you want to start?'}</DialogTitle>
           <DialogDescription>
-            {step === 0 ? 'A new tab with notes, tasks, a focus timer, tiny tools and your people. Twenty seconds to set up.' : 'You can change your mind later in Settings.'}
+            {step === 0
+              ? 'A new tab with notes, tasks, a focus timer, tiny tools and your people. Twenty seconds to set up.'
+              : 'You can change your mind later in Settings.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -86,7 +100,15 @@ export function Onboarding() {
               >
                 <div>
                   <Label htmlFor="ob-name">What should we call you?</Label>
-                  <Input id="ob-name" ref={nameRef} value={name} onChange={(e) => onName(e.target.value)} maxLength={40} placeholder="Your name" autoComplete="name" />
+                  <Input
+                    id="ob-name"
+                    ref={nameRef}
+                    value={name}
+                    onChange={(e) => onName(e.target.value)}
+                    maxLength={40}
+                    placeholder="Your name"
+                    autoComplete="name"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="ob-username">Username</Label>
@@ -104,7 +126,11 @@ export function Onboarding() {
                     aria-invalid={showUsernameError ? true : undefined}
                     aria-describedby="ob-username-hint"
                   />
-                  <p id="ob-username-hint" role={showUsernameError ? 'alert' : undefined} className={cn('mt-1 text-xs', showUsernameError ? 'text-destructive-text' : 'text-subtle-foreground')}>
+                  <p
+                    id="ob-username-hint"
+                    role={showUsernameError ? 'alert' : undefined}
+                    className={cn('mt-1 text-xs', showUsernameError ? 'text-destructive-text' : 'text-subtle-foreground')}
+                  >
                     {showUsernameError ?? 'How friends find you. Letters, numbers and underscores.'}
                   </p>
                 </div>
@@ -139,7 +165,12 @@ export function Onboarding() {
                       )}
                     >
                       <input type="radio" name="ob-start" value={o.id} checked={selected} onChange={() => setStart(o.id)} className="sr-only" />
-                      <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg transition-colors', selected ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground')}>
+                      <span
+                        className={cn(
+                          'grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
+                          selected ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground',
+                        )}
+                      >
                         <o.icon className="size-[18px]" />
                       </span>
                       <span>
@@ -147,7 +178,12 @@ export function Onboarding() {
                         <span className="block text-[13px] leading-snug text-muted-foreground">{o.body}</span>
                       </span>
                       {selected && (
-                        <motion.span layoutId="ob-check" transition={spring.snappy} className="absolute right-3 top-3 size-2 rounded-full bg-brand" aria-hidden="true" />
+                        <motion.span
+                          layoutId="ob-check"
+                          transition={spring.snappy}
+                          className="absolute right-3 top-3 size-2 rounded-full bg-brand"
+                          aria-hidden="true"
+                        />
                       )}
                     </label>
                   );

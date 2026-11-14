@@ -33,9 +33,7 @@ function isTypingTarget(t: EventTarget | null): boolean {
 
 function isInteractiveTarget(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
-  return Boolean(
-    el?.closest?.('button, a[href], summary, [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"]'),
-  );
+  return Boolean(el?.closest?.('button, a[href], summary, [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"]'));
 }
 
 function matchesCombo(combo: string, e: KeyboardEvent): boolean {
@@ -71,9 +69,7 @@ export function useHotkeys(bindings: Binding[]): void {
       if (e.isComposing || e.repeat) return;
       const typing = isTypingTarget(e.target);
       const interactive = isInteractiveTarget(e.target);
-      const active = ref.current.filter(
-        (b) => b.enabled !== false && (!typing || b.allowInInput) && !(interactive && b.ignoreInteractive),
-      );
+      const active = ref.current.filter((b) => b.enabled !== false && (!typing || b.allowInInput) && !(interactive && b.ignoreInteractive));
 
       // 1) finish a pending sequence ("g" then "n")
       if (pending) {

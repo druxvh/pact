@@ -9,19 +9,20 @@
  *     playback feel instant) and forward them; everything the relay sends back replaces/merges into our copy.
  *     Whether the queue advances when a video ends is decided by whoever is authoritative, never both.
  */
-import { Room, type SerializedRoom } from './room.ts';
+
 import {
   type AppRoomStatus,
   type AppStatus,
   type BackgroundToContent,
   type ChatMessage,
   type ConnectionMode,
+  parseYouTubeId,
   type QueueItem,
   type ReactionEvent,
   type ServerMessage,
-  parseYouTubeId,
 } from './protocol.ts';
 import type { RelayLike } from './relay-client.ts';
+import { Room, type SerializedRoom } from './room.ts';
 import { cleanName, cleanRoom, parseContentMessage } from './sanitize.ts';
 
 type Member = { room: string; peerId: string; name: string; lastSeen: number };

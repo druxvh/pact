@@ -1,12 +1,12 @@
 import { ArrowUpRight, Clock3, Globe, Link2, Search, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Kbd } from '@/components/ui';
 import { SiteIcon } from '@/features/home/SiteIcon';
 import { useHomeStore } from '@/features/home/store';
-import { Kbd } from '@/components/ui';
+import { cn } from '@/lib/cn';
 import { openUrl, webSearch } from '@/lib/ext';
 import { bestScore } from '@/lib/fuzzy';
-import { cn } from '@/lib/cn';
 import { useHotkeys } from '@/lib/hotkeys';
 import { spring } from '@/lib/motion';
 import { hostnameOf, resolveInput } from '@/lib/url';
@@ -23,13 +23,7 @@ type Suggestion = {
   run: () => void;
 };
 
-const PLACEHOLDERS = [
-  'Search the web or type a URL',
-  'Try “github.com”',
-  'Try “weather in Berlin”',
-  'Jump anywhere with ⌘K',
-  'Try “pomodoro 25 minutes”',
-];
+const PLACEHOLDERS = ['Search the web or type a URL', 'Try “github.com”', 'Try “weather in Berlin”', 'Jump anywhere with ⌘K', 'Try “pomodoro 25 minutes”'];
 
 /**
  * Typewriter placeholder. Lives in its own component so the per-character state
@@ -161,9 +155,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
     recent
       .filter((x) => x.toLowerCase().startsWith(q.toLowerCase()) && x.toLowerCase() !== q.toLowerCase())
       .slice(0, 3)
-      .forEach((x) =>
-        out.push({ id: `recent-${x}`, label: x, icon: <Clock3 className="size-4" />, run: () => submit(x) }),
-      );
+      .forEach((x) => out.push({ id: `recent-${x}`, label: x, icon: <Clock3 className="size-4" />, run: () => submit(x) }));
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, recent, links]);
@@ -311,10 +303,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseMove={() => setIndex(i)}
                 onClick={item.run}
-                className={cn(
-                  'group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors',
-                  i === index && 'bg-accent',
-                )}
+                className={cn('group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors', i === index && 'bg-accent')}
               >
                 <span className="grid size-6 shrink-0 place-items-center text-muted-foreground">{item.icon}</span>
                 <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>

@@ -3,8 +3,8 @@ import { Plus, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Badge, IconButton } from '@/components/ui';
-import { SortableTaskCard } from '@/features/kanban/TaskCard';
 import { type ColumnId, type Task, useKanbanStore } from '@/features/kanban/store';
+import { SortableTaskCard } from '@/features/kanban/TaskCard';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
 import type { Person } from '@/types/user';
@@ -62,12 +62,7 @@ export function KanbanColumn({ column, index, boardId, ids, tasksById, memberByI
         <span className={cn('size-2 rounded-full', DOT[column.id])} aria-hidden="true" />
         <h2 className="text-[13px] font-semibold tracking-tight">{column.title}</h2>
         <Badge mono>{ids.length}</Badge>
-        <IconButton
-          label={adding ? 'Cancel adding' : `Add task to ${column.title}`}
-          size="icon-xs"
-          className="ml-auto"
-          onClick={() => setAdding((v) => !v)}
-        >
+        <IconButton label={adding ? 'Cancel adding' : `Add task to ${column.title}`} size="icon-xs" className="ml-auto" onClick={() => setAdding((v) => !v)}>
           {adding ? <X /> : <Plus />}
         </IconButton>
       </header>
@@ -123,9 +118,7 @@ export function KanbanColumn({ column, index, boardId, ids, tasksById, memberByI
         })}
 
         {ids.length === 0 && !adding && (
-          <div className="grid h-24 place-items-center rounded-xl border border-dashed text-xs text-subtle-foreground">
-            Drop tasks here
-          </div>
+          <div className="grid h-24 place-items-center rounded-xl border border-dashed text-xs text-subtle-foreground">Drop tasks here</div>
         )}
       </div>
     </section>

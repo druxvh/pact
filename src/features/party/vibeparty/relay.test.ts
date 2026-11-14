@@ -29,7 +29,11 @@ class Browser {
   readonly client: RelayClient;
   private readonly inbox = new Map<number, BackgroundToContent[]>();
 
-  constructor(url: string, readonly prefix: string, skewMs = 0) {
+  constructor(
+    url: string,
+    readonly prefix: string,
+    skewMs = 0,
+  ) {
     let n = 0;
     const now = () => Date.now() + skewMs;
     const ref: { c?: PartyController } = {};
@@ -213,7 +217,13 @@ describe('two browsers in one live party', () => {
     a.send(1, { type: 'vibeparty:media', ev: 'ended', mediaTime: 212, playing: false, videoId: VID });
     for (const br of [a, b]) {
       await waitFor(() => br.msgs(1, 'vibeparty:media').some((m) => m.media.reason === 'advance'));
-      await waitFor(() => br.last(1, 'vibeparty:queue')?.items.map((i) => i.title).join() === 'Two');
+      await waitFor(
+        () =>
+          br
+            .last(1, 'vibeparty:queue')
+            ?.items.map((i) => i.title)
+            .join() === 'Two',
+      );
     }
     expect(b.msgs(1, 'vibeparty:media').at(-1)?.media).toMatchObject({ videoId: VID2, playing: true, reason: 'advance' });
 
@@ -286,7 +296,15 @@ describe('relay hardening', () => {
   it('ignores garbage frames and keeps serving', async () => {
     const r = raw();
     await r.open;
-    for (const junk of ['not json', '{"t":"nope"}', '[]', 'null', '{"t":"join"}', JSON.stringify({ t: 'chat', room: ROOM, peerId: 'ghost', id: 'i', text: 'hi', at: 1 })]) r.send(junk);
+    for (const junk of [
+      'not json',
+      '{"t":"nope"}',
+      '[]',
+      'null',
+      '{"t":"join"}',
+      JSON.stringify({ t: 'chat', room: ROOM, peerId: 'ghost', id: 'i', text: 'hi', at: 1 }),
+    ])
+      r.send(junk);
     r.send({ t: 'ping', ts: 42 });
     await waitFor(() => r.inbox.some((m) => m.t === 'pong'));
     expect(r.inbox.find((m) => m.t === 'pong')).toEqual({ t: 'pong', ts: 42 });

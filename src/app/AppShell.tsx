@@ -2,15 +2,15 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { CommandPalette } from '@/app/CommandPalette';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
-import { SECTION_BY_ID, SECTIONS, baseTitle } from '@/app/routes';
-import { selectTotalUnread, useChatStore } from '@/features/chat/store';
-import { TimerEngine } from '@/features/timer/TimerEngine';
-import { useTimerStore } from '@/features/timer/store';
+import { Onboarding } from '@/app/Onboarding';
+import { baseTitle, SECTION_BY_ID, SECTIONS } from '@/app/routes';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
 import { MobileNav, Sidebar } from '@/app/Sidebar';
-import { Onboarding } from '@/app/Onboarding';
 import { TopBar } from '@/app/TopBar';
 import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/ui';
+import { selectTotalUnread, useChatStore } from '@/features/chat/store';
+import { useTimerStore } from '@/features/timer/store';
+import { TimerEngine } from '@/features/timer/TimerEngine';
 import { cn } from '@/lib/cn';
 import { useHotkeys } from '@/lib/hotkeys';
 import { page } from '@/lib/motion';
@@ -75,11 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <TopBar />
             <main id="main" ref={mainRef} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
               <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={section}
-                  {...page}
-                  className={cn(meta.bleed ? 'h-full' : 'mx-auto w-full max-w-[1240px] px-4 py-6 md:px-8 md:py-8')}
-                >
+                <motion.div key={section} {...page} className={cn(meta.bleed ? 'h-full' : 'mx-auto w-full max-w-[1240px] px-4 py-6 md:px-8 md:py-8')}>
                   <ErrorBoundary resetKey={section} label={meta.label}>
                     {children}
                   </ErrorBoundary>

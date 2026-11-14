@@ -19,7 +19,14 @@
  * It does NOT log chat content. Put TLS in front of it (Caddy, nginx, Cloudflare…) for `wss://`.
  */
 import { type WebSocket, WebSocketServer } from 'ws';
-import { type ChatMessage, type MediaSnapshot, type QueueItem, type ReactionEvent, type ServerMessage, parseYouTubeId } from '../src/features/party/vibeparty/protocol.ts';
+import {
+  type ChatMessage,
+  type MediaSnapshot,
+  parseYouTubeId,
+  type QueueItem,
+  type ReactionEvent,
+  type ServerMessage,
+} from '../src/features/party/vibeparty/protocol.ts';
 import { Room } from '../src/features/party/vibeparty/room.ts';
 import { parseClientMessage } from '../src/features/party/vibeparty/sanitize.ts';
 
@@ -67,9 +74,7 @@ export async function startRelay(options: RelayOptions = {}): Promise<Relay> {
     port: options.port ?? 8787,
     host: options.host ?? '127.0.0.1',
     maxPayload: options.maxPayloadBytes ?? 16 * 1024,
-    verifyClient: options.allowedOrigins
-      ? ({ origin }: { origin: string }) => options.allowedOrigins?.includes(origin) ?? false
-      : undefined,
+    verifyClient: options.allowedOrigins ? ({ origin }: { origin: string }) => options.allowedOrigins?.includes(origin) ?? false : undefined,
   });
   await new Promise<void>((resolve, reject) => {
     wss.once('listening', resolve);

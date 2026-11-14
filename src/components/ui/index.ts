@@ -1,8 +1,8 @@
 export { Avatar, AvatarGroup, type PresenceStatus } from './Avatar';
 export { Badge } from './Badge';
-export { Button, buttonClass, type ButtonProps, type ButtonSize, type ButtonVariant } from './Button';
+export { Button, type ButtonProps, type ButtonSize, type ButtonVariant, buttonClass } from './Button';
 export { Card, CardDescription, CardTitle } from './Card';
-export { confirm, ConfirmHost } from './confirm';
+export { ConfirmHost, confirm } from './confirm';
 export {
   Dialog,
   DialogBody,

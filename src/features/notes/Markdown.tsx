@@ -9,14 +9,7 @@ function TaskInput({ type, checked }: ComponentProps<'input'>) {
   const line = useContext(LineContext);
   const toggle = useContext(ToggleContext);
   if (type !== 'checkbox') return <input type={type} readOnly />;
-  return (
-    <input
-      type="checkbox"
-      checked={Boolean(checked)}
-      aria-label="Toggle task"
-      onChange={() => line != null && toggle?.(line)}
-    />
-  );
+  return <input type="checkbox" checked={Boolean(checked)} aria-label="Toggle task" onChange={() => line != null && toggle?.(line)} />;
 }
 
 function SafeLink({ href, children }: ComponentProps<'a'>) {

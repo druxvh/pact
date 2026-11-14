@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEMO_DIRECTORY, ME_ID, normalizeUsername, useUserStore, validateUsername } from '@/store/useUserStore';
 import { membersOf, resolveInvite } from '@/store/members';
+import { DEMO_DIRECTORY, ME_ID, normalizeUsername, useUserStore, validateUsername } from '@/store/useUserStore';
 
 describe('usernames', () => {
   it('normalises @handles', () => {

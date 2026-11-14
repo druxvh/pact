@@ -138,11 +138,7 @@ export const useKanbanStore = create<KanbanState>()(
       },
 
       restoreBoard: ({ board, tasks }) =>
-        set((s) =>
-          s.boards.some((b) => b.id === board.id)
-            ? s
-            : { boards: [...s.boards, board], tasks: [...s.tasks, ...tasks], activeBoardId: board.id },
-        ),
+        set((s) => (s.boards.some((b) => b.id === board.id) ? s : { boards: [...s.boards, board], tasks: [...s.tasks, ...tasks], activeBoardId: board.id })),
 
       inviteToBoard: (boardId, username) => {
         const board = get().boards.find((b) => b.id === boardId);
@@ -157,9 +153,7 @@ export const useKanbanStore = create<KanbanState>()(
 
       removeMember: (boardId, personId) =>
         set((s) => ({
-          boards: s.boards.map((b) =>
-            b.id === boardId && personId !== ME_ID ? { ...b, memberIds: b.memberIds.filter((m) => m !== personId) } : b,
-          ),
+          boards: s.boards.map((b) => (b.id === boardId && personId !== ME_ID ? { ...b, memberIds: b.memberIds.filter((m) => m !== personId) } : b)),
           tasks: s.tasks.map((t) => (t.boardId === boardId && t.assigneeId === personId ? { ...t, assigneeId: null } : t)),
         })),
 
@@ -226,8 +220,7 @@ export const useKanbanStore = create<KanbanState>()(
           const prev = dest[i - 1]?.order;
           const next = dest[i]?.order;
           const stamp = now();
-          const completedAt =
-            columnId === 'done' ? (task.columnId === 'done' ? task.completedAt : stamp) : null;
+          const completedAt = columnId === 'done' ? (task.columnId === 'done' ? task.completedAt : stamp) : null;
 
           // Neighbours too close for float precision → renumber this column once.
           if (prev !== undefined && next !== undefined && next - prev < 1e-6) {
@@ -235,16 +228,12 @@ export const useKanbanStore = create<KanbanState>()(
             const orderById = new Map(ordered.map((t, k) => [t.id, (k + 1) * STEP]));
             return {
               tasks: s.tasks.map((t) =>
-                orderById.has(t.id)
-                  ? { ...t, order: orderById.get(t.id) as number, ...(t.id === id ? { columnId, completedAt, updatedAt: stamp } : null) }
-                  : t,
+                orderById.has(t.id) ? { ...t, order: orderById.get(t.id) as number, ...(t.id === id ? { columnId, completedAt, updatedAt: stamp } : null) } : t,
               ),
             };
           }
           return {
-            tasks: s.tasks.map((t) =>
-              t.id === id ? { ...t, columnId, order: orderBetween(prev, next), completedAt, updatedAt: stamp } : t,
-            ),
+            tasks: s.tasks.map((t) => (t.id === id ? { ...t, columnId, order: orderBetween(prev, next), completedAt, updatedAt: stamp } : t)),
           };
         }),
     }),
@@ -281,8 +270,7 @@ export const useKanbanStore = create<KanbanState>()(
           name: b.name ?? 'Board',
           memberIds: b.memberIds ?? [ME_ID],
           createdAt: b.createdAt ?? now(),
-          nextNumber:
-            b.nextNumber ?? tasks.filter((t) => t.boardId === b.id).reduce((m, t) => Math.max(m, t.number), 0) + 1,
+          nextNumber: b.nextNumber ?? tasks.filter((t) => t.boardId === b.id).reduce((m, t) => Math.max(m, t.number), 0) + 1,
         }));
         return {
           boards,

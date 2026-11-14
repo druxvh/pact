@@ -1,8 +1,8 @@
-import { DragDropProvider } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
+import { DragDropProvider } from '@dnd-kit/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { KanbanColumn } from '@/features/kanban/Column';
-import { COLUMNS, type ColumnId, type Task, columnTasks, useKanbanStore } from '@/features/kanban/store';
+import { COLUMNS, type ColumnId, columnTasks, type Task, useKanbanStore } from '@/features/kanban/store';
 import type { Person } from '@/types/user';
 
 type Grouped = Record<ColumnId, string[]>;

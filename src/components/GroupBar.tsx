@@ -1,17 +1,7 @@
 import { MoreHorizontal, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
 import { LayoutGroup, motion } from 'motion/react';
 import { useId } from 'react';
-import {
-  AvatarGroup,
-  Badge,
-  Button,
-  DropdownContent,
-  DropdownItem,
-  DropdownMenu,
-  DropdownSeparator,
-  DropdownTrigger,
-  IconButton,
-} from '@/components/ui';
+import { AvatarGroup, Badge, Button, DropdownContent, DropdownItem, DropdownMenu, DropdownSeparator, DropdownTrigger, IconButton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { hueFrom } from '@/lib/format';
 import { spring } from '@/lib/motion';
@@ -61,13 +51,7 @@ export function GroupBar({ items, activeId, onSelect, onCreate, onRename, onInvi
                   isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >
-                {isActive && (
-                  <motion.span
-                    layoutId="group-pill"
-                    transition={spring.layout}
-                    className="absolute inset-0 rounded-xl border bg-card shadow-sm"
-                  />
-                )}
+                {isActive && <motion.span layoutId="group-pill" transition={spring.layout} className="absolute inset-0 rounded-xl border bg-card shadow-sm" />}
                 <span
                   aria-hidden="true"
                   className="relative grid size-5 shrink-0 place-items-center rounded-md text-[10px] font-bold text-white"
