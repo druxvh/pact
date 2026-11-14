@@ -1,165 +1,230 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Users, UserPlus, Trash2, Columns3 } from 'lucide-react';
-import { KanbanBoard } from '@/features/kanban/KanbanBoard';
-import { useKanbanStore } from '@/features/kanban/store';
-import { useUserStore } from '@/store/useUserStore';
-import { Button } from '@/components/ui/Button';
-import { useNotificationStore } from '@/store/useNotificationStore';
+import { Columns3, Plus, Search, X } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useEffect, useMemo, useState } from 'react';
+import { GroupBar, type GroupItem } from '@/components/GroupBar';
+import { InviteDialog } from '@/components/InviteDialog';
+import { Button, InputGroup, Kbd, PageHeader, Segmented, confirm, promptText } from '@/components/ui';
+import { Board } from '@/features/kanban/Board';
+import { type Task, useKanbanStore } from '@/features/kanban/store';
+import { TaskDialog, type TaskDialogTarget } from '@/features/kanban/TaskDialog';
+import { useHotkeys } from '@/lib/hotkeys';
+import { spring } from '@/lib/motion';
+import { notify } from '@/lib/toast';
+import { membersOf } from '@/store/members';
+import { useUiStore } from '@/store/useUiStore';
+import { ME_ID, useUserStore } from '@/store/useUserStore';
+
+type Scope = 'all' | 'mine';
 
 export function KanbanView() {
   const boards = useKanbanStore((s) => s.boards);
-  const activeId = useKanbanStore((s) => s.activeBoardId);
-  const setActive = useKanbanStore((s) => s.setActiveBoard);
+  const tasks = useKanbanStore((s) => s.tasks);
+  const activeBoardId = useKanbanStore((s) => s.activeBoardId);
+  const setActiveBoard = useKanbanStore((s) => s.setActiveBoard);
   const createBoard = useKanbanStore((s) => s.createBoard);
+  const renameBoard = useKanbanStore((s) => s.renameBoard);
   const deleteBoard = useKanbanStore((s) => s.deleteBoard);
-  const invite = useKanbanStore((s) => s.inviteToBoard);
+  const restoreBoard = useKanbanStore((s) => s.restoreBoard);
+  const inviteToBoard = useKanbanStore((s) => s.inviteToBoard);
+  const removeMember = useKanbanStore((s) => s.removeMember);
+  const deleteTask = useKanbanStore((s) => s.deleteTask);
+  const restoreTask = useKanbanStore((s) => s.restoreTask);
   const teammates = useUserStore((s) => s.teammates);
   const currentUser = useUserStore((s) => s.currentUser);
-  const addNotify = useNotificationStore((s) => s.add);
 
-  const activeBoard = boards.find((b) => b.id === activeId) ?? boards[0];
-  const [newName, setNewName] = useState('');
-  const [showNew, setShowNew] = useState(false);
-  const [inviteName, setInviteName] = useState('');
-  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const pendingTaskId = useUiStore((s) => s.pendingTaskId);
+  const pendingNewTask = useUiStore((s) => s.pendingNewTask);
+  const [dialog, setDialog] = useState<TaskDialogTarget>(null);
+  const [inviteFor, setInviteFor] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [scope, setScope] = useState<Scope>('all');
 
-  const allUsers = [currentUser!, ...teammates].filter(Boolean);
-  const memberUsers = activeBoard ? allUsers.filter((u) => activeBoard.memberIds.includes(u.id)) : [];
+  const board = boards.find((b) => b.id === activeBoardId) ?? boards[0];
+  const boardTasks = useMemo(() => tasks.filter((t) => t.boardId === board?.id), [tasks, board?.id]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return boardTasks.filter(
+      (t) =>
+        (scope === 'all' || t.assigneeId === ME_ID) &&
+        (!q || t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || `#${t.number}` === q),
+    );
+  }, [boardTasks, query, scope]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: teammates/currentUser re-resolve member profiles
+  const members = useMemo(() => (board ? membersOf(board.memberIds) : []), [board, teammates, currentUser]);
+  const groups = useMemo<GroupItem[]>(
+    () =>
+      boards.map((b) => ({
+        id: b.id,
+        name: b.name,
+        count: tasks.filter((t) => t.boardId === b.id).length,
+        members: membersOf(b.memberIds).map((p) => ({ id: p.id, name: p.displayName })),
+      })),
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-resolve when profiles change
+    [boards, tasks, teammates, currentUser],
+  );
+
+  // Intents from the command palette ("open task…" / "New task").
+  useEffect(() => {
+    const ui = useUiStore.getState();
+    if (pendingTaskId) {
+      setDialog({ kind: 'edit', id: pendingTaskId });
+      ui.setPendingTaskId(null);
+    } else if (pendingNewTask && board) {
+      setDialog({ kind: 'create', boardId: board.id, columnId: 'todo' });
+      ui.setPendingNewTask(false);
+    }
+  }, [pendingTaskId, pendingNewTask, board]);
+
+  useHotkeys([
+    {
+      keys: 'n',
+      enabled: dialog === null && inviteFor === null && Boolean(board),
+      handler: () => board && setDialog({ kind: 'create', boardId: board.id, columnId: 'todo' }),
+    },
+  ]);
+
+  if (!board) return null;
+
+  const done = boardTasks.filter((t) => t.columnId === 'done').length;
+  const pct = boardTasks.length ? Math.round((done / boardTasks.length) * 100) : 0;
+  const filtering = query.trim() !== '' || scope !== 'all';
+  const invitingBoard = boards.find((b) => b.id === inviteFor);
+
+  const removeTask = (task: Task) => {
+    const removed = deleteTask(task.id);
+    if (removed) notify.undo(`Deleted “${removed.title}”`, () => restoreTask(removed));
+  };
+
+  const onCreateBoard = async () => {
+    const name = await promptText({ title: 'New board', label: 'Board name', placeholder: 'e.g. Sprint 12', confirmLabel: 'Create' });
+    if (name) createBoard(name);
+  };
+
+  const onRenameBoard = async (id: string) => {
+    const b = boards.find((x) => x.id === id);
+    if (!b) return;
+    const name = await promptText({ title: 'Rename board', label: 'Board name', initial: b.name, confirmLabel: 'Rename' });
+    if (name) renameBoard(id, name);
+  };
+
+  const onDeleteBoard = async (id: string) => {
+    const b = boards.find((x) => x.id === id);
+    if (!b) return;
+    const count = tasks.filter((t) => t.boardId === id).length;
+    const ok = await confirm({
+      title: `Delete “${b.name}”?`,
+      description: count ? `Its ${count} ${count === 1 ? 'task' : 'tasks'} will be deleted too. You can undo right after.` : 'This board is empty.',
+      confirmLabel: 'Delete board',
+      destructive: true,
+    });
+    if (!ok) return;
+    const snapshot = deleteBoard(id);
+    if (snapshot) notify.undo(`Deleted “${b.name}”`, () => restoreBoard(snapshot));
+  };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="space-y-4">
-      {/* Top — groups/pages (boards) */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Columns3 className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">Boards</h2>
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{boards.length} groups</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <AnimatePresence>
-              {showNew && (
-                <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: 220 }} exit={{ opacity: 0, width: 0 }} className="overflow-hidden">
-                  <div className="flex gap-1">
-                    <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Board name" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { if (newName.trim()) { createBoard(newName); setNewName(''); setShowNew(false); addNotify({ title: 'Board created', body: newName, kind: 'space' }); } } if (e.key === 'Escape') setShowNew(false); }} className="h-8 w-full rounded-sm border border-input bg-background px-2.5 text-sm outline-none focus:border-ring" />
-                    <Button size="sm" className="h-8 rounded-sm" onClick={() => { if (newName.trim()) { createBoard(newName); addNotify({ title: 'Board created', body: newName, kind: 'space' }); } setNewName(''); setShowNew(false); }}>Create</Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <Button variant="ghost" size="sm" className="h-8 rounded-sm border border-border" onClick={() => setShowNew((v) => !v)}>
-              <Plus className="mr-1 h-3.5 w-3.5" /> New board
-            </Button>
-          </div>
-        </div>
+    <div className="flex h-full min-h-0 flex-col gap-4 p-4 md:p-6">
+      <PageHeader
+        icon={Columns3}
+        title="Kanban"
+        description={
+          boardTasks.length
+            ? `${done} of ${boardTasks.length} tasks done on ${board.name}`
+            : `Plan work on ${board.name}`
+        }
+        actions={
+          <Button variant="primary" onClick={() => setDialog({ kind: 'create', boardId: board.id, columnId: 'todo' })}>
+            <Plus /> New task <Kbd className="ml-1 hidden border-brand-foreground/20 bg-brand-foreground/10 text-brand-foreground sm:inline-flex">N</Kbd>
+          </Button>
+        }
+      />
 
-        {/* Boards as pages — minimal, no heavy border */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {boards.map((b) => {
-            const isActive = b.id === activeBoard?.id;
-            const members = allUsers.filter((u) => b.memberIds.includes(u.id));
-            return (
-              <motion.button
-                key={b.id}
-                onClick={() => setActive(b.id)}
-                whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                className={`group flex shrink-0 items-center gap-2.5 rounded-sm border px-3 py-2 text-left transition-colors ${isActive ? 'border-accent bg-accent text-accent-foreground shadow-sm' : 'border-border bg-card hover:border-accent/30 hover:bg-accent/5'}`}
-              >
-                <span className={`flex h-6 w-6 items-center justify-center rounded-sm text-xs font-medium ${isActive ? 'bg-accent-foreground text-accent' : 'bg-muted text-muted-foreground'}`}>
-                  {b.name.slice(0, 1).toUpperCase()}
-                </span>
-                <span className="min-w-0">
-                  <span className={`block truncate text-sm font-medium ${isActive ? 'text-accent-foreground' : 'text-foreground'}`}>{b.name}</span>
-                  <span className={`block text-xs ${isActive ? 'text-accent-foreground/80' : 'text-muted-foreground'}`}>{members.length} members · {members.map((m) => m.username).join(', ').slice(0, 22)}</span>
-                </span>
-                <span className={`ml-1 hidden rounded-sm px-1.5 py-0.5 text-xs font-mono ${isActive ? 'bg-accent-foreground text-accent' : 'bg-muted text-muted-foreground'}`}>{useKanbanStore.getState().tasks.filter((t) => t.boardId === b.id).length}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+      <GroupBar
+        noun="board"
+        items={groups}
+        activeId={board.id}
+        canDelete={boards.length > 1}
+        onSelect={setActiveBoard}
+        onCreate={() => void onCreateBoard()}
+        onRename={(id) => void onRenameBoard(id)}
+        onInvite={setInviteFor}
+        onDelete={(id) => void onDeleteBoard(id)}
+      />
 
-        {/* Active board header — members + invite */}
-        {activeBoard && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted/20 px-3 py-2.5">
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-1.5">
-                {memberUsers.slice(0, 6).map((u) => (
-                  <span key={u.id} className="flex h-7 w-7 items-center justify-center rounded-sm border border-background bg-card text-xs font-medium text-foreground" title={`${u.displayName} @${u.username}`}>
-                    {u.displayName.slice(0, 1).toUpperCase()}
-                  </span>
-                ))}
-                {memberUsers.length > 6 && <span className="flex h-7 w-7 items-center justify-center rounded-sm border border-background bg-muted text-xs text-muted-foreground">+{memberUsers.length - 6}</span>}
-              </div>
-              <span className="text-sm font-medium text-foreground">{activeBoard.name}</span>
-              <span className="hidden text-xs text-muted-foreground md:inline">· {memberUsers.map((m) => `@${m.username}`).join(' ')}</span>
-              <button
-                onClick={() => {
-                  if (boards.length <= 1) return;
-                  if (confirm(`Delete board "${activeBoard.name}"?`)) deleteBoard(activeBoard.id);
-                }}
-                className="ml-2 rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-destructive"
-                title="Delete board"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
+      <div className="flex flex-wrap items-center gap-3">
+        <InputGroup
+          className="w-full sm:w-64"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          leading={<Search />}
+          trailing={
+            query ? (
+              <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+                <X className="size-3.5" />
               </button>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <div className="relative flex items-center gap-1">
-                <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                  placeholder="Invite @username"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const r = invite(activeBoard.id, inviteName);
-                      setInviteMsg(r.msg);
-                      if (r.ok) {
-                        addNotify({ title: 'Invited to board', body: `${r.msg} → ${activeBoard.name}`, kind: 'space' });
-                        setInviteName('');
-                      }
-                      setTimeout(() => setInviteMsg(null), 2200);
-                    }
-                  }}
-                  className="h-7 w-32 rounded-sm border border-input bg-background px-2 text-xs outline-none focus:border-ring md:w-36"
-                />
-                <Button
-                  size="sm"
-                  className="h-7 rounded-sm px-2.5"
-                  onClick={() => {
-                    const r = invite(activeBoard.id, inviteName);
-                    setInviteMsg(r.msg);
-                    if (r.ok) {
-                      addNotify({ title: 'Invited to board', body: `${r.msg} → ${activeBoard.name}`, kind: 'space' });
-                      setInviteName('');
-                    }
-                    setTimeout(() => setInviteMsg(null), 2200);
-                  }}
-                >
-                  <UserPlus className="mr-1 h-3 w-3" /> Invite
-                </Button>
-              </div>
-              <span className="hidden text-xs text-muted-foreground md:inline">Try @alex @jordan @sam @riley</span>
-            </div>
-          </div>
+            ) : undefined
+          }
+          placeholder="Filter tasks…"
+          aria-label="Filter tasks"
+          inputClassName="h-8 text-[13px]"
+        />
+        {members.length > 1 && (
+          <Segmented<Scope>
+            size="sm"
+            aria-label="Task scope"
+            value={scope}
+            onValueChange={setScope}
+            options={[
+              { value: 'all', label: 'All tasks' },
+              { value: 'mine', label: 'Assigned to me' },
+            ]}
+          />
         )}
-        <AnimatePresence>
-          {inviteMsg && (
-            <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-muted-foreground">
-              {inviteMsg}
-            </motion.p>
-          )}
-        </AnimatePresence>
+        {filtering && <span className="text-xs text-muted-foreground">Reordering is paused while filtering</span>}
+
+        <div className="ml-auto flex w-full items-center gap-2.5 sm:w-48" aria-label={`${pct}% complete`}>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-brand to-success"
+              initial={false}
+              animate={{ width: `${pct}%` }}
+              transition={spring.soft}
+            />
+          </div>
+          <span className="tabular w-9 text-right text-xs font-medium text-muted-foreground">{pct}%</span>
+        </div>
       </div>
 
-      {/* Board content — minimal, no outer border */}
-      <div className="rounded-sm bg-background">
-        <KanbanBoard />
+      <div className="min-h-0 flex-1">
+        <Board
+          boardId={board.id}
+          tasks={visible}
+          members={members}
+          dragDisabled={filtering}
+          onOpen={(id) => setDialog({ kind: 'edit', id })}
+          onDelete={(id) => {
+            const t = tasks.find((x) => x.id === id);
+            if (t) removeTask(t);
+          }}
+        />
       </div>
 
-    </motion.div>
+      <TaskDialog target={dialog} members={members} onClose={() => setDialog(null)} onDelete={removeTask} />
+
+      {invitingBoard && (
+        <InviteDialog
+          open
+          onOpenChange={(o) => !o && setInviteFor(null)}
+          groupName={invitingBoard.name}
+          noun="board"
+          members={membersOf(invitingBoard.memberIds)}
+          suggestions={teammates.filter((t) => !invitingBoard.memberIds.includes(t.id))}
+          onInvite={(u) => inviteToBoard(invitingBoard.id, u)}
+          onRemove={(pid) => removeMember(invitingBoard.id, pid)}
+        />
+      )}
+    </div>
   );
 }

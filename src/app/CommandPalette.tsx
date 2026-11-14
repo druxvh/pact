@@ -3,7 +3,9 @@ import {
   ArrowRight,
   BellOff,
   CornerDownLeft,
+  FilePlus2,
   Globe,
+  ListPlus,
   Keyboard,
   type LucideIcon,
   Moon,
@@ -15,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildDataItems } from '@/app/paletteSources';
 import { SECTIONS } from '@/app/routes';
 import { Kbd } from '@/components/ui';
+import { useNotesStore } from '@/features/notes/store';
 import { webSearch, openUrl } from '@/lib/ext';
 import { bestScore } from '@/lib/fuzzy';
 import { resolveInput } from '@/lib/url';
@@ -54,6 +57,8 @@ function useStaticItems(): PaletteItem[] {
         kbd: ['G', s.hotkey.toUpperCase()],
         run: () => go(s.id),
       })),
+      { id: 'act-note', group: 'Actions', label: 'Create a new note', icon: FilePlus2, keywords: 'write add', run: () => { useNotesStore.getState().addNote(); go('notes'); } },
+      { id: 'act-task', group: 'Actions', label: 'Create a new task', icon: ListPlus, keywords: 'todo kanban add', run: () => { useUiStore.getState().setPendingNewTask(true); go('kanban'); } },
       { id: 'act-theme', group: 'Actions', label: 'Toggle light / dark theme', icon: SunMoon, keywords: 'appearance mode', run: () => toggleTheme() },
       { id: 'act-dark', group: 'Actions', label: 'Use system theme', icon: Moon, keywords: 'appearance auto', run: () => useThemeStore.getState().setMode('system') },
       { id: 'act-keys', group: 'Actions', label: 'Show keyboard shortcuts', icon: Keyboard, kbd: ['?'], run: () => setShortcutsOpen(true) },

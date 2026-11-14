@@ -7,6 +7,11 @@ type UiState = {
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
   setShortcutsOpen: (open: boolean) => void;
+  /** One-shot intents: the palette sets them, the target view consumes them on mount. */
+  pendingTaskId: string | null;
+  pendingNewTask: boolean;
+  setPendingTaskId: (id: string | null) => void;
+  setPendingNewTask: (v: boolean) => void;
 };
 
 export const useUiStore = create<UiState>((set) => ({
@@ -15,4 +20,8 @@ export const useUiStore = create<UiState>((set) => ({
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
+  pendingTaskId: null,
+  pendingNewTask: false,
+  setPendingTaskId: (pendingTaskId) => set({ pendingTaskId }),
+  setPendingNewTask: (pendingNewTask) => set({ pendingNewTask }),
 }));

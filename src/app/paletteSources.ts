@@ -1,7 +1,9 @@
-import { FileText } from 'lucide-react';
+import { CircleCheck, FileText, ListTodo } from 'lucide-react';
 import type { PaletteItem } from '@/app/CommandPalette';
+import { COLUMNS, useKanbanStore } from '@/features/kanban/store';
 import { excerpt, useNotesStore } from '@/features/notes/store';
 import { useNavStore } from '@/store/useNavStore';
+import { useUiStore } from '@/store/useUiStore';
 
 /**
  * Feature data surfaced in the command palette (notes, tasks, chats…).
@@ -28,6 +30,26 @@ export function buildDataItems(query: string): PaletteItem[] {
         s.setActiveNotebook(n.notebookId);
         s.select(n.id);
         useNavStore.getState().go('notes');
+      },
+    });
+  }
+
+  // Tasks
+  const { tasks, boards } = useKanbanStore.getState();
+  for (const t of tasks) {
+    const board = boards.find((b) => b.id === t.boardId);
+    const col = COLUMNS.find((c) => c.id === t.columnId);
+    items.push({
+      id: `task-${t.id}`,
+      group: 'Tasks',
+      label: t.title,
+      hint: `#${t.number} · ${board?.name ?? 'Board'} · ${col?.title ?? ''}`,
+      keywords: `${t.description} #${t.number}`,
+      icon: t.columnId === 'done' ? CircleCheck : ListTodo,
+      run: () => {
+        useKanbanStore.getState().setActiveBoard(t.boardId);
+        useUiStore.getState().setPendingTaskId(t.id);
+        useNavStore.getState().go('kanban');
       },
     });
   }
