@@ -1,5 +1,9 @@
+import { initVibePartyBackground } from '../src/background/vibeparty';
+
 export default defineBackground(() => {
   console.log('pact background ready', { id: browser.runtime.id });
+
+  initVibePartyBackground();
 
   // Omnibox — type "pact <query>" in address bar → Google search (keeps pact thriving even when omnibox has focus)
   try {

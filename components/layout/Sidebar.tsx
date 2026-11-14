@@ -1,6 +1,7 @@
 import {
   Clock3,
   Columns3,
+  Disc3,
   House,
   MessageCircleMore,
   NotebookPen,
@@ -28,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'timer', label: 'Timer', icon: Clock3 },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'chatrooms', label: 'Chats', icon: MessageCircleMore },
+  { id: 'party', label: 'VibeParty', icon: Disc3 },
 ];
 
 const BOTTOM_ITEMS: NavItem[] = [
@@ -48,11 +50,11 @@ export function Sidebar() {
       transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
       className="flex h-screen w-[68px] shrink-0 flex-col items-center border-r border-border bg-background py-4"
     >
-      {/* Logo — minimal rounded-sm, premium */}
+      {/* Logo — minimal rounded-sm, premium accent */}
       <motion.div
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
-        className="mb-6 flex h-9 w-9 items-center justify-center rounded-sm bg-primary text-[13px] font-bold tracking-tighter text-primary-foreground"
+        className="mb-6 flex h-9 w-9 items-center justify-center rounded-sm bg-accent text-[13px] font-bold tracking-tighter text-accent-foreground shadow-sm"
       >
         p.
       </motion.div>
@@ -73,8 +75,8 @@ export function Sidebar() {
                 className={cn(
                   'group relative flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    ? 'bg-accent text-accent-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground',
                 )}
               >
                 <item.icon className="h-[17px] w-[17px]" />
@@ -86,7 +88,7 @@ export function Sidebar() {
                       animate={{ opacity: 1, scaleY: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute -left-[14px] top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-primary"
+                      className="absolute -left-[14px] top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-accent"
                     />
                   )}
                 </AnimatePresence>
@@ -120,7 +122,7 @@ export function Sidebar() {
 
         <div className="my-1 h-px w-8 bg-border" />
 
-        {BOTTOM_ITEMS.map((item) => {
+          {BOTTOM_ITEMS.map((item) => {
           const isActive = active === item.id;
           return (
             <motion.button
@@ -133,8 +135,8 @@ export function Sidebar() {
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground',
               )}
             >
               <item.icon className="h-[17px] w-[17px]" />

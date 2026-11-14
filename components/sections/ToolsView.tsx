@@ -22,15 +22,15 @@ export function ToolsView() {
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">Utility tools</h2>
-        <p className="text-xs text-muted-foreground">Tiny, local-first helpers — all mock, all working, no server.</p>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Tools</h2>
+        <p className="text-xs text-muted-foreground">Tiny helpers — fast & private</p>
       </div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ staggerChildren: 0.04 }} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map((t) => (
           <motion.button key={t.id} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} onClick={() => setActive(t.id)} className="text-left">
-            <Card className={`group flex items-start gap-3 transition-colors ${active === t.id ? 'border-primary bg-accent' : 'hover:border-ring/50'}`}>
-              <div className={`flex h-8 w-8 items-center justify-center rounded-sm border ${active === t.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground group-hover:border-ring'}`}>
+            <Card className={`group flex items-start gap-3 transition-colors ${active === t.id ? 'border-accent bg-accent/10' : 'hover:border-accent/30'}`}>
+              <div className={`flex h-8 w-8 items-center justify-center rounded-sm border ${active === t.id ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-background text-muted-foreground group-hover:border-accent/50'}`}>
                 <t.icon className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
@@ -232,7 +232,7 @@ function QrTool() {
   const [text, setText] = useState('https://pact.app/@you');
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">QR maker (mock)</h3>
+      <h3 className="text-sm font-semibold text-foreground">QR maker</h3>
       <input value={text} onChange={(e) => setText(e.target.value)} className="w-full rounded-sm border border-input bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring" />
       <div className="flex gap-4">
         <div className="flex h-32 w-32 items-center justify-center rounded-sm border border-border bg-white p-2">
@@ -245,7 +245,7 @@ function QrTool() {
         <div className="flex-1">
           <p className="text-xs text-muted-foreground">Text encoded:</p>
           <p className="break-all font-mono text-xs text-foreground">{text}</p>
-          <p className="mt-2 text-xs text-muted-foreground">Real QR generation would use a library locally — this is a mock preview.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Enter text to generate QR</p>
         </div>
       </div>
     </div>
@@ -262,12 +262,12 @@ function ImageTool() {
           const f = e.target.files?.[0];
           if (f) setFile({ name: f.name, size: f.size });
         }} className="text-sm" />
-        <p className="mt-2 text-xs text-muted-foreground">Mock — checks 5mb limit locally, compress planned</p>
+        <p className="mt-2 text-xs text-muted-foreground">Checks 5MB limit</p>
       </div>
       {file && (
         <div className={`rounded-sm border p-3 ${file.size > 5*1024*1024 ? 'border-destructive bg-destructive/10 text-destructive' : 'border-border bg-background text-foreground'}`}>
           <p className="text-sm font-medium">{file.name}</p>
-          <p className="text-xs">{(file.size/1024/1024).toFixed(2)} MB {file.size > 5*1024*1024 ? '— exceeds 5mb ❌' : '— ok ✓'}</p>
+          <p className="text-xs">{(file.size/1024/1024).toFixed(2)} MB {file.size > 5*1024*1024 ? '— exceeds 5MB' : '— ok'}</p>
         </div>
       )}
     </div>

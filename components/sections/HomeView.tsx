@@ -169,7 +169,7 @@ export function HomeView() {
           transition={{ delay: 0.08, duration: 0.24 }}
           className="mb-6 flex items-center gap-1.5 text-xs tracking-widest text-muted-foreground"
         >
-          <Sparkles className="h-3 w-3" /> {greeting} · {currentUser?.displayName ?? 'you'} · {now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+          <Sparkles className="h-3 w-3 text-accent" /> {greeting} · {currentUser?.displayName ?? 'you'} · {now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
         </motion.p>
 
         {/* search bar — premium, minimal rounded-sm */}
@@ -238,7 +238,7 @@ export function HomeView() {
               <button
                 type="submit"
                 aria-label="Search"
-                className="flex h-8 w-8 items-center justify-center rounded-sm bg-primary text-primary-foreground transition-colors hover:bg-primary/90 active:scale-[0.98]"
+                className="flex h-8 w-8 items-center justify-center rounded-sm bg-accent text-accent-foreground transition-colors hover:bg-accent/90 active:scale-[0.98] shadow-sm"
               >
                 <ArrowUpRight className="h-4 w-4" />
               </button>
@@ -247,7 +247,7 @@ export function HomeView() {
 
           {/* helpers — minimal */}
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} className="mt-2.5 text-center text-xs text-muted-foreground/80">
-            Press <span className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">Enter</span> to search Google · Paste a URL to go directly · <span className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">/</span> or <span className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">⌘K</span> to focus · Or type <span className="rounded-sm bg-primary px-1 py-0.5 font-mono text-[11px] text-primary-foreground">pact cat food</span> in address bar
+            Press <span className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">Enter</span> to search Google · Paste a URL to go directly · <span className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">/</span> or <span className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">⌘K</span> to focus · Or type <span className="rounded-sm bg-accent px-1 py-0.5 font-mono text-[11px] text-accent-foreground">pact cat food</span> in address bar
           </motion.p>
           {recentQuery && (
             <motion.p initial={{ opacity: 0, y: 2 }} animate={{ opacity: 1, y: 0 }} className="mt-1 text-center text-xs text-muted-foreground">
@@ -345,9 +345,6 @@ export function HomeView() {
             </motion.button>
           </div>
 
-          <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
-            Uses <code className="rounded-sm bg-muted px-1">chrome.topSites</code> + <code className="rounded-sm bg-muted px-1">bookmarks</code> when granted — fallback to mock. Omnibox <code className="rounded-sm bg-primary px-1 text-primary-foreground">pact &lt;query&gt;</code> works from address bar even when it steals focus.
-          </p>
         </motion.div>
       </motion.div>
     </div>

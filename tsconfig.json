@@ -15,6 +15,7 @@
     "entrypoints/**/*",
     "components/**/*",
     "lib/**/*",
+    "src/**/*",
     "store/**/*",
     "types/**/*",
     "assets/**/*",

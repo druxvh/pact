@@ -5,6 +5,7 @@ import { KanbanView } from '@/components/sections/KanbanView';
 import { TimerView } from '@/components/sections/TimerView';
 import { ToolsView } from '@/components/sections/ToolsView';
 import { ChatroomsView } from '@/components/sections/ChatroomsView';
+import { PartyView } from '@/components/sections/PartyView';
 import { SettingsView } from '@/components/sections/SettingsView';
 import { useNavStore } from '@/store/useNavStore';
 
@@ -19,6 +20,7 @@ export default function App() {
       {active === 'timer' && <TimerView />}
       {active === 'tools' && <ToolsView />}
       {active === 'chatrooms' && <ChatroomsView />}
+      {active === 'party' && <PartyView />}
       {active === 'settings' && <SettingsView />}
     </AppShell>
   );

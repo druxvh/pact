@@ -50,7 +50,7 @@ export function ChatroomsView() {
       ? [{ id: crypto.randomUUID(), type: 'image' as const, url: pendingFile.url ?? 'https://picsum.photos/300/200', name: pendingFile.name, size: pendingFile.size }]
       : undefined;
     if (pendingFile && pendingFile.size > 5 * 1024 * 1024) {
-      notify({ title: 'File too large', body: `${pendingFile.name} exceeds 5mb — mock blocked`, kind: 'system' });
+      notify({ title: 'File too large', body: `${pendingFile.name} exceeds 5MB limit`, kind: 'system' });
       return;
     }
     send(draft, attachments);
@@ -178,11 +178,11 @@ export function ChatroomsView() {
           {activeMessages.length === 0 && (
             <div className="rounded-sm border border-dashed border-border bg-background p-6 text-center">
               <p className="text-sm text-foreground">No messages yet</p>
-              <p className="text-xs text-muted-foreground">Say hi — mock reply comes in ~0.9s</p>
+              <p className="text-xs text-muted-foreground">Say hi</p>
             </div>
           )}
           <div className="rounded-sm border border-border bg-muted p-3 text-center">
-            <p className="text-xs text-muted-foreground">Send emojis, images, gifs, videos up to 5mb — try the 📎 or 😀 below</p>
+            <p className="text-xs text-muted-foreground">Send emojis, images, gifs, videos — 5MB limit</p>
           </div>
         </div>
 
@@ -210,7 +210,7 @@ export function ChatroomsView() {
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-sm" onClick={() => setShowEmoji((v) => !v)} title="Emoji">
               <Smile className={`h-4 w-4 ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`} />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-sm text-muted-foreground" onClick={() => notify({ title: 'GIFs', body: 'GIF picker mock — coming soon', kind: 'system' })}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-sm text-muted-foreground" onClick={() => notify({ title: 'GIFs', body: 'GIF picker coming soon', kind: 'system' })}>
               <Gift className="h-4 w-4" />
             </Button>
             <input
@@ -224,7 +224,7 @@ export function ChatroomsView() {
               const f = e.target.files?.[0];
               if (!f) return;
               if (f.size > 5 * 1024 * 1024 + 1) {
-                notify({ title: 'Too large', body: `${f.name} ${(f.size/1024/1024).toFixed(2)}MB > 5mb limit (mock)`, kind: 'system' });
+                notify({ title: 'Too large', body: `${f.name} ${(f.size/1024/1024).toFixed(2)}MB > 5MB limit`, kind: 'system' });
                 return;
               }
               const url = URL.createObjectURL(f);
@@ -238,7 +238,7 @@ export function ChatroomsView() {
             </Button>
             <Button size="icon" className="h-8 w-8 shrink-0 rounded-sm" onClick={handleSend}><Send className="h-4 w-4" /></Button>
           </div>
-          <p className="mt-1.5 text-center text-[11px] text-muted-foreground">Enter to send • Shift+Enter new line • 5mb limit for media • mock local sync</p>
+          <p className="mt-1.5 text-center text-[11px] text-muted-foreground">Enter to send • Shift+Enter new line • 5MB limit</p>
         </div>
       </div>
     </motion.div>

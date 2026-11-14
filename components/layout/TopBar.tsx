@@ -1,19 +1,16 @@
-import { Bell, Search, Command, Sun, Moon } from 'lucide-react';
+import { Search, Command, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavStore, NAV_LABELS } from '@/store/useNavStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useUserStore } from '@/store/useUserStore';
-import { useNotificationStore } from '@/store/useNotificationStore';
 import { Button } from '@/components/ui/Button';
+import { NotificationBell } from '@/components/layout/NotificationPopover';
 
 export function TopBar() {
   const active = useNavStore((s) => s.active);
   const theme = useThemeStore((s) => s.theme);
   const toggle = useThemeStore((s) => s.toggle);
   const currentUser = useUserStore((s) => s.currentUser);
-  const notifications = useNotificationStore((s) => s.notifications);
-  const unread = notifications.filter((n) => !n.read).length;
-  const markAllRead = useNotificationStore((s) => s.markAllRead);
   const isHome = active === 'home';
 
   // Home: absolute minimal — only notification + profile, no pact/search
@@ -34,18 +31,7 @@ export function TopBar() {
             </AnimatePresence>
           </Button>
         </motion.div>
-        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-          <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-sm border border-border bg-card" aria-label="Notifications" onClick={markAllRead}>
-            <Bell className="h-4 w-4" />
-            <AnimatePresence>
-              {unread > 0 && (
-                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                  {unread}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </Button>
-        </motion.div>
+        <NotificationBell />
         <div className="ml-1 h-6 w-px bg-border" />
         <motion.div whileHover={{ scale: 1.01 }} className="flex items-center gap-3 pl-1">
           <div className="hidden text-right md:block">
@@ -103,18 +89,7 @@ export function TopBar() {
           </Button>
         </motion.div>
 
-        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-          <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-sm border border-border" aria-label="Notifications" onClick={markAllRead}>
-            <Bell className="h-4 w-4" />
-            <AnimatePresence>
-              {unread > 0 && (
-                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                  {unread}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </Button>
-        </motion.div>
+        <NotificationBell />
 
         <div className="ml-1 h-6 w-px bg-border" />
 

@@ -7,6 +7,7 @@ export type NavSection =
   | 'timer'
   | 'tools'
   | 'chatrooms'
+  | 'party'
   | 'settings';
 
 type NavState = {
@@ -26,5 +27,6 @@ export const NAV_LABELS: Record<NavSection, string> = {
   timer: 'Timer',
   tools: 'Tools',
   chatrooms: 'Chatrooms',
+  party: 'VibeParty',
   settings: 'Settings',
 };

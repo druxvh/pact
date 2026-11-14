@@ -4,23 +4,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToolsStore } from '@/store/useToolsStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 
 export function TimerView() {
   const mode = useToolsStore((s) => s.pomodoroMode);
   const setMode = useToolsStore((s) => s.setPomodoroMode);
   const setMinutes = useToolsStore((s) => s.setPomodoroMinutes);
+  const pomodoroMinutes = useToolsStore((s) => s.pomodoroMinutes);
   const secondsLeft = useToolsStore((s) => s.secondsLeft);
   const isRunning = useToolsStore((s) => s.isRunning);
   const start = useToolsStore((s) => s.start);
   const pause = useToolsStore((s) => s.pause);
   const reset = useToolsStore((s) => s.reset);
   const tick = useToolsStore((s) => s.tick);
+  const notify = useNotificationStore((s) => s.add);
 
   useEffect(() => {
     if (!isRunning) return;
     const id = setInterval(() => tick(), 1000);
     return () => clearInterval(id);
   }, [isRunning, tick]);
+
+  // notify on completion
+  useEffect(() => {
+    if (secondsLeft === 0 && !isRunning) {
+      // only notify if we just finished (avoid initial 0)
+      const t = setTimeout(() => {
+        notify({ title: 'Timer done', body: `${mode} session finished`, kind: 'system' });
+        try { new Audio('').play().catch(() => {}); } catch {}
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [secondsLeft, isRunning, mode, notify]);
 
   const fmt = useMemo(() => {
     const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
@@ -29,15 +44,15 @@ export function TimerView() {
   }, [secondsLeft]);
 
   const progress = useMemo(() => {
-    const total = (mode === 'break' ? 5 : mode === 'focus' ? 25 : 25) * 60;
+    const total = pomodoroMinutes * 60 || 1;
     return Math.max(0, Math.min(1, 1 - secondsLeft / total));
-  }, [secondsLeft, mode]);
+  }, [secondsLeft, pomodoroMinutes]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24 }} className="mx-auto max-w-3xl space-y-4">
       <div className="text-center">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">Timer</h2>
-        <p className="text-xs text-muted-foreground">Focus · Break · mock-synced — black or light, your call.</p>
+        <p className="text-xs text-muted-foreground">Focus · Break</p>
       </div>
 
       <Card className="p-8">
@@ -47,7 +62,7 @@ export function TimerView() {
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`rounded-sm px-3 py-1 capitalize transition-colors duration-150 ${mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`rounded-sm px-3 py-1 capitalize transition-colors duration-150 ${mode === m ? 'bg-accent text-accent-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {m}
               </button>
@@ -59,7 +74,7 @@ export function TimerView() {
               {fmt}
             </motion.div>
             <div className="absolute -bottom-2 left-1/2 h-1 w-32 -translate-x-1/2 overflow-hidden rounded-full bg-muted">
-              <motion.div className="h-full bg-primary" animate={{ width: `${progress * 100}%` }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
+              <motion.div className="h-full bg-accent" animate={{ width: `${progress * 100}%` }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
             </div>
           </div>
 
@@ -69,7 +84,7 @@ export function TimerView() {
             <AnimatePresence mode="wait" initial={false}>
               {!isRunning ? (
                 <motion.div key="play" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-                  <Button size="icon" className="h-12 w-12 rounded-full" onClick={start} disabled={secondsLeft === 0}>
+                  <Button size="icon" className="h-12 w-12 rounded-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={start} disabled={secondsLeft === 0}>
                     <Play className="h-5 w-5 ml-0.5" />
                   </Button>
                 </motion.div>

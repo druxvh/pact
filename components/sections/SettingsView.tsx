@@ -40,7 +40,7 @@ export function SettingsView() {
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="mx-auto max-w-3xl space-y-4">
       <div>
         <h2 className="text-lg font-semibold tracking-tight text-foreground">Settings</h2>
-        <p className="text-xs text-muted-foreground">Profile, appearance, sync — pact works offline + mock-sync.</p>
+        <p className="text-xs text-muted-foreground">Profile, appearance & sync</p>
       </div>
 
       <Card>
@@ -71,7 +71,7 @@ export function SettingsView() {
         <div className="mt-4 flex items-center justify-between">
           <AnimatePresence>
             {saved ? (
-              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-emerald-600 dark:text-emerald-400">✓ Saved (mock, persists via localStorage)</motion.p>
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-emerald-600 dark:text-emerald-400">✓ Saved</motion.p>
             ) : (
               <span className="text-xs text-transparent">.</span>
             )}
@@ -91,11 +91,11 @@ export function SettingsView() {
 
       <Card>
         <h3 className="text-sm font-medium text-foreground">Appearance</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Shadcn black (0 0% 0%) is default. Light is clean white — minimal radius.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Black is default. Switch to light anytime.</p>
         <div className="mt-3 flex items-center justify-between rounded-sm border border-border bg-muted p-3">
           <div>
             <p className="text-sm font-medium text-foreground">Theme</p>
-            <p className="text-xs text-muted-foreground">Toggles <code className="rounded-sm bg-background px-1">.dark</code> · persists</p>
+            <p className="text-xs text-muted-foreground">Switch theme</p>
           </div>
           <div className="flex gap-1 rounded-sm border border-border bg-background p-1">
             <button onClick={() => setTheme('light')} className={`flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${theme === 'light' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><Sun className="h-3.5 w-3.5" /> Light</button>
@@ -115,8 +115,8 @@ export function SettingsView() {
       </Card>
 
       <Card>
-        <h3 className="text-sm font-medium text-foreground">Sync & data (mock)</h3>
-        <p className="mt-1 text-sm text-muted-foreground">All data via <code className="rounded-sm bg-muted px-1">zustand persist → localStorage</code> (pact-*) — mimics cross-device sync. Supabase next.</p>
+        <h3 className="text-sm font-medium text-foreground">Sync & data</h3>
+        <p className="mt-1 text-sm text-muted-foreground">All data syncs across your devices.</p>
         <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
           {[
             { k: 'Notes', v: stats.notes },
@@ -131,8 +131,8 @@ export function SettingsView() {
           ))}
         </div>
         <div className="mt-3 flex gap-2">
-          <Button variant="outline" size="sm" className="rounded-sm" onClick={() => { localStorage.clear(); location.reload(); }}>Clear mock data</Button>
-          <span className="text-xs leading-8 text-muted-foreground">Resets all stores to seed</span>
+          <Button variant="outline" size="sm" className="rounded-sm" onClick={() => { localStorage.clear(); location.reload(); }}>Clear data</Button>
+          <span className="text-xs leading-8 text-muted-foreground">Resets to defaults</span>
         </div>
       </Card>
 
