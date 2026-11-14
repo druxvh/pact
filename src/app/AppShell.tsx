@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { CommandPalette } from '@/app/CommandPalette';
+import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { SECTION_BY_ID, SECTIONS, baseTitle } from '@/app/routes';
 import { TimerEngine } from '@/features/timer/TimerEngine';
 import { useTimerStore } from '@/features/timer/store';
@@ -69,7 +70,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {...page}
                   className={cn(meta.bleed ? 'h-full' : 'mx-auto w-full max-w-[1240px] px-4 py-6 md:px-8 md:py-8')}
                 >
-                  {children}
+                  <ErrorBoundary resetKey={section} label={meta.label}>
+                    {children}
+                  </ErrorBoundary>
                 </motion.div>
               </AnimatePresence>
             </main>
