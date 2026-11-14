@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Image as ImageIcon, Smile, Send, Video, Paperclip, X, Gift } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/features/chat/store';
 import { useUserStore } from '@/store/useUserStore';

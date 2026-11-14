@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from '@/app/Sidebar';
 import { TopBar } from '@/app/TopBar';
 import { useNavStore } from '@/store/useNavStore';

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, ArrowUpRight, Clock3, Globe, Star, Trash2, Command, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { useUserStore } from '@/store/useUserStore';
 
 const PLACEHOLDERS = [

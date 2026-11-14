@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Play, Pause, RotateCcw, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToolsStore } from '@/features/timer/store';

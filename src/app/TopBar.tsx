@@ -1,5 +1,5 @@
 import { Search, Command, Sun, Moon } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavStore, NAV_LABELS } from '@/store/useNavStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useUserStore } from '@/store/useUserStore';

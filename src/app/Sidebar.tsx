@@ -10,7 +10,7 @@ import {
   Moon,
   Sun,
 } from 'lucide-react';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { cn } from '@/lib/cn';
 import { useNavStore, type NavSection } from '@/store/useNavStore';
 import { useThemeStore } from '@/store/useThemeStore';

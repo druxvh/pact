@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Users, UserPlus, Trash2, Columns3 } from 'lucide-react';
 import { KanbanBoard } from '@/features/kanban/KanbanBoard';
 import { useKanbanStore } from '@/features/kanban/store';

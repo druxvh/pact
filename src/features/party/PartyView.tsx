@@ -11,7 +11,7 @@ import {
   ThumbsUp,
   Users,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { browser } from 'wxt/browser';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';

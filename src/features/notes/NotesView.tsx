@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Search, Trash2, Save, X, NotebookPen, Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useNotesStore } from '@/features/notes/store';

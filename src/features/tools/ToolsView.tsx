@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Calculator, CaseSensitive, Link2, Palette, QrCode, Image as ImageIcon, Ruler, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
