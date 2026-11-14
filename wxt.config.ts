@@ -2,14 +2,9 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 
 export default defineConfig({
+  // All source lives in src/. WXT provides the `@/` and `~/` aliases → src/ out of the box.
+  srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
-  alias: {
-    '@/components': './components',
-    '@/store': './store',
-    '@/lib': './lib',
-    '@/types': './types',
-    '@/assets': './assets',
-  },
   manifest: {
     name: 'pact',
     description:
