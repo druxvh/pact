@@ -12,7 +12,8 @@ const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 /** `@Alex ` → `alex` */
 export function normalizeUsername(raw: string): string {
-  return raw.replace(/^@/, '').trim().toLowerCase();
+  // trim FIRST — otherwise a leading space stops the `^@` from matching
+  return raw.trim().replace(/^@+/, '').trim().toLowerCase();
 }
 
 /** Returns an error message, or null when the username is valid. */

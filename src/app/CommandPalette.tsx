@@ -37,7 +37,7 @@ export type PaletteItem = {
   run: () => void;
 };
 
-const GROUP_ORDER = ['Top result', 'Navigate', 'Actions', 'Notes', 'Tasks', 'Chats', 'Shortcuts', 'Web'];
+const GROUP_ORDER = ['Top result', 'Navigate', 'Actions', 'Tools', 'Notes', 'Tasks', 'Chats', 'Shortcuts', 'Web'];
 
 function useStaticItems(): PaletteItem[] {
   const go = useNavStore((s) => s.go);
