@@ -53,6 +53,8 @@ export const SYNC = {
   nudgeSlow: 0.95,
   /** A remote command that can't be applied yet (player not ready) is kept this long. */
   pendingTtlMs: 20_000,
+  /** Pausing this close to the end (seconds) counts as "about to finish". */
+  endWindowS: 8,
 } as const;
 
 type Watched = 'play' | 'pause' | 'seeked';
@@ -77,6 +79,8 @@ export class SyncEngine {
   private tickTimer: ReturnType<typeof setInterval> | undefined;
   private adShowing = false;
   private lastVideoId: string | null = null;
+  /** Paused within a few seconds of the end: if the page then moves to another video, this one finished. */
+  private endCandidate: { videoId: string | null; mediaTime: number } | null = null;
   private nudged = false;
 
   private readonly find: () => HTMLVideoElement | null;
@@ -199,15 +203,36 @@ export class SyncEngine {
       return;
     }
     if (type === 'pause' && v.ended) return; // `ended` follows and says it better
+    if (type === 'pause' && Number.isFinite(v.duration) && v.duration - v.currentTime < SYNC.endWindowS) {
+      // YouTube doesn't always fire `ended`: it can pause a moment before the end and autoplay a recommendation
+      // after its countdown. Remember where we stopped so that move can be reported as "this video finished".
+      this.endCandidate = { videoId: this.getVideoId(), mediaTime: v.currentTime };
+    }
     this.emit(type === 'play' ? 'play' : type === 'pause' ? 'pause' : 'ended');
   }
 
   private emit(ev: MediaEventName): void {
     const v = this.video;
     if (!v || !this.active || this.adShowing) return;
+    const here = this.getVideoId();
+    const cand = this.endCandidate;
+    if (cand && ev !== 'ended') {
+      if (here !== cand.videoId) {
+        // Moved to another video after pausing at the end → tell the room the old one finished, *before* the new one plays.
+        this.endCandidate = null;
+        this.options.onLocalEvent({ ev: 'ended', mediaTime: cand.mediaTime, playing: false, videoId: cand.videoId });
+      } else if (ev === 'play' || ev === 'seek') {
+        this.endCandidate = null; // they came back to it
+      }
+    } else if (ev === 'ended') {
+      this.endCandidate = null;
+    }
     const playing = ev === 'play' ? true : ev === 'pause' || ev === 'ended' ? false : !v.paused && !v.ended;
     this.anchor = { mediaTime: v.currentTime, at: Date.now(), playing };
-    this.options.onLocalEvent({ ev, mediaTime: v.currentTime, playing, videoId: this.getVideoId() });
+    // YouTube's own `ended` handler runs first and starts autoplaying a recommendation, so by now the URL may already
+    // name the NEXT video. The room must hear about the one that actually finished: the id we last saw (≤ 1 tick old).
+    const videoId = ev === 'ended' ? (this.lastVideoId ?? this.getVideoId()) : this.getVideoId();
+    this.options.onLocalEvent({ ev, mediaTime: v.currentTime, playing, videoId });
   }
 
   // ── housekeeping ────────────────────────────────────────────────────────────
@@ -279,7 +304,10 @@ export class SyncEngine {
       v.addEventListener(type, fn);
       this.bound.push([type, fn]);
     };
-    on('play', () => this.onLocal('play'));
+    on('play', () => {
+      this.lastVideoId = this.getVideoId();
+      this.onLocal('play');
+    });
     on('pause', () => this.onLocal('pause'));
     on('seeked', () => this.onLocal('seeked'));
     on('ended', () => this.onLocal('ended'));

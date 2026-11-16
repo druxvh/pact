@@ -82,6 +82,59 @@ describe('reporting what the local viewer does', () => {
     expect(events).toEqual([{ ev: 'ended', mediaTime: 600, playing: false, videoId: VID }]);
   });
 
+  it('reports the video that finished even if YouTube already navigated to its autoplay pick', () => {
+    const { video, state, events } = setup();
+    video.fire('play'); // learns VID
+    video.currentTime = 600;
+    video.ended = true;
+    video.paused = true;
+    state.id = 'NEXTvideo01'; // YouTube's own ended-handler ran first and changed the URL
+    video.fire('ended');
+    expect(events.at(-1)).toEqual({ ev: 'ended', mediaTime: 600, playing: false, videoId: VID });
+  });
+
+  it('YouTube pauses just before the end and autoplays another video: the first one is reported as finished', () => {
+    const { video, state, events } = setup();
+    video.fire('play');
+    video.currentTime = 595; // 5 s from the end of a 600 s video — no `ended` ever fires
+    video.paused = true;
+    video.fire('pause');
+    state.id = 'NEXTvideo01'; // 8 s later YouTube navigates to its recommendation…
+    video.currentTime = 0;
+    video.paused = false;
+    video.fire('play');
+    expect(events.map((e) => [e.ev, e.videoId])).toEqual([
+      ['play', VID],
+      ['pause', VID],
+      ['ended', VID], // …and the room hears about the old video first,
+      ['play', 'NEXTvideo01'],
+    ]);
+    expect(events[2]?.mediaTime).toBe(595);
+  });
+
+  it('a pause near the end followed by resuming the same video is just a pause', () => {
+    const { video, events } = setup();
+    video.fire('play');
+    video.currentTime = 596;
+    video.paused = true;
+    video.fire('pause');
+    video.paused = false;
+    video.fire('play');
+    expect(events.map((e) => e.ev)).toEqual(['play', 'pause', 'play']);
+  });
+
+  it('a pause well before the end never counts as finishing', () => {
+    const { video, state, events } = setup();
+    video.fire('play');
+    video.currentTime = 100;
+    video.paused = true;
+    video.fire('pause');
+    state.id = 'NEXTvideo01';
+    video.paused = false;
+    video.fire('play');
+    expect(events.map((e) => e.ev)).toEqual(['play', 'pause', 'play']);
+  });
+
   it('coalesces a scrub (many `seeked`) into one seek at the final position', () => {
     const { video, events } = setup();
     for (const t of [30, 31, 32]) {

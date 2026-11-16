@@ -148,7 +148,7 @@ Notable decisions: hash routing with lazy-loaded pages (prefetched when idle); e
 
 ## Data, privacy and permissions
 
-pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes and your profile go to your Supabase project. The only other traffic is the relay *you* configure and, on youtube.com, YouTube's own oEmbed endpoint and thumbnails for the queue.
+pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes and your profile go to your Supabase project. The only other traffic is the relay *you* configure and, on youtube.com, the video's own watch page (read for its title) and thumbnails for the queue.
 
 | Permission | Why |
 | --- | --- |

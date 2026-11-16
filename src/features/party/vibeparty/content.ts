@@ -17,25 +17,9 @@ import {
   watchUrlFor,
 } from './protocol.ts';
 import { getYouTubeVideoId, SyncEngine } from './sync-engine.ts';
+import { fetchTitle } from './title.ts';
 
 const PING_MS = 20_000;
-const TITLE_TIMEOUT_MS = 3_000;
-
-/** YouTube's own oEmbed endpoint — same-origin from here, so no extra permission and no third party involved. */
-async function fetchTitle(videoId: string): Promise<string | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TITLE_TIMEOUT_MS);
-  try {
-    const res = await fetch(`/oembed?url=${encodeURIComponent(watchUrlFor(videoId))}&format=json`, { signal: controller.signal, credentials: 'omit' });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { title?: unknown };
-    return typeof data.title === 'string' ? data.title.trim() || null : null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 const currentTitle = () =>
   document.title
