@@ -14,6 +14,8 @@ import type { Task } from '@/features/kanban/store';
 import { DEFAULT_BOARD_ID, useKanbanStore } from '@/features/kanban/store';
 import { DEFAULT_NOTEBOOK_ID, useNotesStore } from '@/features/notes/store';
 import type { Note } from '@/features/notes/types';
+import { BOOT_KEY } from '@/lib/appearance/apply';
+import { clearAssets } from '@/lib/assets';
 import { uid } from '@/lib/format';
 import { useNavStore } from '@/store/useNavStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
@@ -33,6 +35,7 @@ export const STORAGE_KEYS = [
   'pact-party',
   'pact-home',
   'pact-settings',
+  'pact-appearance',
   'pact-theme',
   'pact-notifications',
 ] as const;
@@ -354,5 +357,6 @@ export function importBackup(backup: Backup) {
 /** Wipe all pact data on this device (the caller reloads afterwards). */
 export async function resetAllData() {
   for (const key of STORAGE_KEYS) localStorage.removeItem(key);
-  await clearBlobs().catch(() => {});
+  localStorage.removeItem(BOOT_KEY);
+  await Promise.all([clearBlobs().catch(() => {}), clearAssets().catch(() => {})]);
 }

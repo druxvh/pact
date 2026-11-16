@@ -15,4 +15,16 @@
   } catch (e) {
     el.classList.add('dark');
   }
+  // Appearance (accent / font / colour wallpaper), cached by src/lib/appearance/apply.ts. Applied here, before first
+  // paint, so there is no flash of the default look. Keep the key in sync with BOOT_KEY.
+  try {
+    var boot = JSON.parse(localStorage.getItem('pact-appearance-boot') || 'null');
+    if (boot) {
+      var style = document.createElement('style');
+      style.id = 'pact-appearance';
+      style.textContent = (boot.fonts || '') + (boot.css || '');
+      document.head.appendChild(style);
+      if (boot.mode) el.dataset.wallpaper = boot.mode;
+    }
+  } catch (e) {}
 })();

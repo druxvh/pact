@@ -7,6 +7,7 @@ import { baseTitle, SECTION_BY_ID, SECTIONS } from '@/app/routes';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
 import { MobileNav, Sidebar } from '@/app/Sidebar';
 import { TopBar } from '@/app/TopBar';
+import { WallpaperLayer } from '@/app/WallpaperLayer';
 import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/ui';
 import { selectTotalUnread, useChatStore } from '@/features/chat/store';
 import { useTimerStore } from '@/features/timer/store';
@@ -62,6 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <MotionConfig reducedMotion={motionPref === 'system' ? 'user' : motionPref === 'reduced' ? 'always' : 'never'}>
       <TooltipProvider>
         <div className="relative isolate flex h-full w-full">
+          <WallpaperLayer />
           <div aria-hidden="true" className="bg-ambient pointer-events-none absolute inset-0 -z-10" />
           <a
             href="#main"

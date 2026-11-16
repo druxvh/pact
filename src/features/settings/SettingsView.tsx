@@ -1,17 +1,24 @@
 import { Download, Info, Keyboard, Laptop, Moon, Palette, Settings, ShieldCheck, Sparkles, Sun, Trash2, Upload, UserRound } from 'lucide-react';
 import { motion } from 'motion/react';
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Avatar, Button, Card, confirm, Input, Label, PageHeader, Segmented, Switch, Textarea } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
 import { useHomeStore } from '@/features/home/store';
 import { useKanbanStore } from '@/features/kanban/store';
 import { useNotesStore } from '@/features/notes/store';
+import { AccentPicker } from '@/features/settings/AccentPicker';
+import { FontPicker } from '@/features/settings/FontPicker';
+import { WallpaperPicker } from '@/features/settings/WallpaperPicker';
 import { useTimerStore } from '@/features/timer/store';
+import { IMAGE_ASSET_ID } from '@/lib/appearance/wallpaper';
+import { deleteAsset } from '@/lib/assets';
+import { cn } from '@/lib/cn';
 import { downloadText } from '@/lib/download';
 import { appVersion } from '@/lib/ext';
 import { fadeUp, stagger } from '@/lib/motion';
 import { notify } from '@/lib/toast';
 import { exportBackup, importBackup, loadSampleWorkspace, parseBackup, resetAllData } from '@/store/demoServer';
+import { useAppearanceStore } from '@/store/useAppearanceStore';
 import { type ClockFormat, type MotionPreference, useSettingsStore } from '@/store/useSettingsStore';
 import { type ThemeMode, useThemeStore } from '@/store/useThemeStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -32,9 +39,33 @@ function Row({ label, description, htmlFor, children }: { label: string; descrip
   );
 }
 
-function Section({ icon: Icon, title, description, children }: { icon: typeof Palette; title: string; description?: string; children: ReactNode }) {
+/** A titled sub-block inside a section (for pickers that don't fit the label-left / control-right Row). */
+function Block({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <motion.div variants={fadeUp}>
+    <div className="py-4 first:pt-0 last:pb-0">
+      <h3 className="text-sm font-medium">{title}</h3>
+      {description && <p className="mb-3 mt-0.5 text-[13px] leading-snug text-muted-foreground">{description}</p>}
+      {!description && <div className="h-3" />}
+      {children}
+    </div>
+  );
+}
+
+function Section({
+  id,
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  id: string;
+  icon: typeof Palette;
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <motion.div variants={fadeUp} id={id} className="scroll-mt-6">
       <Card className="gap-4 p-5">
         <header className="flex items-start gap-3">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-text">
@@ -93,7 +124,7 @@ function ProfileSection() {
   };
 
   return (
-    <Section icon={UserRound} title="Profile" description="Shown in chats and to friends. The username is how people find you.">
+    <Section id="profile" icon={UserRound} title="Profile" description="Shown in chats and to friends. The username is how people find you.">
       <div className="space-y-4 py-0">
         <div className="flex items-center gap-3">
           <Avatar name={shownName} size="xl" />
@@ -178,7 +209,7 @@ function AppearanceSection() {
   const origin = useRef<{ x: number; y: number } | undefined>(undefined);
 
   return (
-    <Section icon={Palette} title="Appearance" description="Make pact feel the way you like.">
+    <Section id="appearance" icon={Palette} title="Appearance" description="Make pact feel the way you like.">
       <Row label="Theme" description="System follows your OS and switches automatically.">
         <div onPointerDownCapture={(e) => (origin.current = { x: e.clientX, y: e.clientY })}>
           <Segmented<ThemeMode>
@@ -208,6 +239,27 @@ function AppearanceSection() {
       <Row label="Sounds" description="A soft chime when a focus session or break ends." htmlFor="set-sounds">
         <Switch id="set-sounds" checked={sounds} onCheckedChange={(v) => set('sounds', v)} aria-label="Sounds" />
       </Row>
+      <Block title="Accent colour" description="Drives buttons, highlights, focus rings and brand-coloured text across pact — in light and dark.">
+        <AccentPicker />
+      </Block>
+      <Block title="Font" description="Every font is bundled with pact — nothing is downloaded from the internet.">
+        <FontPicker />
+      </Block>
+      <Block title="Wallpaper" description="A colour, gradient or your own picture behind everything. A dim layer keeps text readable.">
+        <WallpaperPicker />
+      </Block>
+      <Row label="Reset appearance" description="Back to the default accent, font and no wallpaper.">
+        <Button
+          variant="outline"
+          onClick={async () => {
+            await deleteAsset(IMAGE_ASSET_ID).catch(() => {});
+            useAppearanceStore.getState().resetAppearance();
+            notify.success('Appearance reset');
+          }}
+        >
+          Reset
+        </Button>
+      </Row>
     </Section>
   );
 }
@@ -218,7 +270,7 @@ function HomeSection() {
   const resetHidden = useHomeStore((s) => s.resetHidden);
 
   return (
-    <Section icon={Sparkles} title="Home" description="What you see on every new tab.">
+    <Section id="home" icon={Sparkles} title="Home" description="What you see on every new tab.">
       <Row label="Clock" description="12-hour, 24-hour, or whatever your locale prefers.">
         <Segmented<ClockFormat>
           aria-label="Clock format"
@@ -334,6 +386,7 @@ function DataSection() {
 
   return (
     <Section
+      id="data"
       icon={ShieldCheck}
       title="Your data"
       description="Stored on this device only — in your browser’s local storage. Nothing is uploaded and nothing syncs between devices."
@@ -389,7 +442,7 @@ function AboutSection() {
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const togglePalette = useUiStore((s) => s.togglePalette);
   return (
-    <Section icon={Info} title="About" description="pact — a new tab for notes, tasks, focus, tools and company.">
+    <Section id="about" icon={Info} title="About" description="pact — a new tab for notes, tasks, focus, tools and company.">
       <Row label="Keyboard" description="⌘K jumps anywhere, g then a letter switches pages, ? lists every shortcut.">
         <div className="flex gap-2">
           <Button variant="outline" onClick={togglePalette}>
@@ -407,17 +460,71 @@ function AboutSection() {
   );
 }
 
+const NAV = [
+  { id: 'profile', label: 'Profile', icon: UserRound },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'home', label: 'Home', icon: Sparkles },
+  { id: 'data', label: 'Your data', icon: ShieldCheck },
+  { id: 'about', label: 'About', icon: Info },
+] as const;
+
+function SectionNav() {
+  const [active, setActive] = useState<string>('profile');
+  useEffect(() => {
+    const scroller = document.getElementById('main');
+    const targets = NAV.map((n) => document.getElementById(n.id)).filter((el): el is HTMLElement => el !== null);
+    if (!scroller || targets.length === 0) return;
+    const onScroll = () => {
+      // the last section whose top has passed the upper third of the viewport
+      const line = scroller.getBoundingClientRect().top + scroller.clientHeight * 0.3;
+      let current: string = targets[0]?.id ?? 'profile';
+      for (const t of targets) if (t.getBoundingClientRect().top <= line) current = t.id;
+      setActive(current);
+    };
+    onScroll();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => scroller.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <nav aria-label="Settings sections" className="sticky top-6 hidden self-start lg:block">
+      <ul className="space-y-0.5">
+        {NAV.map(({ id, label, icon: Icon }) => (
+          <li key={id}>
+            <button
+              type="button"
+              aria-current={active === id ? 'true' : undefined}
+              onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className={cn(
+                'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium outline-offset-0 transition-colors',
+                active === id ? 'bg-brand-soft text-brand-text' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+            >
+              <Icon className="size-4" /> {label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 export function SettingsView() {
   return (
-    <motion.div variants={stagger(0.05)} initial="hidden" animate="show" className="mx-auto w-full max-w-3xl space-y-4">
+    <motion.div variants={stagger(0.05)} initial="hidden" animate="show" className="w-full space-y-6">
       <motion.div variants={fadeUp}>
-        <PageHeader icon={Settings} title="Settings" description="Profile, appearance and your data" />
+        <PageHeader icon={Settings} title="Settings" description="Profile, appearance, home page and your data" />
       </motion.div>
-      <ProfileSection />
-      <AppearanceSection />
-      <HomeSection />
-      <DataSection />
-      <AboutSection />
+      <div className="grid items-start gap-8 lg:grid-cols-[168px_minmax(0,1fr)]">
+        <SectionNav />
+        <div className="max-w-3xl space-y-4">
+          <ProfileSection />
+          <AppearanceSection />
+          <HomeSection />
+          <DataSection />
+          <AboutSection />
+        </div>
+      </div>
     </motion.div>
   );
 }
