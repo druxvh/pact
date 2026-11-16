@@ -3,9 +3,12 @@ import { useState } from 'react';
 import { Badge, Button, Input } from '@/components/ui';
 import { ACCENT_PRESETS, type AccentChoice, DEFAULT_ACCENT_ID, isValidHex, swatchHex } from '@/lib/appearance/accent';
 import { cn } from '@/lib/cn';
+import { luminanceOf, parseHex, rgbToOklch } from '@/lib/oklch';
 import { useAppearanceStore } from '@/store/useAppearanceStore';
 
 function Swatch({ hex, label, selected, onClick }: { hex: string; label: string; selected: boolean; onClick: () => void }) {
+  const rgb = parseHex(hex);
+  const light = rgb ? luminanceOf(rgbToOklch(rgb)) > 0.35 : false; // dark tick on pale swatches, white on deep ones
   return (
     <button
       type="button"
@@ -19,7 +22,7 @@ function Swatch({ hex, label, selected, onClick }: { hex: string; label: string;
       )}
       style={{ background: hex }}
     >
-      {selected && <Check className="size-4 text-white mix-blend-difference" />}
+      {selected && <Check className={cn('size-4', light ? 'text-black/75' : 'text-white')} />}
     </button>
   );
 }

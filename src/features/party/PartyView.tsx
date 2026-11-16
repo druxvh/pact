@@ -447,7 +447,7 @@ export function PartyView() {
           <ol className="space-y-3.5">
             {STEPS.map(([title, body], i) => (
               <li key={title} className="flex gap-3">
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-brand-soft text-[11px] font-bold text-brand-text">{i + 1}</span>
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-md bg-brand-soft text-[11px] font-bold text-brand-text">{i + 1}</span>
                 <span>
                   <span className="block text-sm font-medium">{title}</span>
                   <span className="block text-[13px] leading-snug text-muted-foreground">{body}</span>

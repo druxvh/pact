@@ -37,16 +37,31 @@ Requires Bun 1.x and a Chromium browser (Chrome 116+). A Firefox build exists to
 
 | Page | Highlights | Go there |
 | --- | --- | --- |
-| **Home** | Search box that understands URLs, shortcuts (add, edit, undo-remove), your most-visited sites, clock + greeting | `g h` |
+| **Home** | Search box that understands URLs, brand-icon shortcuts (add, edit, undo-remove), your most-visited sites, a choice of clocks and optional widgets (see below) | `g h` |
 | **Notes** | Notebooks, Markdown editor with live preview, tick checkboxes in the preview, autosave, pins, undo | `g n` |
 | **Kanban** | Drag-and-drop with live reordering, priorities, due dates, task details, filters, progress | `g k` |
 | **Focus** | Pomodoro that survives navigation and closed tabs (alarms + notification), session history and streaks | `g t` |
 | **Tools** | Calculator, unit converter, colour + contrast, text tools, encoders, password generator, QR codes, image compressor (≤ 5 MB), random picker — all on-device | `g o` |
 | **Chat** | DMs and groups, replies, reactions, emoji picker, image/video attachments (stored in IndexedDB), link-safe rendering | `g c` |
 | **VibeParty** | Synced YouTube playback, chat, reactions and a shared up-vote queue | `g p` |
-| **Settings** | Profile, theme (light / dark / system), animations, home options, backup & restore | `g s` |
+| **Settings** | Profile, theme, accent colour, fonts, wallpapers, Home layouts and widgets, animations, backup & restore | `g s` |
 
 Everywhere: `⌘K` / `Ctrl+K` command palette (jump, create, search notes/tasks/chats), `?` for every shortcut, `pact <page>` in the address bar. Light and dark themes, reduced-motion support, keyboard-first.
+
+## Make it yours
+
+Everything below lives in **Settings → Appearance / Home** and is stored on your device.
+
+**Appearance**
+- **Accent colour** — 16 presets or any colour you pick. One choice re-themes every button, highlight, focus ring and brand-coloured text in both light and dark. The colour is adjusted (not rejected) so text stays at WCAG AA contrast; the stock orange adds no overrides at all.
+- **Fonts** — 33 free families: 23 sans-serif (Geist, Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Nunito, DM Sans, Manrope, Plus Jakarta Sans, Outfit, Work Sans, Source Sans 3, Raleway, Space Grotesk, Sora, Figtree, Rubik, IBM Plex Sans, Lexend, Bricolage Grotesque, Instrument Sans), 4 serif (Playfair Display, Merriweather, Lora, Source Serif 4) and 6 monospace for code and numbers (Geist Mono, JetBrains Mono, Fira Code, Source Code Pro, Roboto Mono, IBM Plex Mono), plus your system fonts. All are bundled via Fontsource (Latin subset) and loaded only when you use them — still no network requests.
+- **Wallpaper** — solid colours, gradients (presets or your own two colours and angle), mesh gradients, or your own image (downscaled to WebP and kept in IndexedDB). Cards turn into frosted glass over a wallpaper. A **Dim** layer is set per theme, and pact picks the smallest dim that keeps even muted text readable (4.5:1) and tells you when a wallpaper can't be made legible.
+
+**Home**
+- **Layouts** — Classic, Minimal, Dashboard, Zen and Focus. Change anything and it becomes *Custom*.
+- **Clock** — digital, compact, analog or none; seconds, date and greeting are independent switches; 12h/24h/auto.
+- **Show or hide** the search box, keyboard hints and shortcuts.
+- **Widgets** (reorderable): *Today* (overdue / due-today / in-progress tasks — tick them off or add one), *Focus* (minutes today and streak), *Pinned notes*, *Quick note* (saves as a real note), *Quote of the day* (bundled, no network) and *Countdown* to a date you choose. They only read what's already in pact — there's deliberately no weather or news widget, since that would need a network request.
 
 ## VibeParty
 
@@ -108,7 +123,7 @@ src/
   components/ui/  design system on Base UI: Button, Dialog, Select, Segmented, Tooltip, …
   features/       home · notes · kanban · timer · tools · chat · party · settings   (one folder each)
   store/          cross-cutting Zustand stores + demoServer.ts (the simulated backend)
-  lib/            small, tested helpers: hotkeys, fuzzy search, url, motion presets, extension facade
+  lib/            small, tested helpers: hotkeys, fuzzy search, url, motion presets, extension facade, appearance/ (accent, fonts, wallpaper engine)
   styles/         Tailwind v4 theme (OKLCH tokens, light/dark) in globals.css
   dev/            kitchen.html (design-system gallery) and the VibeParty harness — never shipped
 server/           the VibeParty relay (runs on Bun or Node)
@@ -129,10 +144,12 @@ pact makes **no network requests of its own** (fonts and icons are bundled; site
 | `alarms`, `notifications` | The focus timer fires even if every pact tab is closed |
 | host `www.youtube.com` | The VibeParty panel, and finding an open YouTube tab to start a party in |
 
+A wallpaper image is stored in this browser's IndexedDB and is **not** part of a Settings backup (the choice of wallpaper is; the picture isn't), so after restoring on another machine you re-pick the image.
+
 ## Quality
 
-- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (250+ tests): calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
-- Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, verified contrast for the brand colour.
+- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (320+ tests): calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
+- Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, contrast verified numerically for the brand colour — including every accent you can pick.
 
 ## Browsers
 
