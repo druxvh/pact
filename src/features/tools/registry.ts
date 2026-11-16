@@ -1,7 +1,37 @@
-import { Braces, Calculator, CaseSensitive, Dices, ImageDown, KeyRound, type LucideIcon, Palette, QrCode, Ruler } from 'lucide-react';
+import {
+  Braces,
+  Calculator,
+  CaseSensitive,
+  Crop,
+  Dices,
+  FileStack,
+  ImageDown,
+  Images,
+  KeyRound,
+  LayoutGrid,
+  type LucideIcon,
+  Palette,
+  PenLine,
+  QrCode,
+  Ruler,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 
-export type ToolId = 'calc' | 'convert' | 'text' | 'encode' | 'color' | 'qr' | 'image' | 'password' | 'random';
+export type ToolId =
+  | 'calc'
+  | 'convert'
+  | 'text'
+  | 'encode'
+  | 'color'
+  | 'qr'
+  | 'image'
+  | 'password'
+  | 'random'
+  | 'pdf-merge'
+  | 'pdf-pages'
+  | 'pdf-crop'
+  | 'pdf-sign'
+  | 'images-pdf';
 
 export type ToolDef = {
   id: ToolId;
@@ -86,6 +116,46 @@ export const TOOLS: readonly ToolDef[] = [
     icon: Dices,
     keywords: 'dice coin flip random picker decide shuffle',
     load: () => import('@/features/tools/tools/RandomTool'),
+  },
+  {
+    id: 'pdf-merge',
+    title: 'Merge PDFs',
+    description: 'Combine several PDFs into one, in the order you choose',
+    icon: FileStack,
+    keywords: 'pdf merge combine join append documents',
+    load: () => import('@/features/tools/tools/PdfMergeTool'),
+  },
+  {
+    id: 'pdf-pages',
+    title: 'Organize PDF pages',
+    description: 'Rearrange, rotate, delete or extract pages',
+    icon: LayoutGrid,
+    keywords: 'pdf pages rearrange reorder rotate delete remove extract split organize',
+    load: () => import('@/features/tools/tools/PdfPagesTool'),
+  },
+  {
+    id: 'pdf-crop',
+    title: 'Crop PDF',
+    description: 'Trim margins off every page',
+    icon: Crop,
+    keywords: 'pdf crop trim margins resize pages',
+    load: () => import('@/features/tools/tools/PdfCropTool'),
+  },
+  {
+    id: 'pdf-sign',
+    title: 'Sign PDF',
+    description: 'Draw, type or upload a signature and place it',
+    icon: PenLine,
+    keywords: 'pdf sign signature esign fill form initial',
+    load: () => import('@/features/tools/tools/PdfSignTool'),
+  },
+  {
+    id: 'images-pdf',
+    title: 'Images to PDF',
+    description: 'Turn photos and scans into one PDF',
+    icon: Images,
+    keywords: 'image photo jpg png scan convert to pdf make pdf',
+    load: () => import('@/features/tools/tools/ImagesToPdfTool'),
   },
 ];
 

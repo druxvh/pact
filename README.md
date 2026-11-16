@@ -41,7 +41,7 @@ Requires Bun 1.x and a Chromium browser (Chrome 116+). A Firefox build exists to
 | **Notes** | Notebooks, Markdown editor with live preview, tick checkboxes in the preview, autosave, pins, undo | `g n` |
 | **Kanban** | Drag-and-drop with live reordering, priorities, due dates, task details, filters, progress | `g k` |
 | **Focus** | Pomodoro that survives navigation and closed tabs (alarms + notification), session history and streaks | `g t` |
-| **Tools** | Calculator, unit converter, colour + contrast, text tools, encoders, password generator, QR codes, image compressor (≤ 5 MB), random picker — all on-device | `g o` |
+| **Tools** | Calculator, unit converter, colour + contrast, text tools, encoders, password generator, QR codes, image compressor, random picker — and PDF tools: **merge**, **organize pages** (rearrange / rotate / delete / extract), **crop**, **sign** (draw, type or upload), **images → PDF** — all on-device | `g o` |
 | **Chat** | DMs and groups, replies, reactions, emoji picker, image/video attachments (stored in IndexedDB), link-safe rendering | `g c` |
 | **VibeParty** | Synced YouTube playback, chat, reactions and a shared up-vote queue | `g p` |
 | **Settings** | Profile, theme, accent colour, fonts, wallpapers, Home layouts and widgets, animations, backup & restore | `g s` |
@@ -164,7 +164,7 @@ A wallpaper image is stored in this browser's IndexedDB and is **not** part of a
 
 ## Quality
 
-- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (320+ tests): calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
+- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (390+ tests): calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
 - Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, contrast verified numerically for the brand colour — including every accent you can pick.
 
 ## Browsers
