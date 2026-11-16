@@ -13,6 +13,23 @@ const api = browser as Api | undefined;
 /** True when running as an installed/loaded extension page (not a dev-server tab). */
 export const isExtension: boolean = Boolean(api?.runtime?.id);
 
+/** The URL an OAuth provider sends the browser back to inside the extension (`https://<id>.chromiumapp.org/`). */
+export function getAuthRedirectUrl(): string | null {
+  try {
+    return api?.identity?.getRedirectURL?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Opens the browser's own sign-in window and resolves with the final redirect URL (rejects if the user closes it). */
+export async function launchAuthFlow(url: string): Promise<string> {
+  if (!api?.identity?.launchWebAuthFlow) throw new Error('Sign-in needs the browser’s identity permission, which isn’t available here.');
+  const result = await api.identity.launchWebAuthFlow({ url, interactive: true });
+  if (!result) throw new Error('Sign-in was cancelled.');
+  return result;
+}
+
 export type TopSite = { title: string; url: string };
 
 export async function getTopSites(): Promise<TopSite[]> {

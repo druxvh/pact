@@ -6,6 +6,7 @@ import { Onboarding } from '@/app/Onboarding';
 import { baseTitle, SECTION_BY_ID, SECTIONS } from '@/app/routes';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
 import { MobileNav, Sidebar } from '@/app/Sidebar';
+import { SignInDialog } from '@/app/SignIn';
 import { TopBar } from '@/app/TopBar';
 import { WallpaperLayer } from '@/app/WallpaperLayer';
 import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/ui';
@@ -95,6 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <PromptHost />
         <CommandPalette />
         <ShortcutsDialog />
+        <SignInDialog />
         <Onboarding />
       </TooltipProvider>
     </MotionConfig>

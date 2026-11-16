@@ -63,6 +63,20 @@ Everything below lives in **Settings → Appearance / Home** and is stored on yo
 - **Show or hide** the search box, keyboard hints and shortcuts.
 - **Widgets** (reorderable): *Today* (overdue / due-today / in-progress tasks — tick them off or add one), *Focus* (minutes today and streak), *Pinned notes*, *Quick note* (saves as a real note), *Quote of the day* (bundled, no network) and *Countdown* to a date you choose. They only read what's already in pact — there's deliberately no weather or news widget, since that would need a network request.
 
+## Accounts and cloud sync (Supabase)
+
+pact works as a **guest** with no account: Home with search, shortcuts (your local bookmarks) and recent/most-visited sites. Everything else needs sign-in with **GitHub or Google**.
+
+- **Notes** sync to your account, local-first: they're instant and work offline, upload in the background, and appear live on your other devices (Realtime). Conflicts are last-write-wins; deletions sync. A small cloud icon in the top bar shows whether everything is saved.
+- Tasks, timer history, chat and settings still live on this device for now (they're hidden from guests, and a *different* account signing in on the same browser never inherits them).
+- Security: Row Level Security on every table (you can only ever read your own rows), only the publishable key ships in the extension, PKCE sign-in through `chrome.identity`. The schema is in `supabase/migrations/`.
+
+**Setup**
+1. Apply `supabase/migrations/20261116000000_profiles_and_notes.sql` to your project (SQL editor, or the Supabase CLI / MCP).
+2. Authentication → Providers: enable **GitHub** and **Google** (callback URL: `https://<project-ref>.supabase.co/auth/v1/callback`).
+3. Authentication → URL Configuration → **Redirect URLs**: add the extension's redirect URL — shown under "Trouble signing in?" on the sign-in screen (`https://<extension-id>.chromiumapp.org/`). Unpacked builds get a different id per machine; a published extension has a fixed one.
+4. Put `WXT_SUPABASE_URL` and `WXT_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (see `.env.example`) and rebuild.
+
 ## VibeParty
 
 Open the **VibeParty** page, pick or generate a room code, press **Open YouTube & join**. pact reuses a YouTube tab you already have (or opens one) and shows a panel on the page: people in the room, chat, reactions, and a queue.
@@ -133,12 +147,13 @@ Notable decisions: hash routing with lazy-loaded pages (prefetched when idle); e
 
 ## Data, privacy and permissions
 
-pact makes **no network requests of its own** (fonts and icons are bundled; site icons come from the browser's local favicon cache). The only traffic is the relay *you* configure and, on youtube.com, YouTube's own oEmbed endpoint and thumbnails for the queue.
+pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes and your profile go to your Supabase project. The only other traffic is the relay *you* configure and, on youtube.com, YouTube's own oEmbed endpoint and thumbnails for the queue.
 
 | Permission | Why |
 | --- | --- |
 | `storage` | VibeParty remembers your display name and panel preferences; party state survives service-worker restarts |
 | `topSites` | "Most visited" tiles on Home |
+| `identity` | "Sign in with GitHub / Google" (`launchWebAuthFlow`); no email or profile permission is requested |
 | `favicon` | Private, local site icons (Chromium-only; Firefox falls back to letter tiles) |
 | `search` | Search with *your* default search engine |
 | `alarms`, `notifications` | The focus timer fires even if every pact tab is closed |

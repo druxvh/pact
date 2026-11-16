@@ -24,6 +24,10 @@ export const SECTIONS: readonly SectionMeta[] = [
   { id: 'settings', label: 'Settings', description: 'Profile and preferences', icon: Settings, hotkey: 's' },
 ] as const;
 
+/** What guests can use without an account: search, shortcuts and recent sites live on Home. Everything else needs sign-in. */
+export const GUEST_SECTIONS: readonly Section[] = ['home'];
+export const needsAccount = (section: Section) => !GUEST_SECTIONS.includes(section);
+
 export const SECTION_BY_ID = Object.fromEntries(SECTIONS.map((s) => [s.id, s])) as Record<Section, SectionMeta>;
 
 export const baseTitle = (section: Section) => (section === 'home' ? 'pact' : `${SECTION_BY_ID[section].label} · pact`);

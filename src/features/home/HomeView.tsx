@@ -8,6 +8,7 @@ import { ShortcutGrid, useHomeLinks } from '@/features/home/ShortcutGrid';
 import { HomeWidgets } from '@/features/home/widgets/HomeWidgets';
 import { cn } from '@/lib/cn';
 import { fadeUp, stagger } from '@/lib/motion';
+import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { useNavStore } from '@/store/useNavStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -16,9 +17,14 @@ export function HomeView() {
   const layout = useHomeLayoutStore((s) => s.layout);
   const showGreeting = useSettingsStore((s) => s.showGreeting);
   const go = useNavStore((s) => s.go);
+  const signedIn = useAuthStore(selectSignedIn);
+  const widgetCount = signedIn ? layout.widgets.length : 0;
+  // Guests can't reach Settings, and search + shortcuts are what Home offers them — never leave them with an empty page.
+  const showSearch = layout.showSearch || !signedIn;
+  const showShortcuts = layout.showShortcuts || !signedIn;
 
   const hasClock = layout.clockStyle !== 'none' || showGreeting || layout.showDate;
-  const nothing = !hasClock && !layout.showSearch && !layout.showShortcuts && layout.widgets.length === 0;
+  const nothing = !hasClock && !showSearch && !showShortcuts && widgetCount === 0;
 
   return (
     <div className="relative flex h-full flex-col items-center overflow-y-auto px-4">
@@ -45,7 +51,7 @@ export function HomeView() {
           className={cn(
             'relative my-auto flex w-full max-w-5xl flex-col items-center pt-6',
             // with widgets the page grows, so the vertical rhythm tightens a little
-            layout.widgets.length > 0 ? 'gap-8 pb-[5vh]' : 'gap-10 pb-[9vh]',
+            widgetCount > 0 ? 'gap-8 pb-[5vh]' : 'gap-10 pb-[9vh]',
           )}
         >
           {hasClock && (
@@ -54,13 +60,13 @@ export function HomeView() {
             </motion.div>
           )}
 
-          {layout.showSearch && (
+          {showSearch && (
             <motion.div variants={fadeUp} className="flex w-full justify-center">
               <OmniSearch links={links} />
             </motion.div>
           )}
 
-          {layout.showShortcuts && (
+          {showShortcuts && (
             <motion.div variants={fadeUp} className="w-full max-w-3xl">
               <ShortcutGrid tiles={tiles} top={top} />
             </motion.div>
@@ -68,7 +74,7 @@ export function HomeView() {
 
           <HomeWidgets />
 
-          {layout.showSearch && layout.showHints && (
+          {showSearch && layout.showHints && (
             <motion.p variants={fadeUp} className="text-center text-xs text-subtle-foreground">
               Press <kbd className="rounded-sm border bg-muted px-1 font-mono text-[10px]">/</kbd> to search ·{' '}
               <kbd className="rounded-sm border bg-muted px-1 font-mono text-[10px]">⌘K</kbd> for everything else

@@ -9,6 +9,7 @@ import { QuoteWidget } from '@/features/home/widgets/QuoteWidget';
 import { TodayWidget } from '@/features/home/widgets/TodayWidget';
 import { cn } from '@/lib/cn';
 import { fadeUp } from '@/lib/motion';
+import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 
 const REGISTRY: Record<WidgetId, ComponentType> = {
   today: TodayWidget,
@@ -22,7 +23,8 @@ const REGISTRY: Record<WidgetId, ComponentType> = {
 /** The enabled widgets, in the order chosen in Settings. One or two sit centred; three or more fill a 3-column grid. */
 export function HomeWidgets() {
   const widgets = useHomeLayoutStore((s) => s.layout.widgets);
-  if (widgets.length === 0) return null;
+  const signedIn = useAuthStore(selectSignedIn); // widgets read your tasks, notes and timer — account data
+  if (!signedIn || widgets.length === 0) return null;
 
   return (
     <motion.div

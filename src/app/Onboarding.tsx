@@ -20,8 +20,10 @@ import { useKanbanStore } from '@/features/kanban/store';
 import { useNotesStore } from '@/features/notes/store';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
+import { useProfileSync } from '@/lib/supabase/profile';
 import { notify } from '@/lib/toast';
 import { loadSampleWorkspace } from '@/store/demoServer';
+import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { normalizeUsername, useUserStore } from '@/store/useUserStore';
 
 type Start = 'sample' | 'empty';
@@ -37,17 +39,23 @@ const OPTIONS: Array<{ id: Start; title: string; body: string; icon: typeof Spar
  */
 export function Onboarding() {
   const onboarded = useUserStore((s) => s.onboarded);
+  const signedIn = useAuthStore(selectSignedIn);
+  // Once the account's profile is loaded we know whether this person has already been welcomed on another device.
+  const profileReady = useProfileSync((s) => s.ready);
   const customised = useUserStore((s) => s.currentUser.displayName !== 'You');
+  const me = useUserStore((s) => s.currentUser);
   // Each hook runs on every render (a `||` chain would skip the later ones and break the Rules of Hooks).
   const hasNotes = useNotesStore((s) => s.notes.length > 0);
   const hasTasks = useKanbanStore((s) => s.tasks.length > 0);
   const hasMessages = useChatStore((s) => s.messages.length > 0);
   const complete = useUserStore((s) => s.completeOnboarding);
-  const existingUser = customised || hasNotes || hasTasks || hasMessages;
+  // A signed-in account's name is just whatever GitHub/Google supplied, so it doesn't mean "has used pact before".
+  const existingUser = (signedIn ? false : customised) || hasNotes || hasTasks || hasMessages;
+  const ready = signedIn && profileReady;
 
   useEffect(() => {
-    if (!onboarded && existingUser) complete({});
-  }, [onboarded, existingUser, complete]);
+    if (ready && !onboarded && existingUser) complete({});
+  }, [ready, onboarded, existingUser, complete]);
 
   const nameRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<0 | 1>(0);
@@ -57,7 +65,16 @@ export function Onboarding() {
   const [role, setRole] = useState('');
   const [start, setStart] = useState<Start>('sample');
 
-  const open = !onboarded && !existingUser;
+  const open = ready && !onboarded && !existingUser;
+
+  // Start from what the account already knows (provider name, suggested username).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: prefill once, when the dialog opens
+  useEffect(() => {
+    if (!open) return;
+    setName((n) => n || (me.displayName !== 'You' ? me.displayName : ''));
+    setUsername((u) => u || me.username);
+    setUsernameTouched(true);
+  }, [open]);
   const error = profileStepError(name, username);
   const showUsernameError = usernameTouched && username !== '' ? error : null;
 

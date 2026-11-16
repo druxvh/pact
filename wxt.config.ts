@@ -16,8 +16,9 @@ export default defineConfig({
     //  search        search with the user's default engine
     //  alarms        focus timer fires even if every pact tab is closed
     //  notifications "focus session complete" when pact isn't focused
+    //  identity      "Sign in with GitHub / Google" (chrome.identity.launchWebAuthFlow) — no email/profile access is requested
     // (`tabs` and `bookmarks` were requested before but never needed — removed.)
-    permissions: ['storage', 'topSites', 'favicon', 'search', 'alarms', 'notifications'],
+    permissions: ['storage', 'topSites', 'favicon', 'search', 'alarms', 'notifications', 'identity'],
     // youtube.com: find an open YouTube tab to start a party in (tabs.query by URL) — nothing else needs it.
     host_permissions: ['https://www.youtube.com/*'],
     chrome_url_overrides: {

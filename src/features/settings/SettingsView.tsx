@@ -510,7 +510,8 @@ function DataSection() {
   const reset = async () => {
     const ok = await confirm({
       title: 'Erase everything on this device?',
-      description: 'Notes, boards, chats, attachments, timer history, settings and your profile will be deleted. This can’t be undone.',
+      description:
+        'Notes, boards, chats, attachments, timer history, settings and your profile will be deleted from this device. Notes in your account aren’t deleted — they sync back the next time you’re signed in. This can’t be undone.',
       confirmLabel: 'Erase everything',
       destructive: true,
     });
@@ -565,7 +566,7 @@ function DataSection() {
           <Sparkles /> Load samples
         </Button>
       </Row>
-      <Row label="Erase everything" description="Resets pact to a fresh install on this device.">
+      <Row label="Erase everything" description="Resets pact to a fresh install on this device. Notes in your account sync back.">
         <Button variant="danger" loading={busy} onClick={() => void reset()}>
           <Trash2 /> Erase all data
         </Button>

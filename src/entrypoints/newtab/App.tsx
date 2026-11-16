@@ -1,6 +1,9 @@
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react';
 import { AppShell } from '@/app/AppShell';
+import { needsAccount } from '@/app/routes';
+import { SignInGate } from '@/app/SignIn';
 import { Skeleton } from '@/components/ui';
+import { useAuthStore } from '@/store/useAuthStore';
 import { type Section, useNavStore } from '@/store/useNavStore';
 
 /**
@@ -40,6 +43,8 @@ function ViewFallback() {
 export default function App() {
   const section = useNavStore((s) => s.section);
   const View = views[section];
+  const status = useAuthStore((s) => s.status);
+  const locked = needsAccount(section) && status !== 'signedIn';
 
   useEffect(() => {
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
@@ -50,9 +55,18 @@ export default function App() {
 
   return (
     <AppShell>
-      <Suspense fallback={<ViewFallback />}>
-        <View />
-      </Suspense>
+      {locked ? (
+        // A stored session is still being checked → don't flash the sign-in prompt at someone who's already signed in.
+        status === 'loading' ? (
+          <ViewFallback />
+        ) : (
+          <SignInGate section={section} />
+        )
+      ) : (
+        <Suspense fallback={<ViewFallback />}>
+          <View />
+        </Suspense>
+      )}
     </AppShell>
   );
 }

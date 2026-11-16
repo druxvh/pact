@@ -1,5 +1,7 @@
-import { Keyboard, Monitor, Moon, Settings, Sun } from 'lucide-react';
-import { Avatar, DropdownContent, DropdownItem, DropdownLabel, DropdownMenu, DropdownSeparator, DropdownTrigger, Tooltip } from '@/components/ui';
+import { Keyboard, LogIn, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { Avatar, DropdownContent, DropdownItem, DropdownLabel, DropdownMenu, DropdownSeparator, DropdownTrigger, IconButton, Tooltip } from '@/components/ui';
+import { requestSignOut } from '@/lib/supabase/signOut';
+import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { useNavStore } from '@/store/useNavStore';
 import { type ThemeMode, useThemeStore } from '@/store/useThemeStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -17,6 +19,20 @@ export function ProfileMenu({ side = 'right' }: { side?: 'top' | 'right' | 'bott
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
+  const setSignInOpen = useUiStore((s) => s.setSignInOpen);
+  const signedIn = useAuthStore(selectSignedIn);
+  const email = useAuthStore((s) => s.user?.email ?? null);
+
+  // Guests have no account menu — just a way in.
+  if (!signedIn) {
+    return (
+      <Tooltip content="Sign in" side={side === 'right' ? 'right' : 'bottom'}>
+        <IconButton label="Sign in" tooltip={false} onClick={() => setSignInOpen(true)}>
+          <LogIn />
+        </IconButton>
+      </Tooltip>
+    );
+  }
 
   return (
     <DropdownMenu>
@@ -31,6 +47,7 @@ export function ProfileMenu({ side = 'right' }: { side?: 'top' | 'right' | 'bott
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{me.displayName}</p>
             <p className="truncate text-xs text-muted-foreground">@{me.username}</p>
+            {email && <p className="truncate text-xs text-subtle-foreground">{email}</p>}
           </div>
         </div>
         <DropdownSeparator />
@@ -56,6 +73,10 @@ export function ProfileMenu({ side = 'right' }: { side?: 'top' | 'right' | 'bott
             {t.label}
           </DropdownItem>
         ))}
+        <DropdownSeparator />
+        <DropdownItem icon={<LogOut />} onClick={() => void requestSignOut()}>
+          Sign out
+        </DropdownItem>
       </DropdownContent>
     </DropdownMenu>
   );

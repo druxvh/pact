@@ -4,6 +4,7 @@ import { useChatStore } from '@/features/chat/store';
 import { COLUMNS, useKanbanStore } from '@/features/kanban/store';
 import { excerpt, useNotesStore } from '@/features/notes/store';
 import { TOOLS } from '@/features/tools/registry';
+import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { useNavStore } from '@/store/useNavStore';
 import { useUiStore } from '@/store/useUiStore';
 import { useUserStore } from '@/store/useUserStore';
@@ -15,6 +16,8 @@ import { useUserStore } from '@/store/useUserStore';
 export function buildDataItems(query: string): PaletteItem[] {
   const q = query.trim();
   if (!q) return [];
+  // Guests only get search and shortcuts; the app's data is for signed-in accounts.
+  if (!selectSignedIn(useAuthStore.getState())) return [];
   const items: PaletteItem[] = [];
 
   // Tools (always searchable)

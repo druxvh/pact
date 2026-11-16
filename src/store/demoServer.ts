@@ -13,6 +13,7 @@ import type { Attachment, Message } from '@/features/chat/types';
 import type { Task } from '@/features/kanban/store';
 import { DEFAULT_BOARD_ID, useKanbanStore } from '@/features/kanban/store';
 import { DEFAULT_NOTEBOOK_ID, useNotesStore } from '@/features/notes/store';
+import { SYNC_STATE_KEY } from '@/features/notes/sync/model';
 import type { Note } from '@/features/notes/types';
 import { BOOT_KEY } from '@/lib/appearance/apply';
 import { clearAssets } from '@/lib/assets';
@@ -349,6 +350,8 @@ export function parseBackup(text: string): { ok: true; backup: Backup } | { ok: 
 }
 
 export function importBackup(backup: Backup) {
+  // Imported notes are treated as new local edits: the next sync reconciles them with the account from scratch.
+  localStorage.removeItem(SYNC_STATE_KEY);
   for (const key of STORAGE_KEYS) {
     const v = backup.data[key];
     if (typeof v === 'string') localStorage.setItem(key, v);
@@ -358,6 +361,7 @@ export function importBackup(backup: Backup) {
 /** Wipe all pact data on this device (the caller reloads afterwards). */
 export async function resetAllData() {
   for (const key of STORAGE_KEYS) localStorage.removeItem(key);
+  localStorage.removeItem(SYNC_STATE_KEY);
   localStorage.removeItem(BOOT_KEY);
   await Promise.all([clearBlobs().catch(() => {}), clearAssets().catch(() => {})]);
 }

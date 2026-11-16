@@ -1,16 +1,21 @@
 import { Search } from 'lucide-react';
 import { NotificationCenter } from '@/app/NotificationCenter';
 import { ProfileMenu } from '@/app/ProfileMenu';
-import { IconButton, Kbd, ThemeToggle } from '@/components/ui';
+import { SyncBadge } from '@/app/SyncBadge';
+import { Button, IconButton, Kbd, ThemeToggle } from '@/components/ui';
 import { TimerPill } from '@/features/timer/TimerPill';
 import { cn } from '@/lib/cn';
 import { MOD_KEY } from '@/lib/hotkeys';
+import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { useNavStore } from '@/store/useNavStore';
 import { useUiStore } from '@/store/useUiStore';
 
 export function TopBar() {
   const isHome = useNavStore((s) => s.section === 'home');
   const openPalette = useUiStore((s) => s.setPaletteOpen);
+  const setSignInOpen = useUiStore((s) => s.setSignInOpen);
+  const signedIn = useAuthStore(selectSignedIn);
+  const checking = useAuthStore((s) => s.status === 'loading');
 
   return (
     <header
@@ -33,15 +38,23 @@ export function TopBar() {
       )}
 
       <div className="ml-auto flex items-center gap-1">
-        <TimerPill />
+        {signedIn && <TimerPill />}
         <IconButton label="Search" shortcut={`${MOD_KEY}K`} onClick={() => openPalette(true)} className={cn(!isHome && 'md:hidden')}>
           <Search />
         </IconButton>
         <ThemeToggle />
-        <NotificationCenter />
-        <div className="ml-1 md:hidden">
-          <ProfileMenu side="bottom" />
-        </div>
+        {signedIn && <SyncBadge />}
+        {signedIn && <NotificationCenter />}
+        {!signedIn && !checking && (
+          <Button variant="primary" size="sm" className="ml-1" onClick={() => setSignInOpen(true)}>
+            Sign in
+          </Button>
+        )}
+        {signedIn && (
+          <div className="ml-1 md:hidden">
+            <ProfileMenu side="bottom" />
+          </div>
+        )}
       </div>
     </header>
   );

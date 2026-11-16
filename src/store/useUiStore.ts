@@ -7,6 +7,8 @@ type UiState = {
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
   setShortcutsOpen: (open: boolean) => void;
+  signInOpen: boolean;
+  setSignInOpen: (open: boolean) => void;
   /** One-shot intents: the palette sets them, the target view consumes them on mount. */
   pendingTaskId: string | null;
   pendingNewTask: boolean;
@@ -23,6 +25,8 @@ export const useUiStore = create<UiState>((set) => ({
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
+  signInOpen: false,
+  setSignInOpen: (signInOpen) => set({ signInOpen }),
   pendingTaskId: null,
   pendingNewTask: false,
   setPendingTaskId: (pendingTaskId) => set({ pendingTaskId }),
