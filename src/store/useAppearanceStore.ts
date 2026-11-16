@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { type AccentChoice, DEFAULT_ACCENT_ID } from '@/lib/appearance/accent';
 import { DEFAULT_MONO, DEFAULT_SANS } from '@/lib/appearance/fonts';
-import { defaultDim, NO_WALLPAPER, type Wallpaper } from '@/lib/appearance/wallpaper';
+import { type Dim, defaultDim, NO_WALLPAPER, uniformDim, type Wallpaper } from '@/lib/appearance/wallpaper';
 import { syncAcrossTabs } from '@/lib/persist';
 
 export type AppearanceState = {
@@ -12,8 +12,8 @@ export type AppearanceState = {
   /** Font for code, numbers and shortcuts. */
   monoFont: string;
   wallpaper: Wallpaper;
-  /** 0–80: how much of the page background colour is laid over the wallpaper. */
-  dim: number;
+  /** 0–80 per theme: how much of the page background colour is laid over the wallpaper. */
+  dim: Dim;
   /** 0–24 px; only meaningful for image wallpapers. */
   blur: number;
   /** Measured average luminance of an image wallpaper (0–1), for the legibility hint. */
@@ -24,7 +24,10 @@ export type AppearanceState = {
   setMonoFont: (id: string) => void;
   /** Switching kind resets dim to a sensible default for that kind. */
   setWallpaper: (wallpaper: Wallpaper, imageLuminance?: number | null) => void;
-  setDim: (dim: number) => void;
+  /** Set the dim for one theme. */
+  setDim: (theme: 'light' | 'dark', dim: number) => void;
+  /** Set both themes' dim at once (e.g. to the readable suggestion for a new wallpaper). */
+  setDims: (dim: Dim) => void;
   setBlur: (blur: number) => void;
   resetAppearance: () => void;
 };
@@ -34,7 +37,7 @@ export const APPEARANCE_DEFAULTS = {
   font: DEFAULT_SANS,
   monoFont: DEFAULT_MONO,
   wallpaper: NO_WALLPAPER,
-  dim: 0,
+  dim: uniformDim(0),
   blur: 0,
   imageLuminance: null as number | null,
 };
@@ -52,16 +55,23 @@ export const useAppearanceStore = create<AppearanceState>()(
         set((s) => ({
           wallpaper,
           imageLuminance: wallpaper.kind === 'image' ? (imageLuminance ?? s.imageLuminance) : null,
-          dim: wallpaper.kind === s.wallpaper.kind ? s.dim : defaultDim(wallpaper.kind),
+          dim: wallpaper.kind === s.wallpaper.kind ? s.dim : uniformDim(defaultDim(wallpaper.kind)),
           blur: wallpaper.kind === 'image' ? s.blur : 0,
         })),
-      setDim: (dim) => set({ dim: clamp(dim, 0, 80) }),
+      setDim: (theme, dim) => set((s) => ({ dim: { ...s.dim, [theme]: clamp(dim, 0, 80) } })),
+      setDims: (dim) => set({ dim: { light: clamp(dim.light, 0, 80), dark: clamp(dim.dark, 0, 80) } }),
       setBlur: (blur) => set({ blur: clamp(blur, 0, 24) }),
       resetAppearance: () => set({ ...APPEARANCE_DEFAULTS }),
     }),
     {
       name: 'pact-appearance',
-      version: 1,
+      version: 2,
+      // v1 kept one dim for both themes.
+      migrate: (persisted, version) => {
+        const p = (persisted ?? {}) as Record<string, unknown>;
+        if (version < 2 && typeof p.dim === 'number') p.dim = uniformDim(clamp(p.dim, 0, 80));
+        return p as unknown as AppearanceState;
+      },
       partialize: (s) => ({
         accent: s.accent,
         font: s.font,

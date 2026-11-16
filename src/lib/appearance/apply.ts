@@ -9,7 +9,7 @@ import type { AppearanceState } from '@/store/useAppearanceStore';
 import { accentCss } from './accent';
 import { ensureFont, fontCss } from './fontLoader';
 import { fontById, fontVarsCss } from './fonts';
-import { type Wallpaper, wallpaperBackground } from './wallpaper';
+import { type Dim, type Wallpaper, wallpaperBackground } from './wallpaper';
 
 export const BOOT_KEY = 'pact-appearance-boot';
 const STYLE_ID = 'pact-appearance';
@@ -19,10 +19,13 @@ type Snapshot = Pick<AppearanceState, 'accent' | 'font' | 'monoFont' | 'wallpape
 /** `color` = painted by CSS on <body> (instant); `image` = painted by the <WallpaperLayer> component. */
 export const wallpaperMode = (wp: Wallpaper): 'color' | 'image' | '' => (wp.kind === 'none' ? '' : wp.kind === 'image' ? 'image' : 'color');
 
-export function wallpaperVarsCss(wp: Wallpaper, dim: number): string {
+const frac = (n: number) => (n / 100).toFixed(2);
+
+/** The dim differs per theme, so it's emitted under both selectors (`html.dark` comes last and wins in dark). */
+export function wallpaperVarsCss(wp: Wallpaper, dim: Dim): string {
   if (wp.kind === 'none') return '';
   const bg = wallpaperBackground(wp);
-  return `html:root{--wp-dim:${(dim / 100).toFixed(2)}${bg ? `;--wp-bg:${bg}` : ''}}`;
+  return `html:root{--wp-dim:${frac(dim.light)}${bg ? `;--wp-bg:${bg}` : ''}}html.dark{--wp-dim:${frac(dim.dark)}}`;
 }
 
 export function appearanceCss(s: Snapshot): string {

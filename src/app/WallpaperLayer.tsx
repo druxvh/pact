@@ -9,7 +9,6 @@ import { useAppearanceStore } from '@/store/useAppearanceStore';
  */
 export function WallpaperLayer() {
   const wallpaper = useAppearanceStore((s) => s.wallpaper);
-  const dim = useAppearanceStore((s) => s.dim);
   const blur = useAppearanceStore((s) => s.blur);
   const imageId = wallpaper.kind === 'image' ? wallpaper.id : null;
   const [url, setUrl] = useState<string | null>(null);
@@ -51,7 +50,7 @@ export function WallpaperLayer() {
         className="fixed inset-0 -z-20 bg-cover bg-center transition-opacity duration-700"
         style={{ backgroundImage: `url(${url})`, opacity: ready ? 1 : 0, ...(blur ? { filter: `blur(${blur}px)`, transform: 'scale(1.08)' } : null) }}
       />
-      <div aria-hidden="true" className="fixed inset-0 -z-10 bg-background" style={{ opacity: dim / 100 }} />
+      <div aria-hidden="true" className="fixed inset-0 -z-10 bg-background" style={{ opacity: 'var(--wp-dim, 0)' }} />
     </>
   );
 }

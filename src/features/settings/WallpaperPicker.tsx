@@ -10,7 +10,7 @@ import {
   NO_WALLPAPER,
   processWallpaperImage,
   SOLIDS,
-  suggestDim,
+  suggestDims,
   type Wallpaper,
   type WallpaperKind,
   wallpaperBackground,
@@ -116,11 +116,12 @@ function Preview({ background, imageUrl, dim, blur }: { background: string | nul
 
 export function WallpaperPicker() {
   const wallpaper = useAppearanceStore((s) => s.wallpaper);
-  const dim = useAppearanceStore((s) => s.dim);
+  const dims = useAppearanceStore((s) => s.dim);
   const blur = useAppearanceStore((s) => s.blur);
   const imageLuminance = useAppearanceStore((s) => s.imageLuminance);
-  const { setWallpaper, setDim, setBlur } = useAppearanceStore.getState();
+  const { setWallpaper, setDim, setDims, setBlur } = useAppearanceStore.getState();
   const theme = useThemeStore((s) => s.resolved);
+  const dim = dims[theme];
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -132,7 +133,7 @@ export function WallpaperPicker() {
   const choose = (wp: Wallpaper, measured?: number | null) => {
     setWallpaper(wp, measured);
     const l = wallpaperLuminance(wp, measured ?? imageLuminance);
-    if (l !== null) setDim(suggestDim(l, theme));
+    if (l !== null) setDims(suggestDims(l));
   };
   const lum = wallpaperLuminance(wallpaper, imageLuminance);
   const background = wallpaperBackground(wallpaper);
@@ -328,10 +329,12 @@ export function WallpaperPicker() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <div className="mb-2 flex justify-between text-[13px]">
-                <span className="font-medium">Dim</span>
+                <span className="font-medium">
+                  Dim <span className="font-normal text-muted-foreground">· {theme} theme</span>
+                </span>
                 <span className="tabular text-muted-foreground">{dim}%</span>
               </div>
-              <Slider aria-label="Dim" value={dim} min={0} max={80} onValueChange={setDim} />
+              <Slider aria-label={`Dim (${theme} theme)`} value={dim} min={0} max={80} onValueChange={(v) => setDim(theme, v)} />
             </div>
             {kind === 'image' && (
               <div>

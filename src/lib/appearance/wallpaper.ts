@@ -211,6 +211,14 @@ export function suggestDim(luminance: number, theme: 'light' | 'dark'): number {
   return 70;
 }
 
+/** Dim is chosen per theme: a dark wallpaper needs none in dark theme but a lot in light theme (and vice-versa). */
+export type Dim = { light: number; dark: number };
+
+export const uniformDim = (n: number): Dim => ({ light: n, dark: n });
+
+/** The readable-text dim for both themes at once. */
+export const suggestDims = (luminance: number): Dim => ({ light: suggestDim(luminance, 'light'), dark: suggestDim(luminance, 'dark') });
+
 /** Sensible default dim when switching to a kind of wallpaper. */
 export function defaultDim(kind: WallpaperKind): number {
   return kind === 'image' ? 35 : kind === 'mesh' ? 20 : 0;
