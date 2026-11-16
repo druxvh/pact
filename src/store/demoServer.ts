@@ -34,6 +34,7 @@ export const STORAGE_KEYS = [
   'pact-chat',
   'pact-party',
   'pact-home',
+  'pact-home-layout',
   'pact-settings',
   'pact-appearance',
   'pact-theme',

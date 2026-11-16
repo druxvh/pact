@@ -1,13 +1,31 @@
-import { Download, Info, Keyboard, Laptop, Moon, Palette, Settings, ShieldCheck, Sparkles, Sun, Trash2, Upload, UserRound } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Download,
+  Info,
+  Keyboard,
+  Laptop,
+  Moon,
+  Palette,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  Trash2,
+  Upload,
+  UserRound,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Avatar, Button, Card, confirm, Input, Label, PageHeader, Segmented, Switch, Textarea } from '@/components/ui';
+import { Avatar, Button, Card, confirm, IconButton, Input, Label, PageHeader, Segmented, Switch, Textarea } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
+import { type ClockStyle, orderedWidgets, useHomeLayoutStore, WIDGET_INFO } from '@/features/home/layout';
 import { useHomeStore } from '@/features/home/store';
 import { useKanbanStore } from '@/features/kanban/store';
 import { useNotesStore } from '@/features/notes/store';
 import { AccentPicker } from '@/features/settings/AccentPicker';
 import { FontPicker } from '@/features/settings/FontPicker';
+import { HomePresetPicker } from '@/features/settings/HomePresetPicker';
 import { WallpaperPicker } from '@/features/settings/WallpaperPicker';
 import { useTimerStore } from '@/features/timer/store';
 import { IMAGE_ASSET_ID } from '@/lib/appearance/wallpaper';
@@ -266,46 +284,164 @@ function AppearanceSection() {
 
 function HomeSection() {
   const { clock, showGreeting, showTopSites, set } = useSettingsStore();
+  const layout = useHomeLayoutStore((s) => s.layout);
+  const setLayout = useHomeLayoutStore((s) => s.setLayout);
+  const toggleWidget = useHomeLayoutStore((s) => s.toggleWidget);
+  const moveWidget = useHomeLayoutStore((s) => s.moveWidget);
+  const resetLayout = useHomeLayoutStore((s) => s.resetLayout);
   const hidden = useHomeStore((s) => s.hiddenHosts.length);
   const resetHidden = useHomeStore((s) => s.resetHidden);
 
+  const hasSeconds = layout.clockStyle === 'digital' || layout.clockStyle === 'analog';
+  const widgets = orderedWidgets(layout.widgets);
+
   return (
     <Section id="home" icon={Sparkles} title="Home" description="What you see on every new tab.">
-      <Row label="Clock" description="12-hour, 24-hour, or whatever your locale prefers.">
-        <Segmented<ClockFormat>
-          aria-label="Clock format"
-          value={clock}
-          onValueChange={(v) => set('clock', v)}
-          options={[
-            { value: 'auto', label: 'Auto' },
-            { value: '12h', label: '12h' },
-            { value: '24h', label: '24h' },
-          ]}
-        />
-      </Row>
-      <Row label="Greeting" description="“Good evening, Sam” above the search box." htmlFor="set-greeting">
-        <Switch id="set-greeting" checked={showGreeting} onCheckedChange={(v) => set('showGreeting', v)} aria-label="Greeting" />
-      </Row>
-      <Row
-        label="Most visited sites"
-        description="Tiles from your browser’s history. pact asks the browser; nothing leaves your device."
-        htmlFor="set-topsites"
+      <Block title="Layout" description="One-click themes for the new-tab page. Change anything below and it becomes yours.">
+        <HomePresetPicker />
+      </Block>
+
+      <Block title="Clock">
+        <div className="divide-y divide-border">
+          <Row label="Style" description="Digital, compact, an analog face — or no clock at all.">
+            <Segmented<ClockStyle>
+              aria-label="Clock style"
+              value={layout.clockStyle}
+              onValueChange={(v) => setLayout({ clockStyle: v })}
+              options={[
+                { value: 'digital', label: 'Digital' },
+                { value: 'compact', label: 'Compact' },
+                { value: 'analog', label: 'Analog' },
+                { value: 'none', label: 'None' },
+              ]}
+            />
+          </Row>
+          <Row label="Time format" description="12-hour, 24-hour, or whatever your locale prefers.">
+            <Segmented<ClockFormat>
+              aria-label="Clock format"
+              value={clock}
+              onValueChange={(v) => set('clock', v)}
+              options={[
+                { value: 'auto', label: 'Auto' },
+                { value: '12h', label: '12h' },
+                { value: '24h', label: '24h' },
+              ]}
+            />
+          </Row>
+          <Row
+            label="Seconds"
+            description={hasSeconds ? 'Show a ticking seconds display.' : 'Available with the digital and analog clocks.'}
+            htmlFor="set-seconds"
+          >
+            <Switch
+              id="set-seconds"
+              checked={layout.showSeconds}
+              disabled={!hasSeconds}
+              onCheckedChange={(v) => setLayout({ showSeconds: v })}
+              aria-label="Show seconds"
+            />
+          </Row>
+          <Row label="Date" description="“Monday, 16 November”." htmlFor="set-date">
+            <Switch id="set-date" checked={layout.showDate} onCheckedChange={(v) => setLayout({ showDate: v })} aria-label="Show the date" />
+          </Row>
+          <Row label="Greeting" description="“Good evening, Sam” above the date." htmlFor="set-greeting">
+            <Switch id="set-greeting" checked={showGreeting} onCheckedChange={(v) => set('showGreeting', v)} aria-label="Greeting" />
+          </Row>
+        </div>
+      </Block>
+
+      <Block title="On the page">
+        <div className="divide-y divide-border">
+          <Row label="Search box" description="Search the web, your notes and tasks, and your shortcuts." htmlFor="set-search">
+            <Switch id="set-search" checked={layout.showSearch} onCheckedChange={(v) => setLayout({ showSearch: v })} aria-label="Search box" />
+          </Row>
+          <Row label="Keyboard hints" description="The “Press / to search” line." htmlFor="set-hints">
+            <Switch
+              id="set-hints"
+              checked={layout.showHints}
+              disabled={!layout.showSearch}
+              onCheckedChange={(v) => setLayout({ showHints: v })}
+              aria-label="Keyboard hints"
+            />
+          </Row>
+          <Row label="Shortcuts" description="Your pinned sites as icon tiles." htmlFor="set-shortcuts">
+            <Switch id="set-shortcuts" checked={layout.showShortcuts} onCheckedChange={(v) => setLayout({ showShortcuts: v })} aria-label="Shortcuts" />
+          </Row>
+          <Row
+            label="Most visited sites"
+            description="Tiles from your browser’s history. pact asks the browser; nothing leaves your device."
+            htmlFor="set-topsites"
+          >
+            <Switch
+              id="set-topsites"
+              checked={showTopSites}
+              disabled={!layout.showShortcuts}
+              onCheckedChange={(v) => set('showTopSites', v)}
+              aria-label="Most visited sites"
+            />
+          </Row>
+          <Row
+            label="Hidden sites"
+            description={hidden ? `${hidden} site${hidden === 1 ? '' : 's'} removed from Home.` : 'You haven’t removed any sites from Home.'}
+          >
+            <Button
+              variant="outline"
+              disabled={hidden === 0}
+              onClick={() => {
+                resetHidden();
+                notify.success('Hidden sites restored');
+              }}
+            >
+              Show them again
+            </Button>
+          </Row>
+        </div>
+      </Block>
+
+      <Block
+        title="Widgets"
+        description="Small cards under the search box. They only use what’s already in pact — nothing is fetched from the internet. Use the arrows to reorder."
       >
-        <Switch id="set-topsites" checked={showTopSites} onCheckedChange={(v) => set('showTopSites', v)} aria-label="Most visited sites" />
-      </Row>
-      <Row
-        label="Hidden sites"
-        description={hidden ? `${hidden} site${hidden === 1 ? '' : 's'} removed from Home.` : 'You haven’t removed any sites from Home.'}
-      >
+        <ul className="divide-y divide-border">
+          {widgets.map((id) => {
+            const on = layout.widgets.includes(id);
+            const i = layout.widgets.indexOf(id);
+            const info = WIDGET_INFO[id];
+            return (
+              <li key={id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                <div className="min-w-0">
+                  <p className={cn('text-sm font-medium', !on && 'text-muted-foreground')}>{info.label}</p>
+                  <p className="text-[13px] leading-snug text-muted-foreground">{info.description}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <IconButton label={`Move ${info.label} earlier`} size="icon-sm" disabled={!on || i === 0} onClick={() => moveWidget(id, -1)}>
+                    <ArrowUp />
+                  </IconButton>
+                  <IconButton
+                    label={`Move ${info.label} later`}
+                    size="icon-sm"
+                    disabled={!on || i === layout.widgets.length - 1}
+                    onClick={() => moveWidget(id, 1)}
+                  >
+                    <ArrowDown />
+                  </IconButton>
+                  <Switch checked={on} onCheckedChange={() => toggleWidget(id)} aria-label={info.label} className="ml-1" />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Block>
+
+      <Row label="Reset Home" description="Back to the Classic layout. Your shortcuts and notes aren’t touched.">
         <Button
           variant="outline"
-          disabled={hidden === 0}
           onClick={() => {
-            resetHidden();
-            notify.success('Hidden sites restored');
+            resetLayout();
+            notify.success('Home layout reset');
           }}
         >
-          Show them again
+          Reset
         </Button>
       </Row>
     </Section>
