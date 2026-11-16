@@ -193,7 +193,7 @@ export function CommandPalette() {
         <D.Viewport className="fixed inset-0 z-[60] grid items-start justify-items-center overflow-y-auto p-4 pt-[12vh]">
           <D.Popup
             aria-label="Command palette"
-            className="w-full max-w-[600px] overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-pop outline-none transition-[opacity,transform] duration-200 ease-out-expo data-[starting-style]:-translate-y-2 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0"
+            className="w-full max-w-[600px] overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-pop outline-none transition-[opacity,transform] duration-200 ease-out-expo data-[starting-style]:-translate-y-2 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0"
           >
             <D.Title className="sr-only">Command palette</D.Title>
             <div className="flex items-center gap-3 border-b px-4">

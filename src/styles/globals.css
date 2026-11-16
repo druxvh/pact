@@ -151,8 +151,10 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  /* House rule: nothing is rounder than rounded-lg. xl/2xl/3xl are aliases so a stray class can't exceed it. */
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
 
   --shadow-xs: var(--elev-1);
   --shadow-sm: var(--elev-1);
@@ -469,7 +471,7 @@
 .prose-pact pre {
   background: var(--muted);
   padding: 0.85em 1em;
-  border-radius: 12px;
+  border-radius: var(--radius);
   overflow-x: auto;
   margin: 1em 0;
 }
@@ -505,6 +507,6 @@
   font-weight: 600;
 }
 .prose-pact img {
-  border-radius: 12px;
+  border-radius: var(--radius);
   margin: 1em 0;
 }

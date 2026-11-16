@@ -77,7 +77,7 @@ function Gallery() {
               <motion.li key={t.id} variants={fadeUp}>
                 <button type="button" onClick={() => go('tools', t.id)} className="group block w-full text-left outline-offset-2">
                   <Card interactive spotlight className="h-full gap-3 transition-shadow">
-                    <span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand-text transition-transform duration-300 ease-out-expo group-hover:scale-110 group-hover:-rotate-3">
+                    <span className="grid size-10 place-items-center rounded-lg bg-brand-soft text-brand-text transition-transform duration-300 ease-out-expo group-hover:scale-110 group-hover:-rotate-3">
                       <Icon className="size-5" />
                     </span>
                     <div>

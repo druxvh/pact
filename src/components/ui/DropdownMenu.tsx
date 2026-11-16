@@ -21,7 +21,7 @@ export function DropdownContent({
   return (
     <M.Portal>
       <M.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={12} className="z-50">
-        <M.Popup className={cn('popup-motion min-w-44 rounded-xl border bg-popover p-1 text-popover-foreground shadow-pop outline-none', className)}>
+        <M.Popup className={cn('popup-motion min-w-44 rounded-lg border bg-popover p-1 text-popover-foreground shadow-pop outline-none', className)}>
           {children}
         </M.Popup>
       </M.Positioner>

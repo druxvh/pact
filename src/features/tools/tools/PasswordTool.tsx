@@ -53,7 +53,7 @@ export function PasswordTool() {
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-6">
-        <div className="relative rounded-2xl border bg-muted/30 p-5 pr-24">
+        <div className="relative rounded-lg border bg-muted/30 p-5 pr-24">
           <p className="min-h-[3.25rem] break-all font-mono text-xl leading-relaxed tracking-wide sm:text-2xl" aria-live="polite">
             <Colored value={password} />
           </p>
@@ -103,7 +103,7 @@ export function PasswordTool() {
 
         <div className="grid gap-2 sm:grid-cols-2">
           {(Object.keys(SETS) as SetKey[]).map((k) => (
-            <label key={k} className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-[13px]">
+            <label key={k} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-[13px]">
               {SET_LABEL[k]}
               <Switch
                 aria-label={SET_LABEL[k]}
@@ -114,7 +114,7 @@ export function PasswordTool() {
               />
             </label>
           ))}
-          <label className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-[13px] sm:col-span-2">
+          <label className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-[13px] sm:col-span-2">
             Avoid look-alike characters (I, l, 1, O, 0)
             <Switch
               aria-label="Avoid look-alike characters"
@@ -125,7 +125,7 @@ export function PasswordTool() {
         </div>
       </div>
 
-      <aside className="space-y-3 rounded-2xl border bg-card/60 p-4" aria-label="Random identifiers">
+      <aside className="space-y-3 rounded-lg border bg-card/60 p-4" aria-label="Random identifiers">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Identifiers</h3>
           <IconButton label="Regenerate identifiers" size="icon-sm" onClick={newIds}>

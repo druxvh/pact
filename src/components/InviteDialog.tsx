@@ -114,7 +114,7 @@ export function InviteDialog({ open, onOpenChange, groupName, noun, members, sug
                     key={p.id}
                     type="button"
                     onClick={() => invite(p.username)}
-                    className="inline-flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-xs transition-colors hover:bg-accent"
+                    className="inline-flex items-center gap-1.5 rounded-lg border py-1 pl-1 pr-2.5 text-xs transition-colors hover:bg-accent"
                   >
                     <Avatar name={p.displayName} size="xs" />@{p.username}
                   </button>

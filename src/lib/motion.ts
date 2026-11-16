@@ -40,11 +40,15 @@ export const stagger = (gap = 0.045, delay = 0): Variants => ({
   show: { transition: { staggerChildren: gap, delayChildren: delay } },
 });
 
-/** Page-level transition used by the app shell when switching sections. */
+/**
+ * Page-level transition used by the app shell when switching sections.
+ * Opacity + a few pixels of travel only: animating `filter: blur()` over a whole page forces the browser to
+ * re-rasterise it every frame, which made heavier pages (Home, Focus, Settings) take well over a second to appear.
+ */
 export const page = {
-  initial: { opacity: 0, y: 8, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.32, ease: ease.outExpo } },
-  exit: { opacity: 0, y: -4, filter: 'blur(2px)', transition: { duration: 0.12, ease: ease.outQuart } },
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: ease.outExpo } },
+  exit: { opacity: 0, transition: { duration: 0.08, ease: ease.outQuart } },
 };
 
 /** Props for a gently-pressable surface (cards, tiles). */

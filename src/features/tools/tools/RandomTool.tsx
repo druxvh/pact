@@ -64,7 +64,7 @@ function Dice() {
         />
       </div>
 
-      <div className="flex min-h-36 flex-wrap items-center justify-center gap-4 rounded-2xl border bg-muted/30 p-6">
+      <div className="flex min-h-36 flex-wrap items-center justify-center gap-4 rounded-lg border bg-muted/30 p-6">
         {values.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Roll {count} × d{sides}
@@ -76,7 +76,7 @@ function Dice() {
               key={i}
               animate={rolling ? { rotate: [0, -14, 12, -8, 0], y: [0, -10, 0] } : { rotate: 0, y: 0, scale: 1 }}
               transition={rolling ? { duration: 0.28, repeat: Number.POSITIVE_INFINITY } : spring.bouncy}
-              className="grid size-20 place-items-center rounded-2xl border bg-card text-3xl font-semibold shadow-md tabular"
+              className="grid size-20 place-items-center rounded-lg border bg-card text-3xl font-semibold shadow-md tabular"
             >
               {v}
             </motion.div>
@@ -245,7 +245,7 @@ function Picker() {
         {options.length < 2 && <p className="text-xs text-muted-foreground">Add at least two options.</p>}
       </div>
 
-      <div className="flex min-h-52 flex-wrap content-start gap-2 rounded-2xl border bg-muted/30 p-4" aria-live="polite">
+      <div className="flex min-h-52 flex-wrap content-start gap-2 rounded-lg border bg-muted/30 p-4" aria-live="polite">
         {options.map((o, i) => (
           <motion.span
             // biome-ignore lint/suspicious/noArrayIndexKey: user can repeat names
@@ -254,7 +254,7 @@ function Picker() {
             animate={{ scale: winner === i ? 1.12 : highlight === i ? 1.06 : 1 }}
             transition={spring.bouncy}
             className={cn(
-              'rounded-xl border px-3 py-1.5 text-sm transition-colors duration-100',
+              'rounded-lg border px-3 py-1.5 text-sm transition-colors duration-100',
               winner === i
                 ? 'border-brand bg-brand font-semibold text-brand-foreground shadow-brand'
                 : highlight === i

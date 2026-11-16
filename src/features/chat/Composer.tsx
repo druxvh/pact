@@ -160,7 +160,7 @@ export function Composer({
             transition={spring.soft}
             className="overflow-hidden"
           >
-            <div className="mb-2 flex items-center gap-2 rounded-xl border-l-2 border-brand bg-muted/60 py-1.5 pl-3 pr-1.5 text-xs">
+            <div className="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-brand bg-muted/60 py-1.5 pl-3 pr-1.5 text-xs">
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-brand-text">Replying to {replyAuthor}</p>
                 <p className="truncate text-muted-foreground">{replyLabel(replyMsg.body, Boolean(replyMsg.attachments?.length))}</p>
@@ -186,7 +186,7 @@ export function Composer({
                   layout
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="group relative size-16 overflow-hidden rounded-xl border bg-muted"
+                  className="group relative size-16 overflow-hidden rounded-lg border bg-muted"
                 >
                   {p.file.type.startsWith('video/') ? (
                     <video src={p.url} className="size-full object-cover" muted />
@@ -210,7 +210,7 @@ export function Composer({
 
       <div
         className={cn(
-          'flex items-end gap-1 rounded-2xl border bg-card px-2 py-1.5 transition-[border-color,box-shadow] duration-150',
+          'flex items-end gap-1 rounded-lg border bg-card px-2 py-1.5 transition-[border-color,box-shadow] duration-150',
           'focus-within:border-ring focus-within:ring-4 focus-within:ring-ring/15',
         )}
       >
@@ -281,7 +281,7 @@ export function Composer({
           whileTap={{ scale: 0.88 }}
           animate={{ scale: canSend ? 1 : 0.92, opacity: canSend ? 1 : 0.45 }}
           transition={spring.snappy}
-          className="mb-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] outline-offset-2"
+          className="mb-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] outline-offset-2"
         >
           <Send className="size-[17px]" />
         </motion.button>

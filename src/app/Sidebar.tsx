@@ -19,7 +19,7 @@ function RailItem({ item, active, badge, onSelect }: { item: SectionMeta; active
         aria-current={active ? 'page' : undefined}
         onClick={onSelect}
         className={cn(
-          'group relative grid size-10 place-items-center rounded-xl outline-offset-2 transition-colors duration-150 active:scale-95',
+          'group relative grid size-10 place-items-center rounded-lg outline-offset-2 transition-colors duration-150 active:scale-95',
           active ? 'text-brand-text' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
         )}
       >
@@ -27,7 +27,7 @@ function RailItem({ item, active, badge, onSelect }: { item: SectionMeta; active
           <motion.span
             layoutId="rail-pill"
             transition={spring.layout}
-            className="absolute inset-0 rounded-xl bg-brand-soft shadow-[inset_0_0_0_1px_var(--brand-glow)]"
+            className="absolute inset-0 rounded-lg bg-brand-soft shadow-[inset_0_0_0_1px_var(--brand-glow)]"
           >
             <span className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand shadow-[0_0_10px_var(--brand-glow)]" />
           </motion.span>
@@ -53,7 +53,7 @@ export function Sidebar({ badges = {} }: { badges?: Badges }) {
   return (
     <aside aria-label="Primary" className="hidden w-[68px] shrink-0 flex-col items-center border-r bg-background/70 py-3 md:flex">
       <Tooltip content="pact" side="right">
-        <button type="button" aria-label="pact home" onClick={() => go('home')} className="mb-4 rounded-xl outline-offset-4">
+        <button type="button" aria-label="pact home" onClick={() => go('home')} className="mb-4 rounded-lg outline-offset-4">
           <Logo />
         </button>
       </Tooltip>

@@ -28,7 +28,7 @@ export function NoteList({ notes, query, onQuery, selectedId, onSelect, onNew, n
   }, [notes, query]);
 
   return (
-    <section aria-label="Notes list" className="flex min-h-0 flex-col rounded-2xl border bg-card/60">
+    <section aria-label="Notes list" className="flex min-h-0 flex-col rounded-lg border bg-card/60">
       <div className="flex items-center gap-2 border-b p-2.5">
         <InputGroup
           className="flex-1"
@@ -89,7 +89,7 @@ export function NoteList({ notes, query, onQuery, selectedId, onSelect, onNew, n
                     aria-current={selected ? 'true' : undefined}
                     onClick={() => onSelect(n.id)}
                     className={cn(
-                      'group relative w-full rounded-xl px-3 py-2.5 text-left outline-offset-[-2px] transition-colors duration-150 active:scale-[0.99]',
+                      'group relative w-full rounded-lg px-3 py-2.5 text-left outline-offset-[-2px] transition-colors duration-150 active:scale-[0.99]',
                       selected ? 'bg-brand-soft' : 'hover:bg-accent',
                     )}
                   >

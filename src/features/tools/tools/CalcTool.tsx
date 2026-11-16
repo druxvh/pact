@@ -101,7 +101,7 @@ export function CalcTool() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="space-y-4">
-        <div className="rounded-2xl border bg-muted/30 p-4">
+        <div className="rounded-lg border bg-muted/30 p-4">
           <input
             ref={inputRef}
             // biome-ignore lint/a11y/noAutofocus: the calculator is the page; typing should start immediately
@@ -172,7 +172,7 @@ export function CalcTool() {
               onClick={() => press(k)}
               aria-label={k.action === 'back' ? 'Backspace' : k.action === 'equals' ? 'Equals' : k.action === 'clear' ? 'Clear' : k.label}
               className={cn(
-                'h-12 rounded-xl border text-lg font-medium outline-offset-2 transition-colors duration-150 sm:h-14',
+                'h-12 rounded-lg border text-lg font-medium outline-offset-2 transition-colors duration-150 sm:h-14',
                 k.tone === 'accent'
                   ? 'border-transparent bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] hover:brightness-110'
                   : k.tone === 'op'
@@ -188,7 +188,7 @@ export function CalcTool() {
         </div>
       </div>
 
-      <aside aria-label="History" className="min-h-40 rounded-2xl border bg-card/60 p-3">
+      <aside aria-label="History" className="min-h-40 rounded-lg border bg-card/60 p-3">
         <div className="mb-2 flex items-center justify-between px-1">
           <h3 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <History className="size-3.5" /> History

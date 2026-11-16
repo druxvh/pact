@@ -13,7 +13,7 @@ export function Toaster() {
       visibleToasts={4}
       toastOptions={{
         classNames: {
-          toast: '!rounded-xl !border !border-border !bg-popover !text-popover-foreground !shadow-pop !font-sans !text-[13px]',
+          toast: '!rounded-lg !border !border-border !bg-popover !text-popover-foreground !shadow-pop !font-sans !text-[13px]',
           description: '!text-muted-foreground',
           actionButton: '!rounded-md !bg-brand !text-brand-foreground !font-medium',
           cancelButton: '!rounded-md !bg-muted !text-muted-foreground',

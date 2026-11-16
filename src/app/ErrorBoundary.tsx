@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div role="alert" className="grid min-h-[50vh] place-items-center p-6">
         <div className="max-w-sm text-center">
-          <span className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-destructive-soft text-destructive-text">
+          <span className="mx-auto mb-4 grid size-12 place-items-center rounded-lg bg-destructive-soft text-destructive-text">
             <AlertTriangle className="size-6" />
           </span>
           <h2 className="text-base font-semibold tracking-tight">

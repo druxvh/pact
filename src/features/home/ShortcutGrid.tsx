@@ -112,7 +112,7 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
               data-spotlight
               onClick={(e) => onTileClick(e, t.url)}
               onAuxClick={(e) => e.button === 1 && onTileClick(e, t.url)}
-              className="spotlight flex h-[92px] w-[96px] flex-col items-center justify-center gap-2.5 rounded-2xl border bg-card/60 px-2 shadow-xs backdrop-blur-sm transition-[transform,border-color,box-shadow] duration-200 ease-out-expo hover:-translate-y-1 hover:border-foreground/20 hover:shadow-md active:scale-[0.96]"
+              className="spotlight flex h-[92px] w-[96px] flex-col items-center justify-center gap-2.5 rounded-lg border bg-card/60 px-2 shadow-xs backdrop-blur-sm transition-[transform,border-color,box-shadow] duration-200 ease-out-expo hover:-translate-y-1 hover:border-foreground/20 hover:shadow-md active:scale-[0.96]"
             >
               <SiteIcon url={t.url} title={t.title} size={30} />
               <span className="w-full truncate text-center text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
@@ -183,7 +183,7 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="group flex h-[92px] w-[96px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-muted-foreground transition-[color,border-color,background-color,transform] duration-200 hover:border-brand/60 hover:bg-brand-soft hover:text-brand-text active:scale-[0.96]"
+            className="group flex h-[92px] w-[96px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-muted-foreground transition-[color,border-color,background-color,transform] duration-200 hover:border-brand/60 hover:bg-brand-soft hover:text-brand-text active:scale-[0.96]"
           >
             <span className="grid size-8 place-items-center rounded-full bg-muted transition-[background-color,transform] duration-200 group-hover:rotate-90 group-hover:bg-brand-soft">
               <Plus className="size-4" />

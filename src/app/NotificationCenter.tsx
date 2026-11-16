@@ -38,7 +38,7 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
       >
         <span
           className={cn(
-            'mt-0.5 grid size-8 shrink-0 place-items-center rounded-full',
+            'mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg',
             n.read ? 'bg-muted text-muted-foreground' : 'bg-brand-soft text-brand-text',
           )}
         >
@@ -116,7 +116,7 @@ export function NotificationCenter() {
 
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center gap-1 px-6 py-12 text-center">
-            <span className="mb-2 grid size-11 place-items-center rounded-full bg-muted text-muted-foreground">
+            <span className="mb-2 grid size-11 place-items-center rounded-lg bg-muted text-muted-foreground">
               <BellOff className="size-5" />
             </span>
             <p className="text-sm font-medium">You're all caught up</p>

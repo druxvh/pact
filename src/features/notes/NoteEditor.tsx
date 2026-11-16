@@ -156,7 +156,7 @@ export function NoteEditor({ note, members, onBack }: Props) {
   const shared = members.length > 1;
 
   return (
-    <section aria-label="Note editor" className="flex min-h-0 flex-col overflow-hidden rounded-2xl border bg-card">
+    <section aria-label="Note editor" className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-card">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
         {onBack && (

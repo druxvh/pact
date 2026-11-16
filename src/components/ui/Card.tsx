@@ -17,7 +17,7 @@ export function Card({ title, action, interactive, spotlight, className, childre
     <section
       data-spotlight={spotlight ? '' : undefined}
       className={cn(
-        'flex flex-col rounded-xl border bg-card p-4 text-card-foreground shadow-xs',
+        'flex flex-col rounded-lg border bg-card p-4 text-card-foreground shadow-xs',
         'transition-[border-color,box-shadow,transform,background-color] duration-200 ease-out-quart',
         interactive && 'cursor-pointer hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md',
         spotlight && 'spotlight',

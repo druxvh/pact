@@ -41,7 +41,7 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
   if (m.deleted) {
     return (
       <div className={cn('flex px-1', mine ? 'justify-end' : 'justify-start pl-10')}>
-        <p className="rounded-2xl border border-dashed px-3 py-1.5 text-xs italic text-subtle-foreground">Message deleted</p>
+        <p className="rounded-lg border border-dashed px-3 py-1.5 text-xs italic text-subtle-foreground">Message deleted</p>
       </div>
     );
   }
@@ -67,7 +67,7 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
           {/* hover actions */}
           <div
             className={cn(
-              'absolute -top-4 z-10 flex items-center gap-0.5 rounded-xl border bg-popover p-0.5 opacity-0 shadow-md transition-opacity duration-150',
+              'absolute -top-4 z-10 flex items-center gap-0.5 rounded-lg border bg-popover p-0.5 opacity-0 shadow-md transition-opacity duration-150',
               'group-focus-within/msg:opacity-100 group-hover/msg:opacity-100 data-[open=true]:opacity-100',
               mine ? 'right-1' : 'left-1',
             )}
@@ -115,10 +115,10 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
           <div
             className={cn(
               'overflow-hidden text-[14px] leading-relaxed',
-              emojiOnly ? 'bg-transparent text-4xl leading-none' : 'rounded-2xl px-3 py-2',
+              emojiOnly ? 'bg-transparent text-4xl leading-none' : 'rounded-lg px-3 py-2',
               !emojiOnly && (mine ? 'bg-brand text-brand-foreground' : 'border bg-muted/70 text-foreground'),
-              !emojiOnly && mine && [joinedAbove && 'rounded-tr-md', joinedBelow && 'rounded-br-md'],
-              !emojiOnly && !mine && [joinedAbove && 'rounded-tl-md', joinedBelow && 'rounded-bl-md'],
+              !emojiOnly && mine && [joinedAbove && 'rounded-tr-sm', joinedBelow && 'rounded-br-sm'],
+              !emojiOnly && !mine && [joinedAbove && 'rounded-tl-sm', joinedBelow && 'rounded-bl-sm'],
               m.attachments?.length && !hasText && 'bg-transparent p-0',
             )}
           >
@@ -152,7 +152,7 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
                 type="button"
                 onClick={() => onJoinParty(partyCode)}
                 className={cn(
-                  'mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-[filter,transform] active:scale-[0.97]',
+                  'mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-[filter,transform] active:scale-[0.97]',
                   mine ? 'bg-brand-foreground text-brand hover:brightness-125' : 'bg-brand text-brand-foreground hover:brightness-110',
                 )}
               >
@@ -180,7 +180,7 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
                     aria-label={`${r.emoji} ${r.by.length} ${reacted ? '(you reacted)' : ''}`}
                     aria-pressed={reacted}
                     className={cn(
-                      'flex h-6 items-center gap-1 rounded-full border bg-card px-1.5 text-xs shadow-xs transition-colors',
+                      'flex h-6 items-center gap-1 rounded-lg border bg-card px-1.5 text-xs shadow-xs transition-colors',
                       reacted ? 'border-brand/50 bg-brand-soft text-brand-text' : 'hover:bg-accent',
                     )}
                   >

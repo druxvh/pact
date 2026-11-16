@@ -73,7 +73,7 @@ function useStatus(): AppStatus | null | undefined {
 }
 
 function ModeBadge({ status }: { status: AppStatus | null | undefined }) {
-  if (status === undefined) return <Skeleton className="h-6 w-28 rounded-full" />;
+  if (status === undefined) return <Skeleton className="h-6 w-28 rounded-lg" />;
   if (status === null) {
     return (
       <Badge
@@ -245,7 +245,7 @@ export function PartyView() {
                   maxLength={48}
                   aria-invalid={touched && !valid ? true : undefined}
                   aria-describedby="party-code-hint"
-                  className="h-11 pr-10 font-mono text-[15px] font-semibold tracking-tight"
+                  className="h-10 pr-10 font-mono text-[15px] font-semibold tracking-tight"
                 />
                 <AnimatePresence>
                   {valid && (
@@ -418,7 +418,7 @@ export function PartyView() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={spring.snappy}
-                    className="group flex items-center rounded-full border bg-background/50 pl-3 pr-1 transition-colors hover:border-foreground/25"
+                    className="group flex items-center rounded-lg border bg-background/50 pl-3 pr-1 transition-colors hover:border-foreground/25"
                   >
                     <button
                       type="button"

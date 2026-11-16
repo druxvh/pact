@@ -8,7 +8,7 @@ const field =
   'disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/15';
 
 export function Input({ className, ...props }: React.ComponentProps<'input'>) {
-  return <input className={cn(field, 'h-9 px-3', className)} {...props} />;
+  return <input className={cn(field, 'h-8 px-3', className)} {...props} />;
 }
 
 export function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
@@ -30,7 +30,7 @@ export function InputGroup({
   return (
     <div className={cn('relative flex items-center', className)}>
       {leading && <span className="pointer-events-none absolute left-3 flex items-center text-muted-foreground [&_svg]:size-4">{leading}</span>}
-      <input className={cn(field, 'h-9', leading ? 'pl-9' : 'pl-3', trailing ? 'pr-12' : 'pr-3', inputClassName)} {...props} />
+      <input className={cn(field, 'h-8', leading ? 'pl-9' : 'pl-3', trailing ? 'pr-12' : 'pr-3', inputClassName)} {...props} />
       {trailing && <span className="absolute right-2 flex items-center gap-1">{trailing}</span>}
     </div>
   );

@@ -112,7 +112,7 @@ export function ColorTool() {
         <ColorInput label="Background" value={bgText} onChange={setBgText} valid={bg !== null} />
 
         <div
-          className="grid min-h-40 place-items-center rounded-2xl border p-6 text-center shadow-xs transition-colors duration-300"
+          className="grid min-h-40 place-items-center rounded-lg border p-6 text-center shadow-xs transition-colors duration-300"
           style={{ background: bg ? toRgbString(bg) : undefined, color: fg ? toRgbString(fg) : undefined }}
         >
           <div>
@@ -124,7 +124,7 @@ export function ColorTool() {
       </div>
 
       <div className="space-y-5">
-        <div className="rounded-2xl border bg-muted/30 p-4">
+        <div className="rounded-lg border bg-muted/30 p-4">
           <div className="flex items-end justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Contrast ratio</p>

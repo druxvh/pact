@@ -74,7 +74,7 @@ export function PromptHost() {
       <D.Portal>
         <D.Backdrop className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-[3px] transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
         <D.Viewport className="fixed inset-0 z-[70] grid place-items-center p-4">
-          <D.Popup className="w-full max-w-sm rounded-2xl border bg-popover text-popover-foreground shadow-pop outline-none transition-[opacity,transform] duration-200 ease-out-expo data-[starting-style]:translate-y-2 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
+          <D.Popup className="w-full max-w-sm rounded-lg border bg-popover text-popover-foreground shadow-pop outline-none transition-[opacity,transform] duration-200 ease-out-expo data-[starting-style]:translate-y-2 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
             <form onSubmit={submit} className="p-5">
               <D.Title className="text-base font-semibold tracking-tight">{options?.title}</D.Title>
               {options?.description && <D.Description className="mt-1 text-[13px] text-muted-foreground">{options.description}</D.Description>}

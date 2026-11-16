@@ -26,7 +26,7 @@ const sizes: Record<ButtonSize, string> = {
   xs: 'h-6 gap-1 rounded-sm px-2 text-xs [&_svg]:size-3.5',
   sm: 'h-7 gap-1.5 rounded-md px-2.5 text-[13px] [&_svg]:size-3.5',
   md: 'h-8 gap-1.5 rounded-md px-3 text-[13px]',
-  lg: 'h-10 gap-2 rounded-lg px-4 text-sm',
+  lg: 'h-10 gap-2 rounded-md px-4 text-sm',
   'icon-xs': 'size-6 rounded-sm [&_svg]:size-3.5',
   'icon-sm': 'size-7 rounded-md [&_svg]:size-3.5',
   icon: 'size-8 rounded-md',

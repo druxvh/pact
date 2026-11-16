@@ -21,7 +21,7 @@ export function ProfileMenu({ side = 'right' }: { side?: 'top' | 'right' | 'bott
   return (
     <DropdownMenu>
       <Tooltip content={me.displayName} side={side === 'right' ? 'right' : 'bottom'}>
-        <DropdownTrigger aria-label="Account menu" className="rounded-full outline-offset-2 transition-transform duration-150 hover:scale-105 active:scale-95">
+        <DropdownTrigger aria-label="Account menu" className="rounded-lg outline-offset-2 transition-transform duration-150 hover:scale-105 active:scale-95">
           <Avatar name={me.displayName} src={me.avatarUrl} size="md" status={me.isOnline ? 'online' : undefined} />
         </DropdownTrigger>
       </Tooltip>

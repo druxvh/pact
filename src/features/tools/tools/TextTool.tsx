@@ -86,7 +86,7 @@ export function TextTool() {
 
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {stats.map(([label, value]) => (
-          <div key={label} className="rounded-xl border bg-muted/30 px-3 py-2">
+          <div key={label} className="rounded-lg border bg-muted/30 px-3 py-2">
             <dt className="text-[11px] text-subtle-foreground">{label}</dt>
             <dd className="tabular text-base font-semibold tracking-tight">{value}</dd>
           </div>

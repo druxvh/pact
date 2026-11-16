@@ -47,11 +47,11 @@ export function GroupBar({ items, activeId, onSelect, onCreate, onRename, onInvi
                 type="button"
                 onClick={() => onSelect(g.id)}
                 className={cn(
-                  'relative flex h-9 shrink-0 items-center gap-2 rounded-xl px-2.5 text-[13px] font-medium outline-offset-2 transition-colors duration-150 active:scale-[0.97]',
+                  'relative flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-[13px] font-medium outline-offset-2 transition-colors duration-150 active:scale-[0.97]',
                   isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >
-                {isActive && <motion.span layoutId="group-pill" transition={spring.layout} className="absolute inset-0 rounded-xl border bg-card shadow-sm" />}
+                {isActive && <motion.span layoutId="group-pill" transition={spring.layout} className="absolute inset-0 rounded-lg border bg-card shadow-sm" />}
                 <span
                   aria-hidden="true"
                   className="relative grid size-5 shrink-0 place-items-center rounded-md text-[10px] font-bold text-white"
@@ -76,7 +76,7 @@ export function GroupBar({ items, activeId, onSelect, onCreate, onRename, onInvi
               type="button"
               onClick={() => onInvite(active.id)}
               aria-label={`${active.members.length} members — manage`}
-              className="hidden rounded-full outline-offset-2 transition-transform hover:scale-105 sm:block"
+              className="hidden rounded-lg outline-offset-2 transition-transform hover:scale-105 sm:block"
             >
               <AvatarGroup people={active.members} max={3} size="sm" />
             </button>

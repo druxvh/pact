@@ -120,13 +120,13 @@ export function ConversationList({
                   onClick={() => onSelect(c.id)}
                   aria-current={active ? 'true' : undefined}
                   className={cn(
-                    'relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-offset-[-2px] transition-colors duration-150 active:scale-[0.99]',
+                    'relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left outline-offset-[-2px] transition-colors duration-150 active:scale-[0.99]',
                     active ? 'bg-brand-soft' : 'hover:bg-accent',
                   )}
                 >
                   {active && <span className="absolute left-0 top-3 h-[calc(100%-1.5rem)] w-[3px] rounded-r-full bg-brand" />}
                   {c.kind === 'group' ? (
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
                       <Users className="size-5" />
                     </span>
                   ) : (

@@ -26,7 +26,7 @@ export function TimerPill() {
           onClick={() => go('timer')}
           aria-label={`${PHASE_LABEL[phase]} timer ${status === 'paused' ? 'paused' : 'running'}, ${formatClock(seconds)} left. Open Focus.`}
           className={cn(
-            'mr-1 flex h-8 shrink-0 items-center gap-2 overflow-hidden whitespace-nowrap rounded-full border px-3 text-[13px] font-medium transition-colors',
+            'mr-1 flex h-8 shrink-0 items-center gap-2 overflow-hidden whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition-colors',
             status === 'running' ? 'border-brand/40 bg-brand-soft text-brand-text hover:bg-brand/20' : 'bg-muted text-muted-foreground hover:bg-accent',
           )}
         >

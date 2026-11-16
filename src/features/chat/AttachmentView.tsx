@@ -10,10 +10,10 @@ export function AttachmentView({ attachment: a }: { attachment: Attachment }) {
   const { url, status } = useBlobUrl(a.id);
   const [open, setOpen] = useState(false);
 
-  if (status === 'loading') return <Skeleton className="h-40 w-56 rounded-xl" />;
+  if (status === 'loading') return <Skeleton className="h-40 w-56 rounded-lg" />;
   if (status === 'missing' || !url) {
     return (
-      <div className="flex h-24 w-56 flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-xs text-muted-foreground">
+      <div className="flex h-24 w-56 flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-xs text-muted-foreground">
         <ImageOff className="size-5" />
         Attachment unavailable
       </div>
@@ -23,7 +23,7 @@ export function AttachmentView({ attachment: a }: { attachment: Attachment }) {
   if (a.kind === 'video') {
     return (
       // biome-ignore lint/a11y/useMediaCaption: user-sent clips have no caption track
-      <video controls preload="metadata" src={url} className="max-h-72 max-w-full rounded-xl bg-black" aria-label={a.name} />
+      <video controls preload="metadata" src={url} className="max-h-72 max-w-full rounded-lg bg-black" aria-label={a.name} />
     );
   }
 
@@ -32,7 +32,7 @@ export function AttachmentView({ attachment: a }: { attachment: Attachment }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group relative block overflow-hidden rounded-xl outline-offset-2"
+        className="group relative block overflow-hidden rounded-lg outline-offset-2"
         aria-label={`Open ${a.name}`}
       >
         <img

@@ -162,7 +162,7 @@ export function Onboarding() {
                     <label
                       key={o.id}
                       className={cn(
-                        'relative flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors',
+                        'relative flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition-colors',
                         'focus-within:ring-4 focus-within:ring-ring/15',
                         selected ? 'border-brand/60 bg-brand-soft' : 'hover:border-foreground/25 hover:bg-accent/50',
                       )}

@@ -19,7 +19,7 @@ export function PopoverContent({ className, side = 'bottom', align = 'center', s
       <P.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={12} className="z-50">
         <P.Popup
           className={cn(
-            'popup-motion max-h-(--available-height) max-w-(--available-width) overflow-auto rounded-xl border bg-popover text-popover-foreground shadow-pop outline-none',
+            'popup-motion max-h-(--available-height) max-w-(--available-width) overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-pop outline-none',
             className,
           )}
           {...props}

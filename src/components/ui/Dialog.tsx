@@ -27,7 +27,7 @@ export function DialogContent({
       <D.Viewport className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">
         <D.Popup
           className={cn(
-            'relative w-full rounded-2xl border bg-popover text-popover-foreground shadow-pop outline-none',
+            'relative w-full rounded-lg border bg-popover text-popover-foreground shadow-pop outline-none',
             'transition-[opacity,transform] duration-200 ease-out-expo',
             'data-[starting-style]:translate-y-2 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0',
             'data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0',

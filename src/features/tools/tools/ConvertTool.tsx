@@ -50,7 +50,7 @@ export function ConvertTool() {
               onChange={(e) => setValue(e.target.value)}
               aria-label="Value to convert"
               aria-invalid={!valid && value !== '' ? true : undefined}
-              className="h-12 font-mono text-xl"
+              className="h-10 font-mono text-xl"
             />
           </Field>
           <Field label="From">
@@ -73,7 +73,7 @@ export function ConvertTool() {
 
         <div className="space-y-3">
           <Field label="Result">
-            <div className="flex h-12 items-center justify-between gap-2 rounded-md border bg-brand-soft px-3">
+            <div className="flex h-10 items-center justify-between gap-2 rounded-md border bg-brand-soft px-3">
               <motion.span
                 key={`${categoryId}-${to}-${formatUnit(result)}`}
                 initial={{ opacity: 0, y: 6 }}
@@ -106,7 +106,7 @@ export function ConvertTool() {
                 transition={{ ...spring.soft, delay: i * 0.02 }}
                 onClick={() => setPair(from, u.id)}
                 className={cn(
-                  'flex items-baseline justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-colors hover:bg-accent',
+                  'flex items-baseline justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-accent',
                   u.id === to && 'border-brand/40 bg-brand-soft',
                 )}
               >

@@ -125,7 +125,7 @@ export function KanbanView() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4 md:p-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 px-4 py-6 md:px-8 md:py-8">
       <PageHeader
         icon={Columns3}
         title="Kanban"

@@ -53,7 +53,7 @@ function Burst({ id }: { id: string }) {
 function Stat({ icon: Icon, label, value, sub }: { icon: typeof Flame; label: string; value: string; sub: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-text">
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-text">
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">
@@ -187,7 +187,7 @@ export function TimerView() {
               transition={spring.snappy}
               aria-label={primaryLabel}
               className={cn(
-                'relative grid size-[72px] place-items-center rounded-full text-brand-foreground shadow-brand outline-offset-4 transition-[filter] hover:brightness-110',
+                'relative grid size-[72px] place-items-center rounded-lg text-brand-foreground shadow-brand outline-offset-4 transition-[filter] hover:brightness-110',
                 isBreak ? 'bg-success' : 'bg-brand',
               )}
             >

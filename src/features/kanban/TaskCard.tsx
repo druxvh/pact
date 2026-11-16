@@ -51,7 +51,7 @@ export function SortableTaskCard({ task, index, assignee, dragDisabled, onOpen, 
       data-dragging={isDragging || undefined}
       onClick={() => Date.now() - draggedAt.current > 200 && onOpen(task.id)}
       className={cn(
-        'group relative cursor-grab select-none rounded-xl border bg-card p-3 shadow-xs active:cursor-grabbing',
+        'group relative cursor-grab select-none rounded-lg border bg-card p-3 shadow-xs active:cursor-grabbing',
         'transition-[border-color,box-shadow,background-color,opacity] duration-150 hover:border-foreground/20 hover:shadow-md',
         isDragging && 'z-50 cursor-grabbing border-brand/60 bg-card shadow-lg ring-2 ring-brand/30',
       )}

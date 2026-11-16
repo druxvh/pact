@@ -151,14 +151,14 @@ export function ImageTool() {
             void load(e.dataTransfer.files[0]);
           }}
           className={cn(
-            'flex min-h-72 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center transition-[border-color,background-color,transform] duration-200',
+            'flex min-h-72 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 text-center transition-[border-color,background-color,transform] duration-200',
             over ? 'scale-[1.01] border-brand bg-brand-soft' : 'hover:border-foreground/30 hover:bg-accent/50',
           )}
         >
           <motion.span
             animate={over ? { y: -6, scale: 1.1 } : { y: 0, scale: 1 }}
             transition={spring.bouncy}
-            className="grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand-text"
+            className="grid size-14 place-items-center rounded-lg bg-brand-soft text-brand-text"
           >
             <ImagePlus className="size-7" />
           </motion.span>
@@ -192,7 +192,7 @@ export function ImageTool() {
   return (
     <div className="space-y-6">
       <div className="grid items-stretch gap-4 md:grid-cols-[1fr_auto_1fr]">
-        <figure className="overflow-hidden rounded-2xl border bg-card">
+        <figure className="overflow-hidden rounded-lg border bg-card">
           <div className="grid h-56 place-items-center bg-[repeating-conic-gradient(var(--muted)_0_25%,transparent_0_50%)] bg-[length:16px_16px]">
             <img src={loaded.url} alt="Original" className="max-h-full max-w-full object-contain" />
           </div>
@@ -207,12 +207,12 @@ export function ImageTool() {
         </figure>
 
         <div className="grid place-items-center">
-          <span className="grid size-9 place-items-center rounded-full bg-muted text-muted-foreground max-md:rotate-90">
+          <span className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground max-md:rotate-90">
             {busy ? <Spinner /> : <ArrowRight className="size-4" />}
           </span>
         </div>
 
-        <figure className={cn('overflow-hidden rounded-2xl border bg-card transition-opacity', busy && 'opacity-70')}>
+        <figure className={cn('overflow-hidden rounded-lg border bg-card transition-opacity', busy && 'opacity-70')}>
           <div className="grid h-56 place-items-center bg-[repeating-conic-gradient(var(--muted)_0_25%,transparent_0_50%)] bg-[length:16px_16px]">
             {result ? <img src={result.url} alt="Compressed preview" className="max-h-full max-w-full object-contain" /> : <Spinner className="size-6" />}
           </div>

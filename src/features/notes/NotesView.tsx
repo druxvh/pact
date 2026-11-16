@@ -101,7 +101,7 @@ export function NotesView() {
   const showEditor = isDesktop || mobileEditor;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4 md:p-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 px-4 py-6 md:px-8 md:py-8">
       <PageHeader
         icon={NotebookPen}
         title="Notes"
@@ -145,7 +145,7 @@ export function NotesView() {
           (selected ? (
             <NoteEditor key={selected.id} note={selected} members={members} onBack={() => setMobileEditor(false)} />
           ) : (
-            <div className="grid min-h-[240px] place-items-center rounded-2xl border border-dashed p-6">
+            <div className="grid min-h-[240px] place-items-center rounded-lg border border-dashed p-6">
               <EmptyState icon={PenLine} title="Pick a note to read or edit" description="Your changes save automatically as you type." className="border-0" />
             </div>
           ))}

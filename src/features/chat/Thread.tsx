@@ -208,7 +208,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
           </IconButton>
         )}
         {isGroup ? (
-          <span className="grid size-9 place-items-center rounded-full bg-brand-soft text-brand-text">
+          <span className="grid size-9 place-items-center rounded-lg bg-brand-soft text-brand-text">
             <Users className="size-[18px]" />
           </span>
         ) : (
@@ -272,7 +272,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
             <div className="grid h-full place-items-center">
               <div className="max-w-xs text-center">
                 {isGroup ? (
-                  <span className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand-text">
+                  <span className="mx-auto mb-3 grid size-14 place-items-center rounded-lg bg-brand-soft text-brand-text">
                     <Users className="size-7" />
                   </span>
                 ) : (
@@ -288,7 +288,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
                       key={t}
                       type="button"
                       onClick={() => sendMessage({ conversationId: conversation.id, body: t.replace(/^\S+\s/, '') })}
-                      className="rounded-full border px-3 py-1.5 text-xs transition-colors hover:bg-accent"
+                      className="rounded-lg border px-3 py-1.5 text-xs transition-colors hover:bg-accent"
                     >
                       {t}
                     </button>
@@ -300,7 +300,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
             rows.map((row) =>
               row.kind === 'date' ? (
                 <div key={row.key} className="sticky top-0 z-[1] my-3 flex justify-center">
-                  <span className="rounded-full border bg-background/90 px-3 py-0.5 text-[11px] font-medium text-muted-foreground shadow-xs backdrop-blur">
+                  <span className="rounded-lg border bg-background/90 px-3 py-0.5 text-[11px] font-medium text-muted-foreground shadow-xs backdrop-blur">
                     {row.label}
                   </span>
                 </div>
@@ -338,7 +338,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
                 className="mt-3 flex items-center gap-2 pl-11 text-muted-foreground"
                 aria-live="off"
               >
-                <span className="rounded-2xl border bg-muted/70 px-3 py-2.5">
+                <span className="rounded-lg border bg-muted/70 px-3 py-2.5">
                   <TypingDots />
                 </span>
               </motion.div>
@@ -358,7 +358,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
             transition={spring.snappy}
             onClick={() => toBottom('smooth')}
             className={cn(
-              'absolute bottom-[8.5rem] left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-popover px-3 py-1.5 text-xs font-medium shadow-lg',
+              'absolute bottom-[8.5rem] left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-lg border bg-popover px-3 py-1.5 text-xs font-medium shadow-lg',
               fresh > 0 && 'border-brand/50 bg-brand text-brand-foreground',
             )}
           >
@@ -387,7 +387,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-none absolute inset-2 z-20 grid place-items-center rounded-2xl border-2 border-dashed border-brand bg-brand-soft/80 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-2 z-20 grid place-items-center rounded-lg border-2 border-dashed border-brand bg-brand-soft/80 backdrop-blur-sm"
           >
             <p className="text-sm font-medium text-brand-text">Drop to attach · images &amp; video up to 5 MB</p>
           </motion.div>

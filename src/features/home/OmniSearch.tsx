@@ -199,7 +199,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
           else if (query.trim()) submit(query);
         }}
         className={cn(
-          'relative flex h-14 items-center rounded-2xl border bg-card/80 shadow-md backdrop-blur-md',
+          'relative flex h-14 items-center rounded-lg border bg-card/80 shadow-md backdrop-blur-md',
           'transition-[border-color,box-shadow,transform] duration-300 ease-out-expo',
           'focus-within:scale-[1.012] focus-within:border-ring focus-within:shadow-[0_0_0_4px_var(--brand-soft),var(--elev-3)]',
         )}
@@ -267,7 +267,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
             type="submit"
             aria-label="Search"
             disabled={!query.trim()}
-            className="grid size-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] transition-[transform,filter,opacity] duration-150 hover:brightness-110 active:scale-90 disabled:opacity-40"
+            className="grid size-9 place-items-center rounded-lg bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] transition-[transform,filter,opacity] duration-150 hover:brightness-110 active:scale-90 disabled:opacity-40"
           >
             <ArrowUpRight className="size-[18px]" />
           </button>
@@ -285,7 +285,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
             exit={{ opacity: 0, y: -4, scale: 0.99, transition: { duration: 0.1 } }}
             transition={spring.soft}
             style={{ transformOrigin: 'top center' }}
-            className="absolute inset-x-0 top-full z-20 mt-2 max-h-[min(360px,50vh)] overflow-y-auto rounded-2xl border bg-popover p-1.5 shadow-pop"
+            className="absolute inset-x-0 top-full z-20 mt-2 max-h-[min(360px,50vh)] overflow-y-auto rounded-lg border bg-popover p-1.5 shadow-pop"
           >
             {!query.trim() && (
               <div className="flex items-center justify-between px-3 pb-1 pt-1.5">
@@ -311,7 +311,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseMove={() => setIndex(i)}
                 onClick={item.run}
-                className={cn('group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors', i === index && 'bg-accent')}
+                className={cn('group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors', i === index && 'bg-accent')}
               >
                 <span className="grid size-6 shrink-0 place-items-center text-muted-foreground">{item.icon}</span>
                 <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>

@@ -9,6 +9,9 @@ const SIZES = {
   xl: 'size-14 text-lg',
 } as const;
 
+/** Corner radius scales with the avatar but never exceeds rounded-lg. */
+const RADIUS = { xs: 'rounded-sm', sm: 'rounded-md', md: 'rounded-lg', lg: 'rounded-lg', xl: 'rounded-lg' } as const;
+
 export type PresenceStatus = 'online' | 'away' | 'offline';
 
 type Props = {
@@ -24,11 +27,11 @@ export function Avatar({ name, src, size = 'md', status, className }: Props) {
   const hue = hueFrom(name || '?');
   return (
     <span
-      className={cn('relative inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold text-white', SIZES[size], className)}
+      className={cn('relative inline-flex shrink-0 select-none items-center justify-center font-semibold text-white', RADIUS[size], SIZES[size], className)}
       style={{ background: `linear-gradient(135deg, oklch(0.6 0.15 ${hue}), oklch(0.46 0.16 ${(hue + 45) % 360}))` }}
       aria-hidden={status ? undefined : true}
     >
-      {src ? <img src={src} alt="" className="size-full rounded-full object-cover" /> : initials(name)}
+      {src ? <img src={src} alt="" className="size-full rounded-[inherit] object-cover" /> : initials(name)}
       {status && (
         <span
           role="img"
@@ -54,7 +57,7 @@ export function AvatarGroup({ people, max = 4, size = 'sm' }: { people: Array<{ 
         <Avatar key={p.id} name={p.name} size={size} className="ring-2 ring-card" />
       ))}
       {extra > 0 && (
-        <span className={cn('inline-flex items-center justify-center rounded-full bg-muted font-medium text-muted-foreground ring-2 ring-card', SIZES[size])}>
+        <span className={cn('inline-flex items-center justify-center bg-muted font-medium text-muted-foreground ring-2 ring-card', RADIUS[size], SIZES[size])}>
           +{extra}
         </span>
       )}

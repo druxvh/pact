@@ -54,7 +54,7 @@ export function KanbanColumn({ column, index, boardId, ids, tasksById, memberByI
       ref={ref}
       aria-label={column.title}
       className={cn(
-        'flex min-h-0 min-w-[280px] flex-1 flex-col rounded-2xl border bg-muted/40 transition-[border-color,background-color,box-shadow] duration-200',
+        'flex min-h-0 min-w-[280px] flex-1 flex-col rounded-lg border bg-muted/40 transition-[border-color,background-color,box-shadow] duration-200',
         isDropTarget && 'border-brand/50 bg-brand-soft/50 shadow-[inset_0_0_0_1px_var(--brand-glow)]',
       )}
     >
@@ -96,7 +96,7 @@ export function KanbanColumn({ column, index, boardId, ids, tasksById, memberByI
                 onBlur={() => !draft.trim() && setAdding(false)}
                 placeholder="Task title — Enter to add, Esc to close"
                 aria-label={`New task in ${column.title}`}
-                className="h-10 w-full rounded-xl border border-input bg-card px-3 text-[13.5px] outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-4 focus:ring-ring/15"
+                className="h-8 w-full rounded-md border border-input bg-card px-3 text-[13.5px] outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-4 focus:ring-ring/15"
               />
             </motion.div>
           )}
@@ -119,7 +119,7 @@ export function KanbanColumn({ column, index, boardId, ids, tasksById, memberByI
         })}
 
         {ids.length === 0 && !adding && (
-          <div className="grid h-24 place-items-center rounded-xl border border-dashed text-xs text-subtle-foreground">Drop tasks here</div>
+          <div className="grid h-24 place-items-center rounded-lg border border-dashed text-xs text-subtle-foreground">Drop tasks here</div>
         )}
       </div>
     </section>

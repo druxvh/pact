@@ -156,7 +156,7 @@ export function QrTool() {
             ).map(([label, val, set]) => (
               <div key={label}>
                 <GroupLabel>{label}</GroupLabel>
-                <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-card/50 px-2 transition-colors hover:border-foreground/25">
+                <label className="flex h-8 cursor-pointer items-center gap-2 rounded-md border bg-card/50 px-2 transition-colors hover:border-foreground/25">
                   <span className="size-5 rounded-md border" style={{ background: val }} />
                   <span className="font-mono text-xs">{val}</span>
                   <input type="color" aria-label={label} value={val} onChange={(e) => set(e.target.value)} className="sr-only" />
@@ -185,7 +185,7 @@ export function QrTool() {
       </div>
 
       <div className="space-y-4">
-        <div className="grid aspect-square place-items-center overflow-hidden rounded-2xl border bg-white p-3 shadow-sm" style={{ background: bg }}>
+        <div className="grid aspect-square place-items-center overflow-hidden rounded-lg border bg-white p-3 shadow-sm" style={{ background: bg }}>
           <AnimatePresence mode="wait" initial={false}>
             {src ? (
               <motion.img
