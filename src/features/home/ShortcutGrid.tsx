@@ -96,7 +96,7 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
 
   return (
     <>
-      <ul className="flex flex-wrap justify-center gap-3" aria-label="Shortcuts">
+      <ul className="flex max-w-[760px] flex-wrap justify-center gap-x-1 gap-y-2" aria-label="Shortcuts">
         {tiles.map((t, i) => (
           <motion.li
             key={t.id}
@@ -109,13 +109,17 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
           >
             <a
               href={t.url}
-              data-spotlight
               onClick={(e) => onTileClick(e, t.url)}
               onAuxClick={(e) => e.button === 1 && onTileClick(e, t.url)}
-              className="spotlight flex h-[92px] w-[96px] flex-col items-center justify-center gap-2.5 rounded-lg border bg-card/60 px-2 shadow-xs backdrop-blur-sm transition-[transform,border-color,box-shadow] duration-200 ease-out-expo hover:-translate-y-1 hover:border-foreground/20 hover:shadow-md active:scale-[0.96]"
+              className="flex w-[92px] flex-col items-center gap-2 rounded-lg px-1.5 pb-2 pt-3 outline-offset-0 transition-[background-color,transform] duration-200 ease-out-expo hover:bg-foreground/[0.06] active:scale-[0.97]"
             >
-              <SiteIcon url={t.url} title={t.title} size={30} />
-              <span className="w-full truncate text-center text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+              <SiteIcon
+                url={t.url}
+                title={t.title}
+                size={48}
+                className="transition-[transform,box-shadow] duration-200 ease-out-expo group-hover:-translate-y-0.5 group-hover:shadow-md"
+              />
+              <span className="tile-label w-full truncate text-center text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
                 {t.title}
               </span>
             </a>
@@ -123,7 +127,7 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
             <DropdownMenu>
               <DropdownTrigger
                 aria-label={`Options for ${t.title}`}
-                className="absolute right-1 top-1 grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 data-[popup-open]:opacity-100"
+                className="absolute right-0.5 top-0.5 grid size-6 place-items-center rounded-md bg-card/80 text-muted-foreground opacity-0 shadow-xs transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 data-[popup-open]:opacity-100"
               >
                 <MoreHorizontal className="size-3.5" />
               </DropdownTrigger>
@@ -183,12 +187,12 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="group flex h-[92px] w-[96px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-muted-foreground transition-[color,border-color,background-color,transform] duration-200 hover:border-brand/60 hover:bg-brand-soft hover:text-brand-text active:scale-[0.96]"
+            className="group flex w-[92px] flex-col items-center gap-2 rounded-lg px-1.5 pb-2 pt-3 text-muted-foreground transition-[background-color,color,transform] duration-200 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]"
           >
-            <span className="grid size-8 place-items-center rounded-full bg-muted transition-[background-color,transform] duration-200 group-hover:rotate-90 group-hover:bg-brand-soft">
-              <Plus className="size-4" />
+            <span className="grid size-12 place-items-center rounded-lg border border-dashed border-foreground/25 transition-[border-color,background-color] duration-200 group-hover:border-brand/60 group-hover:bg-brand-soft group-hover:text-brand-text">
+              <Plus className="size-5 transition-transform duration-200 group-hover:rotate-90" />
             </span>
-            <span className="text-xs font-medium">Add</span>
+            <span className="tile-label text-xs font-medium">Add</span>
           </motion.button>
         </li>
       </ul>

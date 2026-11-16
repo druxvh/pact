@@ -100,7 +100,7 @@ export function ShortcutDialog({ open, onOpenChange, editing, suggestions }: Pro
                       }}
                       className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     >
-                      <SiteIcon url={s.url} title={s.title} size={14} />
+                      <SiteIcon url={s.url} title={s.title} size={20} />
                       {s.title || hostnameOf(s.url)}
                     </button>
                   ))}

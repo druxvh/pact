@@ -151,7 +151,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
           id: `link-${l.id}`,
           label: l.title,
           hint: hostnameOf(l.url),
-          icon: <SiteIcon url={l.url} title={l.title} size={20} />,
+          icon: <SiteIcon url={l.url} title={l.title} size={24} />,
           run: () => openUrl(l.url),
         });
       });
