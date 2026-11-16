@@ -40,3 +40,21 @@ describe('what guests can use', () => {
     for (const s of ['notes', 'kanban', 'timer', 'tools', 'chat', 'party', 'settings'] as const) expect(needsAccount(s)).toBe(true);
   });
 });
+
+import { isCode, isEmail, normalizeCode, normalizeEmail } from './auth';
+
+describe('email sign-in input checks', () => {
+  it('accepts normal emails and normalises case and spaces', () => {
+    expect(isEmail('  Dev@Example.com ')).toBe(true);
+    expect(normalizeEmail('  Dev@Example.com ')).toBe('dev@example.com');
+  });
+  it('rejects things that are not emails', () => {
+    for (const bad of ['', 'plain', 'a@b', 'a b@c.com', '@c.com', 'a@@c.com', `${'x'.repeat(250)}@c.com`]) expect(isEmail(bad)).toBe(false);
+  });
+  it('accepts 6–10 digit codes, tolerating pasted spaces', () => {
+    expect(isCode('123456')).toBe(true);
+    expect(isCode('123 456')).toBe(true);
+    expect(normalizeCode(' 123 456 ')).toBe('123456');
+    for (const bad of ['', '12345', '12345a', '12345678901', 'abcdef']) expect(isCode(bad)).toBe(false);
+  });
+});

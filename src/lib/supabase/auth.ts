@@ -91,6 +91,37 @@ export async function signInWith(provider: AuthProvider): Promise<void> {
   }
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export const normalizeEmail = (v: string) => v.trim().toLowerCase();
+export const isEmail = (v: string) => v.length <= 254 && EMAIL_RE.test(normalizeEmail(v));
+/** Supabase codes are 6 digits by default (up to 10 if the project is configured that way). */
+export const normalizeCode = (v: string) => v.replace(/\s+/g, '');
+export const isCode = (v: string) => /^\d{6,10}$/.test(normalizeCode(v));
+
+function explainEmail(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/rate limit|too many|seconds/i.test(msg)) return 'Too many attempts — wait a minute and try again.';
+  if (/expired|invalid/i.test(msg)) return 'That code is wrong or has expired. Check the newest email, or send a new code.';
+  if (/signups? not allowed|disabled/i.test(msg)) return 'Email sign-in is turned off for this project.';
+  return msg || 'Something went wrong.';
+}
+
+/** Email a one-time code (creates the account on first use). Returns an error message, or null on success. */
+export async function sendEmailCode(email: string): Promise<string | null> {
+  if (!supabase) return 'The backend isn’t configured for this build.';
+  if (!isEmail(email)) return 'Enter a valid email address.';
+  const { error } = await supabase.auth.signInWithOtp({ email: normalizeEmail(email), options: { shouldCreateUser: true } });
+  return error ? explainEmail(error) : null;
+}
+
+/** Exchange the emailed code for a session. Returns an error message, or null on success. */
+export async function verifyEmailCode(email: string, code: string): Promise<string | null> {
+  if (!supabase) return 'The backend isn’t configured for this build.';
+  if (!isCode(code)) return 'Enter the code from the email (digits only).';
+  const { error } = await supabase.auth.verifyOtp({ email: normalizeEmail(email), token: normalizeCode(code), type: 'email' });
+  return error ? explainEmail(error) : null;
+}
+
 export const providerLabel = (p: AuthProvider) => PROVIDER_LABEL[p];
 
 /** Plain sign-out (callers that care about unsynced changes go through `requestSignOut`). */

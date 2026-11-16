@@ -65,7 +65,7 @@ Everything below lives in **Settings → Appearance / Home** and is stored on yo
 
 ## Accounts and cloud sync (Supabase)
 
-pact works as a **guest** with no account: Home with search, shortcuts (your local bookmarks) and recent/most-visited sites. Everything else needs sign-in with **GitHub or Google**.
+pact works as a **guest** with no account: Home with search, shortcuts (your local bookmarks) and recent/most-visited sites. Everything else needs sign-in with **GitHub, Google or an emailed one-time code** (no password).
 
 - **Notes** sync to your account, local-first: they're instant and work offline, upload in the background, and appear live on your other devices (Realtime). Conflicts are last-write-wins; deletions sync. A small cloud icon in the top bar shows whether everything is saved.
 - Tasks, timer history, chat and settings still live on this device for now (they're hidden from guests, and a *different* account signing in on the same browser never inherits them).
@@ -74,8 +74,9 @@ pact works as a **guest** with no account: Home with search, shortcuts (your loc
 **Setup**
 1. Apply `supabase/migrations/20261116000000_profiles_and_notes.sql` to your project (SQL editor, or the Supabase CLI / MCP).
 2. Authentication → Providers: enable **GitHub** and **Google** (callback URL: `https://<project-ref>.supabase.co/auth/v1/callback`).
-3. Authentication → URL Configuration → **Redirect URLs**: add the extension's redirect URL — shown under "Trouble signing in?" on the sign-in screen (`https://<extension-id>.chromiumapp.org/`). Unpacked builds get a different id per machine; a published extension has a fixed one.
-4. Put `WXT_SUPABASE_URL` and `WXT_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (see `.env.example`) and rebuild.
+3. **Email code sign-in:** enabled by default, but edit the *Magic Link* and *Confirm signup* email templates (Authentication → Email Templates) so they contain `{{ .Token }}` (e.g. `<p>Your pact code: <strong>{{ .Token }}</strong></p>`); otherwise people get a link instead of a code.
+4. Authentication → URL Configuration → **Redirect URLs**: add the extension's redirect URL — shown under "Trouble signing in?" on the sign-in screen (`https://<extension-id>.chromiumapp.org/`). Unpacked builds get a different id per machine; a published extension has a fixed one.
+5. Put `WXT_SUPABASE_URL` and `WXT_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (see `.env.example`) and rebuild.
 
 ## VibeParty
 

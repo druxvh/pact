@@ -1,9 +1,9 @@
 import { Lock } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { siGithub, siGoogle } from 'simple-icons';
 import { SECTION_BY_ID } from '@/app/routes';
-import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui';
-import { authRedirectUrl, providerLabel, signInWith } from '@/lib/supabase/auth';
+import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Label } from '@/components/ui';
+import { authRedirectUrl, isCode, isEmail, providerLabel, sendEmailCode, signInWith, verifyEmailCode } from '@/lib/supabase/auth';
 import { isBackendConfigured } from '@/lib/supabase/client';
 import { type AuthProvider, useAuthStore } from '@/store/useAuthStore';
 import type { Section } from '@/store/useNavStore';
@@ -16,6 +16,107 @@ function Glyph({ provider }: { provider: AuthProvider }) {
     <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4 fill-current">
       <path d={GLYPH[provider]} />
     </svg>
+  );
+}
+
+/** Email sign-in with a one-time code: no password, and no link to click (which is awkward inside an extension). */
+function EmailSignIn() {
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const send = async () => {
+    setBusy(true);
+    setProblem(null);
+    const err = await sendEmailCode(email);
+    setBusy(false);
+    if (err) setProblem(err);
+    else {
+      setSent(true);
+      setCode('');
+    }
+  };
+  const verify = async () => {
+    setBusy(true);
+    setProblem(null);
+    const err = await verifyEmailCode(email, code);
+    setBusy(false);
+    if (err) setProblem(err); // on success the auth listener signs us in and the dialog/gate closes
+  };
+
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (busy) return;
+        void (sent ? verify() : send());
+      }}
+    >
+      <Label htmlFor="si-email">Or use your email</Label>
+      <Input
+        id="si-email"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="you@example.com"
+        value={email}
+        maxLength={254}
+        disabled={sent}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      {sent && (
+        <div>
+          <Label htmlFor="si-code">Code from the email we sent to {email.trim()}</Label>
+          <Input
+            id="si-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="123456"
+            value={code}
+            maxLength={12}
+            className="font-mono tracking-widest"
+            autoFocus
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </div>
+      )}
+      {problem && (
+        <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive-text">
+          {problem}
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <Button type="submit" variant="primary" loading={busy} disabled={sent ? !isCode(code) : !isEmail(email)} className="flex-1">
+          {sent ? 'Sign in' : 'Email me a code'}
+        </Button>
+        {sent && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              setSent(false);
+              setProblem(null);
+            }}
+          >
+            Change email
+          </Button>
+        )}
+      </div>
+      {sent && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void send()}
+          className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Send a new code
+        </button>
+      )}
+    </form>
   );
 }
 
@@ -54,6 +155,12 @@ export function SignInCard() {
           {error}
         </p>
       )}
+      <div className="flex items-center gap-3 text-xs text-subtle-foreground" aria-hidden="true">
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <EmailSignIn />
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer select-none py-1 hover:text-foreground">Trouble signing in?</summary>
         <p className="mt-1 leading-relaxed">
@@ -62,7 +169,7 @@ export function SignInCard() {
         <code className="mt-1.5 block break-all rounded-md border bg-muted px-2 py-1.5 font-mono text-[11px] text-foreground">{authRedirectUrl()}</code>
       </details>
       <p className="text-xs leading-relaxed text-subtle-foreground">
-        No password to remember. pact uses GitHub or Google only to sign you in, and your notes are private to your account.
+        No password to remember. pact uses GitHub, Google or your email only to sign you in, and your notes are private to your account.
       </p>
     </div>
   );
