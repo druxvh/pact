@@ -81,11 +81,15 @@ export const useThemeStore = create<ThemeState>()(
         const p = (persisted ?? {}) as { mode?: ThemeMode; theme?: ThemeMode };
         return { mode: p.mode ?? p.theme ?? 'dark' } as Partial<ThemeState> as ThemeState;
       },
+      // `resolved` isn't persisted, so derive it from the stored mode while merging. (Doing it in onRehydrateStorage
+      // would touch `useThemeStore` before it exists — persist hydrates synchronously during create() — and the
+      // swallowed ReferenceError left `resolved` stuck on 'dark' after a reload in light mode.)
+      merge: (persisted, current) => {
+        const mode = (persisted as { mode?: ThemeMode } | undefined)?.mode ?? current.mode;
+        return { ...current, mode, resolved: resolve(mode) };
+      },
       onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        const resolved = resolve(state.mode);
-        paint(resolved);
-        useThemeStore.setState({ resolved });
+        if (state) paint(state.resolved);
       },
     },
   ),
