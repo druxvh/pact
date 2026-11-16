@@ -10,16 +10,18 @@ import { notify } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 
+/** Public profile fields (other community members can read these) plus the private email, which lives in its own table. */
 type ProfileRow = {
   username: string;
   display_name: string;
   designation: string;
   bio: string;
-  contact_email: string | null;
   onboarded: boolean;
+  contact_email: string | null;
 };
 
-const COLUMNS = 'username, display_name, designation, bio, contact_email, onboarded';
+const COLUMNS = 'username, display_name, designation, bio, onboarded';
+type PublicColumns = Omit<ProfileRow, 'contact_email'>;
 
 /** `ready` flips true once the remote profile has been merged — the welcome flow waits for it. */
 export const useProfileSync = create<{ ready: boolean }>(() => ({ ready: false }));
@@ -65,14 +67,14 @@ function applyRemote(row: ProfileRow, providerName: string | null) {
 async function pull(userId: string): Promise<void> {
   if (!supabase) return;
   const providerName = useAuthStore.getState().user?.name ?? null;
-  let { data, error } = await supabase.from('profiles').select(COLUMNS).eq('id', userId).maybeSingle<ProfileRow>();
+  let { data, error } = await supabase.from('profiles').select(COLUMNS).eq('id', userId).maybeSingle<PublicColumns>();
   if (!error && !data) {
     // Normally the sign-up trigger made this row; if it didn't (e.g. an account that pre-dates it), create it.
     const created = await supabase
       .from('profiles')
       .insert({ id: userId, username: `user_${userId.replace(/-/g, '').slice(0, 8)}`, display_name: (providerName ?? '').slice(0, 40) })
       .select(COLUMNS)
-      .single<ProfileRow>();
+      .single<PublicColumns>();
     data = created.data;
     error = created.error;
   }
@@ -81,9 +83,11 @@ async function pull(userId: string): Promise<void> {
     useProfileSync.setState({ ready: true });
     return;
   }
-  applyRemote(data, providerName);
+  const priv = await supabase.from('profile_private').select('contact_email').eq('id', userId).maybeSingle<{ contact_email: string | null }>();
+  const row: ProfileRow = { ...data, contact_email: priv.data?.contact_email ?? null };
+  applyRemote(row, providerName);
   // A brand-new profile with a provider name: persist the suggested display name too.
-  if (!same(data, snapshot())) schedulePush(0);
+  if (!same(row, snapshot())) schedulePush(0);
   useProfileSync.setState({ ready: true });
 }
 
@@ -92,10 +96,19 @@ async function push(): Promise<void> {
   if (!supabase || !user) return;
   const row = snapshot();
   if (same(last, row)) return;
+  const { contact_email, ...publicPart } = row;
   const { error } = await supabase
     .from('profiles')
-    .update({ ...row, updated_at: new Date().toISOString() })
+    .update({ ...publicPart, updated_at: new Date().toISOString() })
     .eq('id', user.id);
+  if (!error && contact_email !== (last?.contact_email ?? null)) {
+    // The email is private: its own table, readable only by you.
+    const saved = await supabase.from('profile_private').upsert({ id: user.id, contact_email }, { onConflict: 'id' });
+    if (saved.error) {
+      notify.error('Couldn’t save your email', 'We’ll try again on your next change.');
+      return;
+    }
+  }
   if (!error) {
     last = row;
     return;

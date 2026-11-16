@@ -42,7 +42,7 @@ Requires Bun 1.x and a Chromium browser (Chrome 116+). A Firefox build exists to
 | **Kanban** | Drag-and-drop with live reordering, priorities, due dates, task details, filters, progress | `g k` |
 | **Focus** | Pomodoro that survives navigation and closed tabs (alarms + notification), session history and streaks | `g t` |
 | **Tools** | Calculator, unit converter, colour + contrast, text tools, encoders, password generator, QR codes, image compressor, random picker — and PDF tools: **merge**, **organize pages** (rearrange / rotate / delete / extract), **crop**, **sign** (draw, type or upload), **images → PDF** — all on-device | `g o` |
-| **Chat** | DMs and groups, replies, reactions, emoji picker, image/video attachments (stored in IndexedDB), link-safe rendering | `g c` |
+| **Chat** | Two tabs. **Communities**: invite-only Discord-style groups (channels, replies, reactions, memes/GIFs/video, link previews, roles and moderation). **Direct messages**: DMs and small groups (still the local demo backend). | `g c` |
 | **VibeParty** | Synced YouTube playback, chat, reactions and a shared up-vote queue | `g p` |
 | **Settings** | Profile, theme, accent colour, fonts, wallpapers, Home layouts and widgets, animations, backup & restore | `g s` |
 
@@ -77,6 +77,18 @@ pact works as a **guest** with no account: Home with search, shortcuts (your loc
 3. **Email code sign-in:** enabled by default, but edit the *Magic Link* and *Confirm signup* email templates (Authentication → Email Templates) so they contain `{{ .Token }}` (e.g. `<p>Your pact code: <strong>{{ .Token }}</strong></p>`); otherwise people get a link instead of a code.
 4. Authentication → URL Configuration → **Redirect URLs**: add the extension's redirect URL — shown under "Trouble signing in?" on the sign-in screen (`https://<extension-id>.chromiumapp.org/`). Unpacked builds get a different id per machine; a published extension has a fixed one.
 5. Put `WXT_SUPABASE_URL` and `WXT_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (see `.env.example`) and rebuild.
+
+## Communities
+
+Chat → **Communities** is a private, invite-only space for a group (a class, a team, friends). You get in with an invite code or link; nobody can browse or find a community they weren't invited to.
+
+- **Channels** (`#general` to start; the admin adds more), **replies**, **emoji reactions**, **images, GIFs and short video** (up to 25 MB, six per message), and **link previews**.
+- **Roles:** the **admin** (the creator) appoints **moderators** (sub-admins). Moderators can *hide* a message (members then see only "a moderator hid this message"; the original is kept for moderators and can be restored), *remove links* from a message, create invites, and remove or ban ordinary members. Only the admin manages channels, roles and the community itself.
+- **Invites** can expire, have a use limit, and be revoked; guessing codes is rate-limited; banned people can't rejoin.
+- **Privacy:** members can read each other's public profile (name, @username, role, bio) — never an email. Files are in a private bucket behind short-lived links. Link previews are fetched by the server, so your browser never contacts the linked site just to show a card (and a server-side guard refuses internal/private addresses).
+- Everything is enforced by the database (Row Level Security), not just the UI: `supabase/migrations/*_communities.sql`. `bun run test:db` runs 40 checks of those rules against the real migrations in a local PostgreSQL.
+
+To enable: apply the migrations, deploy the `link-preview` Edge Function (`supabase/functions/link-preview`), and sign in. Not yet built: a GIF search picker (it would need a third-party API and key — for now upload GIFs or paste GIF links), unread counts, typing indicators, and cleaning up uploaded files when a community is deleted.
 
 ## VibeParty
 
@@ -164,7 +176,7 @@ A wallpaper image is stored in this browser's IndexedDB and is **not** part of a
 
 ## Quality
 
-- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (390+ tests): calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
+- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (440+ tests) plus 40 database-rule checks: calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
 - Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, contrast verified numerically for the brand colour — including every accent you can pick.
 
 ## Browsers

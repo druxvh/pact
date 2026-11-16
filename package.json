@@ -17,6 +17,7 @@
     "lint:fix": "biome check --write .",
     "check": "bun run compile && bun run lint && bun run test",
     "test": "vitest run",
+    "test:db": "bun supabase/tests/rls.mjs",
     "test:watch": "vitest",
     "postinstall": "wxt prepare"
   },
@@ -75,6 +76,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",
+    "@electric-sql/pglite": "0.5.16",
     "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",

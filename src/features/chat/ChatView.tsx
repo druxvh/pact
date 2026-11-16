@@ -1,16 +1,18 @@
-import { MessageCircleMore, UserPlus } from 'lucide-react';
+import { MessageCircleMore, UserPlus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button, EmptyState } from '@/components/ui';
+import { Badge, Button, EmptyState } from '@/components/ui';
 import { ConversationList } from '@/features/chat/ConversationList';
 import { FriendsDialog } from '@/features/chat/FriendsDialog';
 import { NewGroupDialog } from '@/features/chat/NewGroupDialog';
-import { useChatStore } from '@/features/chat/store';
+import { selectTotalUnread, useChatStore } from '@/features/chat/store';
 import { Thread } from '@/features/chat/Thread';
+import { CommunitiesView, inviteCodeFromSub } from '@/features/community/CommunitiesView';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { useNavStore } from '@/store/useNavStore';
 import { ME_ID, useUserStore } from '@/store/useUserStore';
 
-export function ChatView() {
+/** The direct-message experience (friends and group chats), unchanged. */
+function DirectMessages() {
   const conversations = useChatStore((s) => s.conversations);
   const activeId = useChatStore((s) => s.activeId);
   const setActive = useChatStore((s) => s.setActive);
@@ -57,7 +59,7 @@ export function ChatView() {
   const showThread = isDesktop || mobileThread;
 
   return (
-    <div className="flex h-full min-h-0 bg-background/40">
+    <div className="flex min-h-0 min-w-0 flex-1 bg-background/40">
       {showList && (
         <ConversationList
           activeId={active?.id ?? null}
@@ -89,6 +91,71 @@ export function ChatView() {
 
       <FriendsDialog open={friendsOpen} onOpenChange={setFriendsOpen} onOpenChat={open} />
       <NewGroupDialog open={groupOpen} onOpenChange={setGroupOpen} onCreated={open} />
+    </div>
+  );
+}
+
+type Tab = 'communities' | 'dms';
+const TAB_KEY = 'pact-chat-tab';
+
+function readTab(): Tab {
+  try {
+    return localStorage.getItem(TAB_KEY) === 'dms' ? 'dms' : 'communities';
+  } catch {
+    return 'communities';
+  }
+}
+
+/** Two tabs: Communities (invite-only groups, first) and Direct messages (friends and small groups). */
+export function ChatView() {
+  const [tab, setTab] = useState<Tab>(readTab);
+  const sub = useNavStore((s) => s.sub);
+  const conversations = useChatStore((s) => s.conversations);
+  const unread = useChatStore(selectTotalUnread);
+
+  // Notification and invite links choose their own tab.
+  useEffect(() => {
+    if (inviteCodeFromSub(sub)) setTab('communities');
+    else if (sub && conversations.some((c) => c.id === sub)) setTab('dms');
+  }, [sub, conversations]);
+
+  const choose = (next: Tab) => {
+    setTab(next);
+    try {
+      localStorage.setItem(TAB_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background/40">
+      <div role="tablist" aria-label="Chat" className="flex h-11 shrink-0 items-end gap-1 border-b px-3">
+        {(
+          [
+            { id: 'communities', label: 'Communities', icon: <Users className="size-4" aria-hidden="true" /> },
+            { id: 'dms', label: 'Direct messages', icon: <MessageCircleMore className="size-4" aria-hidden="true" /> },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`chat-tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls="chat-panel"
+            onClick={() => choose(t.id)}
+            className={`-mb-px flex h-10 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors ${tab === t.id ? 'border-brand text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            {t.icon}
+            {t.label}
+            {t.id === 'dms' && unread > 0 && <Badge tone="brand">{unread}</Badge>}
+          </button>
+        ))}
+      </div>
+      <div id="chat-panel" role="tabpanel" aria-labelledby={`chat-tab-${tab}`} className="flex min-h-0 min-w-0 flex-1">
+        {tab === 'communities' ? <CommunitiesView /> : <DirectMessages />}
+      </div>
     </div>
   );
 }
