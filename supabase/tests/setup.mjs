@@ -5,7 +5,8 @@
  */
 import { PGlite } from '@electric-sql/pglite';
 import fs from 'node:fs';
-const MIG = new URL('../migrations/', import.meta.url).pathname;
+// PACT_MIGRATIONS lets a test replay a different set/split of migrations (e.g. the staged hosted rollout).
+const MIG = (process.env.PACT_MIGRATIONS ? process.env.PACT_MIGRATIONS.replace(/\/?$/, '/') : new URL('../migrations/', import.meta.url).pathname);
 export async function boot() {
   const db = new PGlite();
   await db.exec(`

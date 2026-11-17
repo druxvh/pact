@@ -22,3 +22,41 @@ alter table public.profiles drop column contact_email;
 alter table public.profiles add constraint profiles_text_lengths check (
   char_length(display_name) <= 40 and char_length(designation) <= 60 and char_length(bio) <= 160
 );
+
+-- A new account's suggested @username used to fall back to the local part of the email address ("jane.doe1984@…" →
+-- "janedoe1984"), which community-mates can now see. Use the provider's public handle if there is one, otherwise a random one.
+create or replace function private.handle_new_user() returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  base text;
+  candidate text;
+begin
+  base := lower(regexp_replace(
+    coalesce(
+      nullif(new.raw_user_meta_data ->> 'user_name', ''),
+      nullif(new.raw_user_meta_data ->> 'preferred_username', ''),
+      'user' || substr(md5(random()::text || clock_timestamp()::text), 1, 6)
+    ),
+    '[^a-zA-Z0-9_]', '', 'g'));
+  if char_length(base) < 3 then
+    base := 'user' || base;
+  end if;
+  base := left(base, 15);
+  candidate := base;
+  while exists (select 1 from public.profiles p where p.username = candidate) loop
+    candidate := base || substr(md5(random()::text || clock_timestamp()::text), 1, 4);
+  end loop;
+
+  insert into public.profiles (id, username, display_name)
+  values (
+    new.id,
+    candidate,
+    left(coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), nullif(new.raw_user_meta_data ->> 'name', ''), ''), 40)
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;

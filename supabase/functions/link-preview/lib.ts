@@ -35,14 +35,17 @@ export function isPrivateIPv6(ip: string): boolean {
     const lo = Number.parseInt(mappedHex[2] as string, 16);
     return isPrivateIPv4(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
   }
-  const first = Number.parseInt(s.split(':')[0] || '0', 16);
-  if (Number.isNaN(first)) return true;
+  const parts = s.split(':');
+  const first = Number.parseInt(parts[0] || '0', 16);
+  const second = Number.parseInt(parts[1] || '0', 16);
+  if (Number.isNaN(first) || Number.isNaN(second)) return true;
+  // Allow-list, not block-list: only global unicast 2000::/3 can be a public host. That alone refuses ::/8 (loopback,
+  // IPv4-compatible forms like ::7f00:1), fc00::/7, fe80::/10, ff00::/8, NAT64 64:ff9b::/96 and everything unassigned…
+  if ((first & 0xe000) !== 0x2000) return true;
   return (
-    (first & 0xfe00) === 0xfc00 || // unique local fc00::/7
-    (first & 0xffc0) === 0xfe80 || // link-local fe80::/10
-    (first & 0xff00) === 0xff00 || // multicast
-    s.startsWith('64:ff9b:') || // NAT64
-    s.startsWith('2001:db8') // documentation
+    first === 0x2002 || // …6to4 (embeds an IPv4 address: 2002:7f00:1:: is 127.0.0.1)
+    (first === 0x2001 && second === 0) || // Teredo (also embeds one)
+    (first === 0x2001 && second === 0xdb8) // documentation
   );
 }
 
@@ -94,7 +97,9 @@ const safeCodePoint = (n: number) => (n > 0 && n <= 0x10ffff && !(n >= 0xd800 &&
 /** Meta tags as a map of lower-cased `property`/`name` → content (first one wins). */
 export function metaTags(html: string): Map<string, string> {
   const out = new Map<string, string>();
-  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+  // `[^>]{0,2000}` (not `[^>]*`): an unterminated "<meta " repeated thousands of times would otherwise make every
+  // start scan to the end of the input — quadratic time, which a hostile page could use to pin the function's CPU.
+  for (const tag of html.match(/<meta\b[^>]{0,2000}>/gi) ?? []) {
     const key = /(?:property|name)\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
     const content = /content\s*=\s*"([^"]*)"|content\s*=\s*'([^']*)'/i.exec(tag);
     const value = content?.[1] ?? content?.[2];
@@ -110,10 +115,15 @@ const clip = (s: string | undefined | null, n: number) => {
 
 export type PageInfo = { title: string | null; description: string | null; site: string | null; image: string | null };
 
+/** Only the <head> carries what a preview needs, and a page can be arbitrarily large and hostile — read a bounded slice of it. */
+export const HEAD_LIMIT = 128_000;
+
 export function parsePage(html: string, pageUrl: string): PageInfo {
-  const head = html.slice(0, 400_000);
+  const cut = html.slice(0, HEAD_LIMIT);
+  const end = cut.search(/<\/head\s*>/i);
+  const head = end >= 0 ? cut.slice(0, end) : cut;
   const m = metaTags(head);
-  const titleTag = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(head)?.[1];
+  const titleTag = /<title[^>]{0,200}>([\s\S]{0,2000}?)<\/title>/i.exec(head)?.[1];
   let image: string | null = m.get('og:image') ?? m.get('og:image:url') ?? m.get('twitter:image') ?? m.get('twitter:image:src') ?? null;
   if (image) {
     try {

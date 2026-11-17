@@ -1,14 +1,14 @@
 // Edge Function: gif-search
 //
 // Searches GIFs for the community composer. It runs on the server so the provider's API key never ships inside the
-// extension, and so only signed-in people can spend it. Needs the secret GIPHY_API_KEY (free at developers.giphy.com):
-//   supabase secrets set GIPHY_API_KEY=...
+// extension, and so only signed-in people can spend it. Needs the secret KLIPY_API_KEY (from klipy.com):
+//   supabase secrets set KLIPY_API_KEY=...
 // Without it the function answers { ok: false, error: 'not_configured' } and the app says GIF search isn't set up.
 //
 // Request:  POST { q?: string, next?: string }     ("" or missing q means trending; `next` is the cursor from the last page)
 // Response: { ok: true, gifs: [{ id, title, url, preview, width, height }], next: string | null } | { ok: false, error }
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { cleanQuery, giphyUrl, PAGE_SIZE, parseGiphy, parseOffset } from './lib.ts';
+import { cleanQuery, klipyUrl, PAGE_SIZE, parseKlipy, parsePage } from './lib.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -38,16 +38,16 @@ Deno.serve(async (req) => {
   if (!data.user) return json({ error: 'unauthorized' }, 401);
   if (limited(data.user.id)) return json({ ok: false, error: 'rate_limited' });
 
-  const key = Deno.env.get('GIPHY_API_KEY');
+  const key = Deno.env.get('KLIPY_API_KEY');
   if (!key) return json({ ok: false, error: 'not_configured' });
 
   const body = (await req.json().catch(() => ({}))) as { q?: unknown; next?: unknown };
-  const offset = parseOffset(body.next);
+  const page = parsePage(body.next);
   try {
-    const res = await fetch(giphyUrl(key, cleanQuery(body.q), offset), { signal: AbortSignal.timeout(6000) });
+    // (never log this URL — the API key is part of its path)
+    const res = await fetch(klipyUrl(key, cleanQuery(body.q), page), { signal: AbortSignal.timeout(6000) });
     if (!res.ok) return json({ ok: false, error: 'upstream' });
-    const page = parseGiphy(await res.json(), offset);
-    return json({ ok: true, ...page, pageSize: PAGE_SIZE });
+    return json({ ok: true, ...parseKlipy(await res.json(), page), pageSize: PAGE_SIZE });
   } catch {
     return json({ ok: false, error: 'upstream' });
   }
