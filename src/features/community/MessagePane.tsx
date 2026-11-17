@@ -4,6 +4,7 @@ import { Button, EmptyState, IconButton, Skeleton } from '@/components/ui';
 import { Composer } from './Composer';
 import { DayDivider, MessageItem, sameDay } from './MessageItem';
 import { can } from './permissions';
+import { TypingLine } from './TypingLine';
 import type { Community } from './types';
 import { getCommunityApi, useCommunityStore } from './useCommunityStore';
 
@@ -28,6 +29,7 @@ export function MessagePane({
   const reactions = useCommunityStore((s) => s.reactions);
   const members = useCommunityStore((s) => s.members[community.id]);
   const loadOlder = useCommunityStore((s) => s.loadOlder);
+  const setReading = useCommunityStore((s) => s.setReading);
   const me = getCommunityApi().me;
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -61,7 +63,28 @@ export function MessagePane({
     if (!el) return;
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM;
     height.current = el.scrollHeight;
-  }, []);
+    // Scrolled up into history = not reading the newest messages, so new ones stay unread until you come back down.
+    if (useCommunityStore.getState().reading !== stick.current) setReading(stick.current);
+  }, [setReading]);
+
+  // On screen = reading (until you scroll up); coming back to the window counts as having read what arrived meanwhile.
+  useEffect(() => {
+    setReading(true);
+    const back = () => useCommunityStore.getState().markActiveRead();
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => {
+      document.removeEventListener('visibilitychange', back);
+      window.removeEventListener('focus', back);
+      setReading(false);
+    };
+  }, [setReading]);
+
+  // A new channel opens at the bottom, so you're reading it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the channel is the trigger
+  useEffect(() => {
+    setReading(true);
+  }, [channelId, setReading]);
 
   const jumpTo = useCallback((id: string) => {
     const el = document.getElementById(`msg-${id}`);
@@ -153,6 +176,7 @@ export function MessagePane({
         )}
       </div>
 
+      {channel && <TypingLine channelId={channel.id} />}
       {can(community.role, 'post') && channel && <Composer key={channel.id} communityId={community.id} channelName={channel.name} />}
     </section>
   );

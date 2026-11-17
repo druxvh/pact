@@ -38,3 +38,4 @@ export { Switch } from './Switch';
 export { ThemeToggle } from './ThemeToggle';
 export { Toaster } from './Toaster';
 export { Tooltip, TooltipProvider } from './Tooltip';
+export { TypingDots } from './TypingDots';

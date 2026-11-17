@@ -83,12 +83,17 @@ pact works as a **guest** with no account: Home with search, shortcuts (your loc
 Chat → **Communities** is a private, invite-only space for a group (a class, a team, friends). You get in with an invite code or link; nobody can browse or find a community they weren't invited to.
 
 - **Channels** (`#general` to start; the admin adds more), **replies**, **emoji reactions**, **images, GIFs and short video** (up to 25 MB, six per message), and **link previews**.
+- **GIF search:** the **GIF** button in the composer searches (or browses trending) GIFs and posts the pick as a picture. It goes through the `gif-search` Edge Function so the provider key never ships in the extension. A GIF is posted as a link to the provider's own copy (not re-hosted); moderators can hide or strip it like any link.
+- **Unread counts:** a badge on each community in the sidebar and on each channel, cleared when you read the channel. Read state is stored per person on the server, so it follows you across devices; scrolling up into history, or being on a phone's channel list, doesn't count as reading. Joining late never makes the old history "unread".
+- **Typing indicators:** "Ana is typing…" under the messages. These are ephemeral Realtime broadcasts on a private per-community topic (only members can listen or send) and are never stored.
 - **Roles:** the **admin** (the creator) appoints **moderators** (sub-admins). Moderators can *hide* a message (members then see only "a moderator hid this message"; the original is kept for moderators and can be restored), *remove links* from a message, create invites, and remove or ban ordinary members. Only the admin manages channels, roles and the community itself.
 - **Invites** can expire, have a use limit, and be revoked; guessing codes is rate-limited; banned people can't rejoin.
 - **Privacy:** members can read each other's public profile (name, @username, role, bio) — never an email. Files are in a private bucket behind short-lived links. Link previews are fetched by the server, so your browser never contacts the linked site just to show a card (and a server-side guard refuses internal/private addresses).
-- Everything is enforced by the database (Row Level Security), not just the UI: `supabase/migrations/*_communities.sql`. `bun run test:db` runs 40 checks of those rules against the real migrations in a local PostgreSQL.
+- Everything is enforced by the database (Row Level Security), not just the UI: `supabase/migrations/*_communities.sql`. `bun run test:db` runs 47 checks of those rules against the real migrations in a local PostgreSQL.
 
-To enable: apply the migrations, deploy the `link-preview` Edge Function (`supabase/functions/link-preview`), and sign in. Not yet built: a GIF search picker (it would need a third-party API and key — for now upload GIFs or paste GIF links), unread counts, typing indicators, and cleaning up uploaded files when a community is deleted.
+**Deleting** a community (or a channel) also deletes its uploaded files from Storage, so nothing is left behind in the bucket (admin only; files are removed first, because once the community is gone no one is a member any more and Storage's rules would refuse). Files from a message its author deleted themselves, and from people who left, stay until the community is deleted.
+
+To enable: apply the migrations in `supabase/migrations` in order (the last one adds unread counts and the typing-channel rules), deploy the Edge Functions `link-preview` and `gif-search` (`supabase/functions/*`), and sign in. GIF search additionally needs a free GIPHY API key set as the function secret `GIPHY_API_KEY` (`supabase secrets set GIPHY_API_KEY=…`); without it everything else works and the picker says GIF search isn't set up yet. Not yet built: a "new messages" divider, @mentions, and a combined unread badge on the Chat tab itself.
 
 ## VibeParty
 
@@ -176,7 +181,7 @@ A wallpaper image is stored in this browser's IndexedDB and is **not** part of a
 
 ## Quality
 
-- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (440+ tests) plus 40 database-rule checks: calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
+- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (470+ tests) plus 47 database-rule checks: calculators and converters, stores and their migrations, the chat model, URL/fuzzy helpers — and for VibeParty the room rules, sanitisers, controller lifecycle, sync engine (against a fake `<video>`), overlay (DOM, accessibility, key isolation) and the relay over real sockets.
 - Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, contrast verified numerically for the brand colour — including every accent you can pick.
 
 ## Browsers

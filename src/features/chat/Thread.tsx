@@ -13,6 +13,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  TypingDots,
 } from '@/components/ui';
 import { Composer } from '@/features/chat/Composer';
 import { MessageBubble } from '@/features/chat/MessageBubble';
@@ -30,21 +31,6 @@ import { ME_ID, useUserStore } from '@/store/useUserStore';
 import type { Person } from '@/types/user';
 
 const EMPTY: string[] = [];
-
-function TypingDots() {
-  return (
-    <span className="inline-flex items-center gap-0.5" aria-hidden="true">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          animate={{ y: [0, -3, 0], opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 0.9, repeat: Number.POSITIVE_INFINITY, delay: i * 0.15 }}
-          className="size-1.5 rounded-full bg-current"
-        />
-      ))}
-    </span>
-  );
-}
 
 export function Thread({ conversation, onBack }: { conversation: Conversation; onBack?: () => void }) {
   const go = useNavStore((s) => s.go);

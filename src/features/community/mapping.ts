@@ -8,6 +8,7 @@ import {
   type Invite,
   type Profile,
   type Reaction,
+  type UnreadEntry,
 } from './types';
 
 type Row = Record<string, unknown>;
@@ -59,6 +60,12 @@ export const toInvite = (r: Row): Invite => ({
   createdBy: str(r.created_by),
 });
 
+export const toUnread = (r: Row): UnreadEntry => ({
+  channelId: str(r.channel_id),
+  communityId: str(r.community_id),
+  count: typeof r.unread === 'number' ? r.unread : Number(r.unread) || 0,
+});
+
 const KNOWN: CommunityErrorCode[] = ['rate_limited', 'banned', 'too_many_communities', 'community_limit', 'not_allowed', 'not_found'];
 
 /** Turn whatever PostgREST / Storage / fetch threw into a CommunityError the UI can explain. */
@@ -97,6 +104,8 @@ export function describeError(err: unknown): string {
       return 'That doesn’t exist any more.';
     case 'too_large':
       return 'That file is too big (25 MB max).';
+    case 'not_configured':
+      return 'GIF search isn’t set up on this server yet — you can still paste a GIF’s link or upload a file.';
     case 'bad_type':
       return 'That file type isn’t allowed. Use PNG, JPEG, GIF, WebP, MP4 or WebM.';
     case 'network':

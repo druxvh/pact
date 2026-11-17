@@ -1,6 +1,7 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
-import type { CommunityApi } from './api';
+import type { CommunityApi, TypingChannel } from './api';
 import type { Attachment, Channel, Community, CommunityEvent, CommunityMessage, Member, Profile, Reaction } from './types';
+import { TYPING_ANNOUNCE_MS, TYPING_TTL_MS, type TypingMap } from './typing';
 
 const PAGE = 50;
 const LAST_KEY = 'pact-community-last';
@@ -20,6 +21,12 @@ export type CommunityState = {
   reactions: Record<string, Reaction[]>;
   profiles: Record<string, Profile>;
   replyTo: CommunityMessage | null;
+  /** Unread messages per channel (only channels that have some). */
+  unread: Record<string, { communityId: string; count: number }>;
+  /** Who is typing, per channel. Entries expire on their own; readers filter with `activeTypers`. */
+  typing: Record<string, TypingMap>;
+  /** The person is looking at the newest messages of the open channel (the pane is on screen and scrolled to the bottom). */
+  reading: boolean;
 
   init(): Promise<void>;
   refreshCommunities(): Promise<void>;
@@ -36,8 +43,21 @@ export type CommunityState = {
   toggleReaction(m: CommunityMessage, emoji: string): Promise<void>;
   refreshMembers(): Promise<void>;
   refreshChannels(): Promise<void>;
+  refreshUnread(): Promise<void>;
+  /** Mark the open channel read up to its newest message (if you are reading the newest and the window is visible). */
+  markActiveRead(): void;
+  setReading(open: boolean): void;
+  /** Tell the others I'm typing in the open channel (rate-limited). */
+  announceTyping(): void;
+  noteTyping(channelId: string, userId: string): void;
   dispose(): void;
 };
+
+/** Total unread in a community (for its badge). */
+export const communityUnread = (unread: CommunityState['unread'], communityId: string): number =>
+  Object.values(unread).reduce((n, u) => (u.communityId === communityId ? n + u.count : n), 0);
+
+const isVisible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
 
 const byTime = (a: CommunityMessage, b: CommunityMessage) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
 
@@ -54,6 +74,11 @@ function upsert(list: CommunityMessage[], m: CommunityMessage): CommunityMessage
 /** The Communities state, parameterised over the data layer so it can be tested (and demoed) without a backend. */
 export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<StoreApi<CommunityState>> {
   let unsubscribe: (() => void) | null = null;
+  let unsubscribeActivity: (() => void) | null = null;
+  let typingChannel: TypingChannel | null = null;
+  let lastAnnounce = 0;
+  /** channelId → the newest createdAt we've already told the server about, so we don't repeat ourselves. */
+  const marked = new Map<string, string>();
 
   return create<CommunityState>()((set, get) => {
     const api = () => getApi();
@@ -79,10 +104,15 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
     function applyEvent(e: CommunityEvent) {
       if (e.type === 'message') {
         const m = e.message;
-        set((s) => ({
-          messages: { ...s.messages, [m.channelId]: upsert(s.messages[m.channelId] ?? [], m) },
-          replyTo: s.replyTo?.id === m.id ? m : s.replyTo,
-        }));
+        set((s) => {
+          const typers = s.typing[m.channelId];
+          const { [m.authorId]: _gone, ...rest } = typers ?? {};
+          return {
+            messages: { ...s.messages, [m.channelId]: upsert(s.messages[m.channelId] ?? [], m) },
+            replyTo: s.replyTo?.id === m.id ? m : s.replyTo,
+            typing: typers && m.authorId in typers ? { ...s.typing, [m.channelId]: rest } : s.typing,
+          };
+        });
         void ensureProfiles([m.authorId]);
       } else if (e.type === 'reaction-added') {
         set((s) => {
@@ -122,6 +152,9 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
       reactions: {},
       profiles: {},
       replyTo: null,
+      unread: {},
+      typing: {},
+      reading: true,
 
       async init() {
         set({ loading: true, error: null });
@@ -136,6 +169,23 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
           }
           const first = communities.find((c) => c.id === last) ?? communities[0] ?? null;
           set({ ready: true, loading: false });
+          unsubscribeActivity?.();
+          unsubscribeActivity = api().subscribeActivity((e) => {
+            if (e.authorId === api().me) return;
+            const s = get();
+            if (s.activeChannelId === e.channelId && s.reading && isVisible()) {
+              // You're looking at it: it's read as it arrives (the 'message' event adds it to the list).
+              void api()
+                .markRead({ id: e.channelId, communityId: e.communityId }, e.createdAt)
+                .catch(() => {});
+              marked.set(e.channelId, e.createdAt);
+              return;
+            }
+            set((st) => ({
+              unread: { ...st.unread, [e.channelId]: { communityId: e.communityId, count: Math.min(100, (st.unread[e.channelId]?.count ?? 0) + 1) } },
+            }));
+          });
+          void get().refreshUnread();
           if (first) await get().select(first.id);
         } catch (err) {
           fail(err);
@@ -150,6 +200,8 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
       async select(communityId) {
         unsubscribe?.();
         unsubscribe = null;
+        typingChannel?.stop();
+        typingChannel = null;
         set({ activeId: communityId, activeChannelId: null, replyTo: null });
         if (!communityId) return;
         try {
@@ -163,6 +215,7 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
           set((s) => ({ channels: { ...s.channels, [communityId]: channels }, members: { ...s.members, [communityId]: members } }));
           void ensureProfiles(members.map((m) => m.userId));
           unsubscribe = api().subscribe(communityId, applyEvent);
+          typingChannel = api().subscribeTyping(communityId, (t) => get().noteTyping(t.channelId, t.userId));
           const first = channels.find((c) => c.name === 'general') ?? channels[0];
           if (first) await get().selectChannel(first.id);
         } catch (err) {
@@ -171,6 +224,7 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
       },
 
       async selectChannel(channelId) {
+        lastAnnounce = 0;
         set({ activeChannelId: channelId, replyTo: null });
         try {
           const page = await api().listMessages(channelId, { limit: PAGE });
@@ -178,6 +232,7 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
           const asc = [...page].sort(byTime);
           set((s) => ({ messages: { ...s.messages, [channelId]: asc }, hasMore: { ...s.hasMore, [channelId]: page.length === PAGE } }));
           await Promise.all([ensureProfiles(asc.map((m) => m.authorId)), loadReactions(asc.map((m) => m.id))]);
+          get().markActiveRead();
         } catch (err) {
           fail(err);
         }
@@ -205,6 +260,7 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
         if (!activeId || !activeChannelId) return;
         const m = await api().sendMessage({ communityId: activeId, channelId: activeChannelId, body, attachments, replyTo: replyTo?.id ?? null });
         patchMessage(m);
+        lastAnnounce = 0; // the next keystroke after sending should announce straight away
         set({ replyTo: null });
         await ensureProfiles([m.authorId]);
       },
@@ -258,9 +314,64 @@ export function createCommunityStore(getApi: () => CommunityApi): UseBoundStore<
         }
       },
 
+      async refreshUnread() {
+        try {
+          const rows = await api().unreadCounts();
+          set({ unread: Object.fromEntries(rows.map((r) => [r.channelId, { communityId: r.communityId, count: r.count }])) });
+        } catch {
+          /* badges are a nicety — never surface an error for them */
+        }
+      },
+
+      markActiveRead() {
+        const { activeChannelId, activeId, reading, messages } = get();
+        if (!activeChannelId || !activeId || !reading || !isVisible()) return;
+        const newest = messages[activeChannelId]?.at(-1)?.createdAt;
+        if (get().unread[activeChannelId]) {
+          set((s) => {
+            const { [activeChannelId]: _read, ...rest } = s.unread;
+            return { unread: rest };
+          });
+        }
+        if (!newest || (marked.get(activeChannelId) ?? '') >= newest) return;
+        marked.set(activeChannelId, newest);
+        void api()
+          .markRead({ id: activeChannelId, communityId: activeId }, newest)
+          .catch(() => marked.delete(activeChannelId));
+      },
+
+      setReading(open) {
+        set({ reading: open });
+        if (open) get().markActiveRead();
+      },
+
+      announceTyping() {
+        const channelId = get().activeChannelId;
+        const now = Date.now();
+        if (!channelId || !typingChannel || now - lastAnnounce < TYPING_ANNOUNCE_MS) return;
+        lastAnnounce = now;
+        typingChannel.announce(channelId);
+      },
+
+      noteTyping(channelId, userId) {
+        const { activeId, members } = get();
+        if (userId === api().me) return;
+        // Only people who are really in this community can show up as typing (the signal itself is unauthenticated text).
+        if (activeId && members[activeId] && !members[activeId].some((m) => m.userId === userId)) return;
+        const now = Date.now();
+        set((s) => {
+          const live = Object.fromEntries(Object.entries(s.typing[channelId] ?? {}).filter(([, until]) => until > now));
+          return { typing: { ...s.typing, [channelId]: { ...live, [userId]: now + TYPING_TTL_MS } } };
+        });
+      },
+
       dispose() {
         unsubscribe?.();
         unsubscribe = null;
+        unsubscribeActivity?.();
+        unsubscribeActivity = null;
+        typingChannel?.stop();
+        typingChannel = null;
       },
     };
   });

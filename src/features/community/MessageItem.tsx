@@ -21,7 +21,7 @@ import { cn } from '@/lib/cn';
 import { notify } from '@/lib/toast';
 import { AttachmentView } from './AttachmentView';
 import { LinkPreviewCard } from './LinkPreviewCard';
-import { extractUrls } from './links';
+import { extractUrls, gifUrl, snippet } from './links';
 import { describeError } from './mapping';
 import { can, roleLabel } from './permissions';
 import type { CommunityMessage, Profile, Reaction, Role } from './types';
@@ -59,6 +59,27 @@ type Props = {
   onJumpTo: (id: string) => void;
 };
 
+/** A GIF shared from the picker: the picture itself, with the edited marker kept off it. Falls back to the link if it won't load. */
+function GifImage({ url, alt }: { url: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed)
+    return (
+      <p className="text-sm">
+        <Linkified text={url} />
+      </p>
+    );
+  return (
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="mt-1 block max-h-64 max-w-[min(100%,20rem)] rounded-lg bg-muted"
+    />
+  );
+}
+
 export function MessageItem({ message: m, previous, replied, author, repliedAuthor, authorRole, reactions, me, myRole, onJumpTo }: Props) {
   const store = useCommunityStore;
   const [editing, setEditing] = useState(false);
@@ -79,7 +100,8 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
     sameDay(previous.createdAt, m.createdAt) &&
     Date.parse(m.createdAt) - Date.parse(previous.createdAt) < 5 * 60_000 &&
     previous.deletedAt === null;
-  const urls = intact && !m.linksRemovedAt ? extractUrls(m.body, 2) : [];
+  const gif = intact && !m.linksRemovedAt ? gifUrl(m.body) : null;
+  const urls = intact && !m.linksRemovedAt && !gif ? extractUrls(m.body, 2) : [];
 
   const run = async (fn: () => Promise<unknown>) => {
     try {
@@ -150,7 +172,11 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
               if (e.key === 'Escape') setEditing(false);
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if (draft.trim()) void run(async () => (await store.getState().edit(m.id, draft), setEditing(false)));
+                if (draft.trim())
+                  void run(async () => {
+                    await store.getState().edit(m.id, draft);
+                    setEditing(false);
+                  });
               }
             }}
             aria-label="Edit message"
@@ -162,7 +188,8 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
     }
     return (
       <>
-        {m.body && (
+        {gif && <GifImage url={gif} alt={`GIF from ${name}`} />}
+        {m.body && !gif && (
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
             <Linkified text={m.body} />
             {m.editedAt && <span className="ml-1.5 text-[11px] text-subtle-foreground">(edited)</span>}
@@ -207,7 +234,13 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
             <CornerUpLeft className="size-3 shrink-0" aria-hidden="true" />
             <span className="font-medium">{repliedAuthor?.displayName || repliedAuthor?.username || 'Someone'}</span>
             <span className="truncate">
-              {replied ? (replied.deletedAt ? 'deleted message' : replied.hiddenAt ? 'hidden message' : replied.body || 'attachment') : 'message not loaded'}
+              {replied
+                ? replied.deletedAt
+                  ? 'deleted message'
+                  : replied.hiddenAt
+                    ? 'hidden message'
+                    : snippet(replied.body) || 'attachment'
+                : 'message not loaded'}
             </span>
           </button>
         )}

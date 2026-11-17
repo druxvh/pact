@@ -5,8 +5,9 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
-import type { CommunityApi } from './api';
-import { toChannel, toCommunityError, toInvite, toMessage, toProfile, toReaction } from './mapping';
+import type { CommunityApi, TypingChannel } from './api';
+import { toChannel, toCommunityError, toInvite, toMessage, toProfile, toReaction, toUnread } from './mapping';
+import { attachmentPaths, listAllFiles, removeInBatches } from './storageCleanup';
 import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_TYPES,
@@ -14,6 +15,7 @@ import {
   type Community,
   CommunityError,
   type CommunityEvent,
+  type GifPage,
   type LinkPreview,
   type Role,
 } from './types';
@@ -21,6 +23,7 @@ import {
 const MESSAGE_COLS =
   'id, community_id, channel_id, author_id, body, attachments, reply_to, created_at, edited_at, deleted_at, hidden_at, hidden_by, hidden_reason, links_removed_at';
 const SIGNED_URL_SECONDS = 3600;
+const MEDIA_BUCKET = 'community-media';
 
 function client(): SupabaseClient {
   if (!supabase) throw new CommunityError('network', 'Accounts aren’t set up in this build.');
@@ -67,6 +70,45 @@ export function createSupabaseApi(me: string): CommunityApi {
     }
   };
 
+  /** Only the admin may delete things that take files with them — checked here before any file is touched (RLS checks again). */
+  const requireAdmin = async (communityId: string) => {
+    const row = await okMaybe(client().from('community_members').select('role').eq('community_id', communityId).eq('user_id', me).maybeSingle());
+    if (row?.role !== 'admin') throw new CommunityError('not_allowed');
+  };
+
+  /** Remove files from the bucket. Best effort: a file that can't be removed must not block deleting the rows. */
+  const removeFiles = (paths: string[]) => removeInBatches((batch) => client().storage.from(MEDIA_BUCKET).remove(batch), paths);
+
+  /** Every file path mentioned by a channel's messages and by their moderation originals. */
+  const channelFilePaths = async (channelId: string): Promise<string[]> => {
+    const paths = new Set<string>();
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const rows = await ok(
+        client()
+          .from('messages')
+          .select('attachments')
+          .eq('channel_id', channelId)
+          .neq('attachments', '[]')
+          .range(from, from + PAGE - 1),
+      );
+      for (const p of attachmentPaths(rows)) paths.add(p);
+      if (rows.length < PAGE) break;
+    }
+    for (let from = 0; ; from += PAGE) {
+      const rows = await ok(
+        client()
+          .from('message_originals')
+          .select('attachments, messages!inner(channel_id)')
+          .eq('messages.channel_id', channelId)
+          .range(from, from + PAGE - 1),
+      );
+      for (const p of attachmentPaths(rows)) paths.add(p);
+      if (rows.length < PAGE) break;
+    }
+    return [...paths];
+  };
+
   return {
     me,
 
@@ -98,6 +140,15 @@ export function createSupabaseApi(me: string): CommunityApi {
       );
     },
     async deleteCommunity(id) {
+      await requireAdmin(id);
+      // Files first: once the community row is gone nobody is a member any more, so Storage's rules would refuse the cleanup.
+      const bucket = client().storage.from(MEDIA_BUCKET);
+      const files = await listAllFiles(async (folder, offset, limit) => {
+        const { data, error } = await bucket.list(folder, { limit, offset });
+        if (error) throw toCommunityError(error);
+        return (data ?? []).map((f) => ({ name: f.name, id: f.id }));
+      }, id);
+      await removeFiles(files);
       await okMaybe(client().from('communities').delete().eq('id', id));
     },
     async leaveCommunity(id) {
@@ -139,6 +190,10 @@ export function createSupabaseApi(me: string): CommunityApi {
       return toChannel(await ok(client().from('channels').insert({ community_id: communityId, name, topic }).select('*').single()));
     },
     async deleteChannel(channelId) {
+      const ch = await okMaybe(client().from('channels').select('community_id').eq('id', channelId).maybeSingle());
+      if (!ch) return;
+      await requireAdmin(ch.community_id as string);
+      await removeFiles(await channelFilePaths(channelId));
       await okMaybe(client().from('channels').delete().eq('id', channelId));
     },
 
@@ -221,7 +276,7 @@ export function createSupabaseApi(me: string): CommunityApi {
       if (file.size > ATTACHMENT_MAX_BYTES) throw new CommunityError('too_large');
       const safe = file.name.replace(/[^\w.-]+/g, '_').slice(-60) || 'file';
       const path = `${communityId}/${me}/${crypto.randomUUID()}-${safe}`;
-      const { error } = await client().storage.from('community-media').upload(path, file, { contentType: file.type, upsert: false });
+      const { error } = await client().storage.from(MEDIA_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
       if (error) throw toCommunityError(error);
       const dims = await imageSize(file);
       return { path, name: file.name.slice(0, 120), type: file.type, size: file.size, ...dims };
@@ -229,7 +284,7 @@ export function createSupabaseApi(me: string): CommunityApi {
     async attachmentUrl(path) {
       const hit = signed.get(path);
       if (hit && hit.expires > Date.now()) return hit.url;
-      const { data, error } = await client().storage.from('community-media').createSignedUrl(path, SIGNED_URL_SECONDS);
+      const { data, error } = await client().storage.from(MEDIA_BUCKET).createSignedUrl(path, SIGNED_URL_SECONDS);
       if (error || !data?.signedUrl) return null;
       signed.set(path, { url: data.signedUrl, expires: Date.now() + (SIGNED_URL_SECONDS - 600) * 1000 });
       return data.signedUrl;
@@ -238,6 +293,51 @@ export function createSupabaseApi(me: string): CommunityApi {
       const { data, error } = await client().functions.invoke('link-preview', { body: { url } });
       if (error || !data?.ok) return null;
       return { url: String(data.url), title: data.title ?? null, description: data.description ?? null, site: data.site ?? null, image: data.image ?? null };
+    },
+
+    async unreadCounts() {
+      return ((await ok(client().rpc('unread_counts'))) as Array<Record<string, unknown>>).map(toUnread);
+    },
+    async markRead(channel, upTo) {
+      await okMaybe(
+        client()
+          .from('channel_reads')
+          .upsert({ user_id: me, channel_id: channel.id, community_id: channel.communityId, last_read_at: upTo }, { onConflict: 'user_id,channel_id' }),
+      );
+    },
+    subscribeActivity(onMessage) {
+      const c = client();
+      // No filter: Realtime applies Row Level Security per subscriber, so this only ever delivers messages from communities you are in.
+      const channel = c
+        .channel('community-activity')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
+          const r = p.new as Record<string, unknown>;
+          if (typeof r.channel_id === 'string' && typeof r.community_id === 'string' && typeof r.author_id === 'string')
+            onMessage({ communityId: r.community_id, channelId: r.channel_id, authorId: r.author_id, createdAt: String(r.created_at ?? '') });
+        })
+        .subscribe();
+      return () => void c.removeChannel(channel);
+    },
+    subscribeTyping(communityId, onTyping): TypingChannel {
+      const c = client();
+      // A private broadcast topic: the policies on realtime.messages only admit members of this community.
+      const channel = c
+        .channel(`typing:${communityId}`, { config: { private: true, broadcast: { self: false } } })
+        .on('broadcast', { event: 'typing' }, ({ payload }) => {
+          const { channelId, userId } = (payload ?? {}) as { channelId?: unknown; userId?: unknown };
+          if (typeof channelId === 'string' && typeof userId === 'string') onTyping({ channelId, userId });
+        })
+        .subscribe();
+      return {
+        announce: (channelId) => void channel.send({ type: 'broadcast', event: 'typing', payload: { channelId, userId: me } }),
+        stop: () => void c.removeChannel(channel),
+      };
+    },
+    async searchGifs(query, opts): Promise<GifPage> {
+      const { data, error } = await client().functions.invoke('gif-search', { body: { q: query, next: opts?.next ?? null } });
+      if (error) throw toCommunityError(error);
+      if (!data?.ok) throw new CommunityError(data?.error === 'not_configured' ? 'not_configured' : 'unknown', 'GIF search isn’t available right now.');
+      return { gifs: data.gifs ?? [], next: typeof data.next === 'string' ? data.next : null };
     },
 
     subscribe(communityId, onEvent: (e: CommunityEvent) => void) {

@@ -29,6 +29,15 @@ export type Reaction = { messageId: string; userId: string; emoji: string };
 export type Invite = { code: string; maxUses: number | null; uses: number; expiresAt: string | null; createdAt: string; createdBy: string };
 export type InvitePreview = { communityId: string; name: string; description: string; hue: number; members: number };
 
+/** Unread messages in one channel (capped at 100 by the server, shown as "99+"). */
+export type UnreadEntry = { channelId: string; communityId: string; count: number };
+/** A new message somewhere in any of my communities (for unread badges). */
+export type ActivityEvent = { communityId: string; channelId: string; authorId: string; createdAt: string };
+export type TypingEvent = { channelId: string; userId: string };
+/** One GIF from the search provider: `url` is what gets posted, `preview` a small version for the picker. */
+export type Gif = { id: string; title: string; url: string; preview: string; width: number; height: number };
+export type GifPage = { gifs: Gif[]; next: string | null };
+
 export type LinkPreview = { url: string; title: string | null; description: string | null; site: string | null; image: string | null };
 
 /** What happened on the server, as pushed to a viewer of one community. */
@@ -49,6 +58,7 @@ export type CommunityErrorCode =
   | 'not_found'
   | 'too_large'
   | 'bad_type'
+  | 'not_configured'
   | 'network'
   | 'unknown';
 export class CommunityError extends Error {

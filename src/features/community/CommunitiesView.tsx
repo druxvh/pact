@@ -9,6 +9,7 @@ import { CommunityIcon } from './CommunityIcon';
 import { CreateOrJoinDialog, InviteDialog, SettingsDialog } from './Dialogs';
 import { MembersPanel } from './MembersPanel';
 import { MessagePane } from './MessagePane';
+import { communityUnread } from './store';
 import { useCommunityStore } from './useCommunityStore';
 
 /** Invite deep links look like `#/chat/join:<code>`. */
@@ -20,6 +21,7 @@ export function CommunitiesView() {
   const communities = useCommunityStore((s) => s.communities);
   const activeId = useCommunityStore((s) => s.activeId);
   const select = useCommunityStore((s) => s.select);
+  const unread = useCommunityStore((s) => s.unread);
   const sub = useNavStore((s) => s.sub);
   const go = useNavStore((s) => s.go);
   const isDesktop = useMediaQuery('(min-width: 768px)');
@@ -102,25 +104,36 @@ export function CommunitiesView() {
           isDesktop ? 'w-16' : mobileChannel ? 'hidden' : 'w-16',
         )}
       >
-        {communities.map((c) => (
-          <Tooltip key={c.id} content={c.name} side="right">
-            <button
-              type="button"
-              aria-label={c.name}
-              aria-current={c.id === activeId ? 'true' : undefined}
-              onClick={() => {
-                void select(c.id);
-                setMobileChannel(false);
-              }}
-              className={cn(
-                'relative rounded-lg outline-offset-2 transition-transform duration-150 hover:scale-105 active:scale-95',
-                c.id === activeId && 'ring-2 ring-brand ring-offset-2 ring-offset-background',
-              )}
-            >
-              <CommunityIcon name={c.name} hue={c.hue} />
-            </button>
-          </Tooltip>
-        ))}
+        {communities.map((c) => {
+          const n = c.id === activeId ? 0 : communityUnread(unread, c.id);
+          return (
+            <Tooltip key={c.id} content={c.name} side="right">
+              <button
+                type="button"
+                aria-label={n > 0 ? `${c.name}, ${n > 99 ? '99+' : n} unread` : c.name}
+                aria-current={c.id === activeId ? 'true' : undefined}
+                onClick={() => {
+                  void select(c.id);
+                  setMobileChannel(false);
+                }}
+                className={cn(
+                  'relative rounded-lg outline-offset-2 transition-transform duration-150 hover:scale-105 active:scale-95',
+                  c.id === activeId && 'ring-2 ring-brand ring-offset-2 ring-offset-background',
+                )}
+              >
+                <CommunityIcon name={c.name} hue={c.hue} />
+                {n > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-4 text-brand-foreground ring-2 ring-background"
+                  >
+                    {n > 99 ? '99+' : n}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+          );
+        })}
         <Tooltip content="Join or create a community" side="right">
           <IconButton label="Join or create a community" size="icon-lg" variant="outline" onClick={() => setJoinOpen(true)}>
             <Plus />

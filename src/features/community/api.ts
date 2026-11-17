@@ -1,9 +1,11 @@
 import type {
+  ActivityEvent,
   Attachment,
   Channel,
   Community,
   CommunityEvent,
   CommunityMessage,
+  GifPage,
   Invite,
   InvitePreview,
   LinkPreview,
@@ -11,7 +13,12 @@ import type {
   Profile,
   Reaction,
   Role,
+  TypingEvent,
+  UnreadEntry,
 } from './types';
+
+/** Handle for announcing "I'm typing" on one community's live typing channel. */
+export type TypingChannel = { announce(channelId: string): void; stop(): void };
 
 /**
  * Everything the Communities UI needs from a backend. `supabaseApi` is the real thing; `memoryApi` is a faithful
@@ -63,6 +70,18 @@ export interface CommunityApi {
   /** A temporary URL for a member-only file. */
   attachmentUrl(path: string): Promise<string | null>;
   fetchLinkPreview(url: string): Promise<LinkPreview | null>;
+
+  /** Channels with unread messages (never includes your own messages). */
+  unreadCounts(): Promise<UnreadEntry[]>;
+  /** Remember that you have seen everything in the channel up to `upTo` (the createdAt of the newest message you saw). */
+  markRead(channel: { id: string; communityId: string }, upTo: string): Promise<void>;
+  /** New messages in any community you belong to. Returns the unsubscribe function. */
+  subscribeActivity(onMessage: (e: ActivityEvent) => void): () => void;
+  /** Ephemeral "is typing" signals from the other members of one community (never stored). */
+  subscribeTyping(communityId: string, onTyping: (e: TypingEvent) => void): TypingChannel;
+
+  /** Search GIFs (an empty query means "trending"). Rejects with `not_configured` when the server has no GIF provider key. */
+  searchGifs(query: string, opts?: { next?: string | null }): Promise<GifPage>;
 
   /** Live updates for one community. Returns the unsubscribe function. */
   subscribe(communityId: string, onEvent: (e: CommunityEvent) => void): () => void;

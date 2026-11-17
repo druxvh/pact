@@ -5,6 +5,8 @@ import { EmojiPicker } from '@/features/chat/EmojiPicker';
 import { cn } from '@/lib/cn';
 import { formatBytes } from '@/lib/format';
 import { notify } from '@/lib/toast';
+import { GifPicker } from './GifPicker';
+import { snippet } from './links';
 import { describeError } from './mapping';
 import { ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, ATTACHMENTS_MAX, type Attachment, MESSAGE_MAX } from './types';
 import { getCommunityApi, useCommunityStore } from './useCommunityStore';
@@ -18,6 +20,7 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
   const [pending, setPending] = useState<Pending[]>([]);
   const [sending, setSending] = useState(false);
   const [over, setOver] = useState(false);
+  const [gifOpen, setGifOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -45,6 +48,17 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
         .then((attachment) => setPending((c) => c.map((p) => (p.id === id ? { ...p, status: 'done', attachment } : p))))
         .catch((err) => setPending((c) => c.map((p) => (p.id === id ? { ...p, status: 'error', error: describeError(err) } : p))));
     }
+  };
+
+  /** A GIF goes out as its own message right away (like in Discord); whatever you were typing stays in the box. */
+  const sendGif = async (url: string) => {
+    setGifOpen(false);
+    try {
+      await useCommunityStore.getState().send(url, []);
+    } catch (err) {
+      notify.error('Couldn’t send the GIF', describeError(err));
+    }
+    areaRef.current?.focus();
   };
 
   const drop = (id: string) =>
@@ -77,7 +91,7 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           <CornerUpLeft className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate">
             Replying to <span className="font-medium text-foreground">{replyAuthor?.displayName || replyAuthor?.username || 'a message'}</span>
-            {replyTo.body ? ` — ${replyTo.body}` : ''}
+            {replyTo.body ? ` — ${snippet(replyTo.body)}` : ''}
           </span>
           <IconButton label="Cancel reply" size="icon-xs" onClick={() => useCommunityStore.getState().setReplyTo(null)}>
             <X />
@@ -156,7 +170,10 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           rows={1}
           placeholder={`Message #${channelName}`}
           aria-label={`Message #${channelName}`}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (e.target.value.trim()) useCommunityStore.getState().announceTyping();
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
@@ -172,6 +189,14 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           }}
           className="max-h-40 min-h-9 flex-1 border-0 bg-transparent py-2 shadow-none focus-visible:ring-0"
         />
+        <Popover open={gifOpen} onOpenChange={setGifOpen}>
+          <PopoverTrigger render={<IconButton label="Add a GIF" size="icon" />}>
+            <span className="text-[11px] font-bold leading-none tracking-tight">GIF</span>
+          </PopoverTrigger>
+          <PopoverContent align="end" side="top" className="w-auto p-2">
+            <GifPicker onPick={(gif) => void sendGif(gif.url)} />
+          </PopoverContent>
+        </Popover>
         <Popover>
           <PopoverTrigger render={<IconButton label="Add emoji" size="icon" />}>
             <Smile />

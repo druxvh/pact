@@ -3,9 +3,11 @@
  * Used by unit tests and the dev harness (never shipped), so the store and UI can be exercised with several people
  * (admin, moderator, member) without a database.
  */
-import type { CommunityApi } from './api';
+import type { CommunityApi, TypingChannel } from './api';
 import { can, canActOnMember } from './permissions';
+import { attachmentPaths } from './storageCleanup';
 import {
+  type ActivityEvent,
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_TYPES,
   type Attachment,
@@ -14,11 +16,15 @@ import {
   CommunityError,
   type CommunityEvent,
   type CommunityMessage,
+  type Gif,
+  type GifPage,
   type Invite,
   type Member,
   type Profile,
   type Reaction,
   type Role,
+  type TypingEvent,
+  type UnreadEntry,
 } from './types';
 
 type Sub = { userId: string; communityId: string; cb: (e: CommunityEvent) => void };
@@ -40,6 +46,12 @@ export class MemoryServer {
   files = new Map<string, string>();
   failedInvites = new Map<string, number>();
   subs = new Set<Sub>();
+  /** `${userId}|${channelId}` → createdAt of the newest message that person has seen. */
+  reads = new Map<string, string>();
+  activitySubs = new Set<{ userId: string; cb: (e: ActivityEvent) => void }>();
+  typingSubs = new Set<{ userId: string; communityId: string; cb: (e: TypingEvent) => void }>();
+  /** Set to false to see how the app behaves when the server has no GIF provider key. */
+  gifsConfigured = true;
   private last = 0;
   /** Strictly increasing, like the database's microsecond timestamps: two writes never share a time. */
   clock = () => {
@@ -59,6 +71,12 @@ export class MemoryServer {
 
   emit(cid: string, e: CommunityEvent) {
     for (const s of this.subs) if (s.communityId === cid && this.roleOf(cid, s.userId)) s.cb(e);
+  }
+
+  /** Files referenced by these messages (and by their moderation originals), removed from storage. */
+  removeFilesOf(messages: CommunityMessage[]) {
+    const rows = [...messages, ...messages.flatMap((m) => (this.originals.has(m.id) ? [{ attachments: this.originals.get(m.id)?.attachments ?? [] }] : []))];
+    for (const path of attachmentPaths(rows)) this.files.delete(path);
   }
 
   api(me: string): CommunityApi {
@@ -113,6 +131,11 @@ class MemoryApi implements CommunityApi {
 
   async deleteCommunity(id: string) {
     this.need(id, 'deleteCommunity');
+    for (const path of [...this.s.files.keys()]) if (path.startsWith(`${id}/`)) this.s.files.delete(path);
+    for (const m of this.s.messages) if (m.communityId === id) this.s.originals.delete(m.id);
+    this.s.reactions = this.s.reactions.filter((r) => r.communityId !== id);
+    this.s.bans = this.s.bans.filter((b) => b.communityId !== id);
+    for (const ch of this.s.channels) if (ch.communityId === id) for (const u of this.s.users.keys()) this.s.reads.delete(`${u}|${ch.id}`);
     this.s.communities = this.s.communities.filter((c) => c.id !== id);
     this.s.members = this.s.members.filter((m) => m.communityId !== id);
     this.s.channels = this.s.channels.filter((c) => c.communityId !== id);
@@ -206,6 +229,8 @@ class MemoryApi implements CommunityApi {
     const ch = this.s.channels.find((c) => c.id === id);
     if (!ch) return;
     this.need(ch.communityId, 'deleteChannel');
+    this.s.removeFilesOf(this.s.messages.filter((m) => m.channelId === id));
+    for (const u of this.s.users.keys()) this.s.reads.delete(`${u}|${id}`);
     this.s.channels = this.s.channels.filter((c) => c.id !== id);
     this.s.messages = this.s.messages.filter((m) => m.channelId !== id);
     this.s.emit(ch.communityId, { type: 'channels-changed' });
@@ -280,6 +305,10 @@ class MemoryApi implements CommunityApi {
     };
     this.s.messages.push(m);
     this.s.emit(m.communityId, { type: 'message', message: { ...m } });
+    for (const sub of this.s.activitySubs) {
+      if (this.s.roleOf(m.communityId, sub.userId))
+        sub.cb({ communityId: m.communityId, channelId: m.channelId, authorId: m.authorId, createdAt: m.createdAt });
+    }
     return { ...m };
   }
 
@@ -382,6 +411,58 @@ class MemoryApi implements CommunityApi {
       site: host,
       image: null,
     };
+  }
+
+  async unreadCounts(): Promise<UnreadEntry[]> {
+    const out: UnreadEntry[] = [];
+    for (const ch of this.s.channels) {
+      const member = this.s.members.find((m) => m.communityId === ch.communityId && m.userId === this.me);
+      if (!member) continue;
+      const since = this.s.reads.get(`${this.me}|${ch.id}`) ?? member.joinedAt;
+      const count = this.s.messages.filter((m) => m.channelId === ch.id && m.authorId !== this.me && m.createdAt > since && !m.deletedAt && !m.hiddenAt).length;
+      if (count > 0) out.push({ channelId: ch.id, communityId: ch.communityId, count: Math.min(count, 100) });
+    }
+    return out;
+  }
+  async markRead(channel: { id: string; communityId: string }, upTo: string) {
+    if (!this.role(channel.communityId)) throw new CommunityError('not_allowed');
+    const key = `${this.me}|${channel.id}`;
+    const cur = this.s.reads.get(key);
+    if (!cur || upTo > cur) this.s.reads.set(key, upTo);
+  }
+  subscribeActivity(cb: (e: ActivityEvent) => void) {
+    const sub = { userId: this.me, cb };
+    this.s.activitySubs.add(sub);
+    return () => void this.s.activitySubs.delete(sub);
+  }
+  subscribeTyping(communityId: string, cb: (e: TypingEvent) => void): TypingChannel {
+    const sub = { userId: this.me, communityId, cb };
+    this.s.typingSubs.add(sub);
+    return {
+      announce: (channelId) => {
+        if (!this.role(communityId)) return;
+        for (const other of this.s.typingSubs) {
+          if (other !== sub && other.communityId === communityId && this.s.roleOf(communityId, other.userId)) other.cb({ channelId, userId: this.me });
+        }
+      },
+      stop: () => void this.s.typingSubs.delete(sub),
+    };
+  }
+  async searchGifs(query: string, opts?: { next?: string | null }): Promise<GifPage> {
+    if (!this.s.gifsConfigured) throw new CommunityError('not_configured');
+    const all: Gif[] = ['cat', 'dog', 'party', 'facepalm', 'thumbs up', 'mind blown', 'dance', 'wow'].map((t, i) => ({
+      id: `g${i}`,
+      title: t,
+      url: `https://media.giphy.com/media/g${i}/giphy.gif`,
+      preview: `https://media.giphy.com/media/g${i}/200w.gif`,
+      width: 200,
+      height: 150,
+    }));
+    const q = query.trim().toLowerCase();
+    const hits = q ? all.filter((g) => g.title.includes(q)) : all;
+    const start = Number(opts?.next ?? 0) || 0;
+    const page = hits.slice(start, start + 4);
+    return { gifs: page, next: start + 4 < hits.length ? String(start + 4) : null };
   }
 
   subscribe(communityId: string, cb: (e: CommunityEvent) => void) {

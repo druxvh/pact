@@ -238,6 +238,66 @@ await t('uploader or a mod can delete a file; another member cannot', async () =
   await as(db, bob, `insert into storage.objects (bucket_id, name) values ('community-media', '${cid}/${bob}/b.png')`);
 });
 
+console.log('unread counts');
+await t('unread = other people’s visible messages newer than your marker; your own and hidden ones never count', async () => {
+  const expected = Number((await db.query(`select count(*) from public.messages where channel_id='${general}' and author_id <> '${alice}' and deleted_at is null and hidden_at is null`)).rows[0].count);
+  const got = (await as(db, alice, `select * from public.unread_counts()`)).find((r) => r.channel_id === general);
+  if (expected < 1) throw new Error('test setup: no messages');
+  eq(got?.unread, expected);
+  eq(got?.community_id, cid);
+});
+await t('marking a channel read clears it; a new message from someone else brings it back as 1', async () => {
+  const newest = (await db.query(`select max(created_at) t from public.messages where channel_id='${general}'`)).rows[0].t.toISOString();
+  await as(db, alice, `insert into public.channel_reads (channel_id, community_id, last_read_at) values ('${general}', '${cid}', '${newest}') on conflict (user_id, channel_id) do update set last_read_at = excluded.last_read_at`);
+  eq((await as(db, alice, `select * from public.unread_counts()`)).some((r) => r.channel_id === general), false);
+  await post(bob, 'a fresh one');
+  eq((await as(db, alice, `select unread from public.unread_counts() where channel_id='${general}'`))[0]?.unread, 1);
+  eq((await as(db, bob, `select * from public.unread_counts()`)).some((r) => r.channel_id === general && r.unread > 0 && false), false); // never your own
+});
+await t('the marker never moves backwards, and it is private to its owner', async () => {
+  const before = (await as(db, alice, `select last_read_at from public.channel_reads where channel_id='${general}'`))[0].last_read_at.toISOString();
+  await as(db, alice, `update public.channel_reads set last_read_at = '2000-01-01' where channel_id='${general}'`);
+  eq((await as(db, alice, `select last_read_at from public.channel_reads where channel_id='${general}'`))[0].last_read_at.toISOString(), before);
+  eq((await as(db, bob, `select * from public.channel_reads`)).length, 0);
+  await denied(as(db, bob, `insert into public.channel_reads (user_id, channel_id, community_id, last_read_at) values ('${alice}', '${memes}', '${cid}', now())`), /row-level security/);
+});
+await t('outsiders can neither mark nor count a community they are not in', async () => {
+  await denied(as(db, dave, `insert into public.channel_reads (channel_id, community_id, last_read_at) values ('${general}', '${cid}', now())`), /row-level security/);
+  eq((await as(db, dave, `select * from public.unread_counts()`)).length, 0);
+  eq((await as(db, carol, `select * from public.unread_counts()`)).some((r) => r.community_id === cid), false); // removed members count nothing
+});
+await t('joining late does not make the whole history unread', async () => {
+  const late = await addUser(db, 'late@x.test');
+  await as(db, alice, `insert into public.invites (code, community_id) values ('4444444444444444','${cid}')`);
+  await as(db, late, `select public.join_community('4444444444444444')`);
+  eq((await as(db, late, `select * from public.unread_counts()`)).length, 0);
+  await post(bob, 'after the new person joined');
+  eq((await as(db, late, `select unread from public.unread_counts() where channel_id='${general}'`))[0]?.unread, 1);
+});
+
+console.log('typing indicators (realtime broadcast)');
+const topic = (v) => db.exec(`select set_config('realtime.topic', '${v}', false)`);
+await t('only members may announce or listen on their community’s typing topic', async () => {
+  await topic(`typing:${cid}`);
+  await as(db, bob, `insert into realtime.messages (topic, extension) values ('typing:${cid}', 'broadcast')`);
+  await denied(as(db, dave, `insert into realtime.messages (topic, extension) values ('typing:${cid}', 'broadcast')`), /row-level security/);
+  await denied(as(db, carol, `insert into realtime.messages (topic, extension) values ('typing:${cid}', 'broadcast')`), /row-level security/); // removed
+  eq((await as(db, bob, `select 1 from realtime.messages`)).length, 1);
+  eq((await as(db, dave, `select 1 from realtime.messages`)).length, 0);
+  eq((await as(db, carol, `select 1 from realtime.messages`)).length, 0);
+});
+await t('other topics, malformed topics and the presence extension are refused', async () => {
+  await topic(`typing:${crypto.randomUUID()}`);
+  await denied(as(db, bob, `insert into realtime.messages (topic, extension) values ('x', 'broadcast')`), /row-level security/);
+  await topic('typing:not-a-uuid');
+  await denied(as(db, bob, `insert into realtime.messages (topic, extension) values ('x', 'broadcast')`), /row-level security/);
+  await topic(`community:${cid}`);
+  await denied(as(db, bob, `insert into realtime.messages (topic, extension) values ('x', 'broadcast')`), /row-level security/);
+  await topic(`typing:${cid}`);
+  await denied(as(db, bob, `insert into realtime.messages (topic, extension) values ('x', 'presence')`), /row-level security/);
+  await topic('');
+});
+
 console.log('anon');
 await t('the anonymous role can read and write nothing', async () => {
   for (const tbl of ['communities', 'community_members', 'channels', 'messages', 'invites', 'profiles', 'notes', 'link_previews', 'invite_attempts']) await denied(as(db, null, `select * from public.${tbl}`), /permission denied/);

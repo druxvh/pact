@@ -24,3 +24,24 @@ export function parseInviteCode(input: string): string {
 }
 
 export const isPlausibleInviteCode = (code: string) => /^[a-f0-9]{16}$/.test(code);
+
+const GIF_HOST = /^(?:media\d*|i)\.giphy\.com$/i;
+
+/**
+ * If a message is nothing but a link to a GIF on the GIF provider's own hosts, that link — so it can be shown as a
+ * picture instead of a bare URL. Anything else (other hosts, http, extra text) is just a normal message.
+ */
+export function gifUrl(body: string): string | null {
+  const t = body.trim();
+  if (!t || t.length > 600 || /\s/.test(t)) return null;
+  try {
+    const u = new URL(t);
+    if (u.protocol !== 'https:' || u.username || u.password || !GIF_HOST.test(u.hostname) || !/\.(gif|webp)$/i.test(u.pathname)) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** A short text stand-in for a message body (used in reply bars): a GIF-only message reads as "GIF", not as a long URL. */
+export const snippet = (body: string): string => (gifUrl(body) ? 'GIF' : body);

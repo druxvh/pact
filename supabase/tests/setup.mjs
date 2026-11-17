@@ -1,6 +1,6 @@
 /**
  * Runs the real migrations in a local PostgreSQL (PGlite) with stand-ins for the Supabase pieces they rely on
- * (the auth/storage schemas, auth.uid(), the anon/authenticated roles, the realtime publication) — so the security rules can be
+ * (the auth/storage/realtime schemas, auth.uid(), the anon/authenticated roles, the realtime publication) — so the security rules can be
  * tested without touching a hosted project. See rls.mjs.
  */
 import { PGlite } from '@electric-sql/pglite';
@@ -19,6 +19,11 @@ export async function boot() {
     alter table storage.objects enable row level security;
     create function storage.foldername(name text) returns text[] language plpgsql immutable as $$ declare _parts text[]; begin select string_to_array(name, '/') into _parts; return _parts[1:array_length(_parts, 1) - 1]; end $$;
     create publication supabase_realtime;
+    create schema realtime;
+    create table realtime.messages (id uuid primary key default gen_random_uuid(), topic text not null, extension text not null);
+    alter table realtime.messages enable row level security;
+    create function realtime.topic() returns text language sql stable as $$ select nullif(current_setting('realtime.topic', true), '') $$;
+    grant usage on schema realtime to authenticated; grant select, insert on realtime.messages to authenticated;
     grant usage on schema public, auth, storage to anon, authenticated;
     grant all on all tables in schema public to postgres;
     alter default privileges in schema public grant all on tables to anon, authenticated;
