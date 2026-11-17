@@ -120,6 +120,18 @@ export class SyncEngine {
     this.setActive(false);
   }
 
+  /**
+   * Where this tab's player is right now, as a `seek` event — what a party that was just started puts into the room so
+   * friends who join land on the same frame. Null when there is no player, no video id, or an ad is playing (ad time isn't
+   * the video's time).
+   */
+  currentState(): LocalMediaEvent | null {
+    const v = this.find();
+    const videoId = this.getVideoId();
+    if (!v || !videoId || this.isAd() || !Number.isFinite(v.currentTime)) return null;
+    return { ev: 'seek', mediaTime: v.currentTime, playing: !v.paused && !v.ended, videoId };
+  }
+
   /** Where the room's video is "right now" (the sender already extrapolated). */
   applyRemote(cmd: RemoteSync): void {
     if (!this.active) return;

@@ -1,14 +1,15 @@
 import { ChevronLeft, ChevronRight, Download, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button, IconButton, Input, Segmented, Switch } from '@/components/ui';
-import type { FRect } from '@/features/tools/lib/pdf/geometry';
-import { signPdf } from '@/features/tools/lib/pdf/ops';
+import { type FRect, fractionAspect, heightForWidth } from '@/features/tools/lib/pdf/geometry';
 import { FileDrop, Problems } from '@/features/tools/pdf/FileDrop';
 import { baseName, type LoadedPdf, nextId, pdfBlob, readPdfs } from '@/features/tools/pdf/files';
+import { JobProgress } from '@/features/tools/pdf/JobProgress';
 import { PagePreview } from '@/features/tools/pdf/PagePreview';
 import { RectBox } from '@/features/tools/pdf/RectBox';
 import { type Signature, signatureFromCanvas, signatureFromImage } from '@/features/tools/pdf/signature';
 import { useDocs } from '@/features/tools/pdf/useDocs';
+import { usePdfJob } from '@/features/tools/pdf/usePdfJob';
 import { Field } from '@/features/tools/ui';
 import { downloadBlob } from '@/lib/download';
 import { notify } from '@/lib/toast';
@@ -243,12 +244,23 @@ export default function PdfSignTool() {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [everyPage, setEveryPage] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const job = usePdfJob();
   const doc = useDocs(file ? [file] : []).get(file?.id ?? '');
+  // Every signature the person makes gets an object URL for its preview. Revoke the ones nothing shows any more (a
+  // replaced signature, a removed placement) and all of them when the tool closes.
   const urls = useRef<string[]>([]);
+  useEffect(() => {
+    const inUse = new Set([sig?.url, ...placements.map((p) => p.sig.url)]);
+    urls.current = urls.current.filter((u) => {
+      if (inUse.has(u)) return true;
+      URL.revokeObjectURL(u);
+      return false;
+    });
+  }, [sig, placements]);
   useEffect(() => {
     return () => {
       for (const u of urls.current) URL.revokeObjectURL(u);
+      urls.current = [];
     };
   }, []);
 
@@ -272,7 +284,7 @@ export default function PdfSignTool() {
   const place = (s: Signature | null = sig) => {
     if (!s) return;
     const width = 0.32;
-    const height = width / s.ratio / ratio;
+    const height = heightForWidth(width, s.ratio, ratio);
     const rect: FRect = { left: 0.55, top: Math.max(0, Math.min(1 - height, 0.8 - height / 2)), width, height };
     const p: Placement = { id: nextId('pl'), page, rect, sig: s };
     setPlacements((c) => [...c, p]);
@@ -287,16 +299,13 @@ export default function PdfSignTool() {
     const list = everyPage
       ? Array.from({ length: file.pages }, (_, i) => placements.filter((p) => p.page === page).map((p) => ({ page: i, rect: p.rect, png: p.sig.png }))).flat()
       : placements.map((p) => ({ page: p.page, rect: p.rect, png: p.sig.png }));
-    setBusy(true);
-    try {
-      const out = await signPdf(file.bytes, list);
-      downloadBlob(`${baseName(file.name)}-signed.pdf`, pdfBlob(out));
+    await job.run(async (api) => {
+      const { files: out } = await api.run({ op: 'sign', bytes: file.bytes, placements: list });
+      const signed = out[0];
+      if (!signed) throw new Error('Nothing was produced.');
+      downloadBlob(`${baseName(file.name)}-signed.pdf`, pdfBlob(signed));
       notify.success('Signed PDF saved');
-    } catch (err) {
-      notify.error('Couldn’t sign', err instanceof Error ? err.message : undefined);
-    } finally {
-      setBusy(false);
-    }
+    }, 'Couldn’t sign');
   };
 
   return (
@@ -305,7 +314,7 @@ export default function PdfSignTool() {
         <FileDrop
           accept="application/pdf,.pdf"
           multiple={false}
-          onFiles={(f) => void load(f)}
+          onFiles={load}
           title="Drop a PDF here, or click to choose"
           hint="Draw, type or upload a signature and place it · stays on your device"
         />
@@ -336,7 +345,7 @@ export default function PdfSignTool() {
                     rect={p.rect}
                     onChange={(r) => update(p.id, r)}
                     label={`Signature on page ${page + 1}`}
-                    lockAspect={p.sig.ratio / ratio}
+                    lockAspect={fractionAspect(p.sig.ratio, ratio)}
                     selected={selected === p.id}
                     onSelect={() => setSelected(p.id)}
                   >
@@ -383,12 +392,17 @@ export default function PdfSignTool() {
               </label>
               <Switch id="sign-all" checked={everyPage} onCheckedChange={setEveryPage} aria-label="Put this page’s signatures on every page" />
             </div>
-            <Button variant="primary" className="w-full" loading={busy} disabled={placements.length === 0} onClick={() => void download()}>
-              <Download /> Download signed PDF
-            </Button>
+            {job.busy ? (
+              <JobProgress stacked progress={job.progress} onCancel={job.cancel} />
+            ) : (
+              <Button variant="primary" className="w-full" disabled={placements.length === 0} onClick={() => void download()}>
+                <Download /> Download signed PDF
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="w-full"
+              disabled={job.busy}
               onClick={() => {
                 setFile(null);
                 setPlacements([]);

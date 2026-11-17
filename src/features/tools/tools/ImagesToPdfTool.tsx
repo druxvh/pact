@@ -1,11 +1,14 @@
 import { ArrowLeft, ArrowRight, Download, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button, IconButton, Segmented } from '@/components/ui';
-import { type ImagePageSize, imagesToPdf } from '@/features/tools/lib/pdf/ops';
+import { inBand } from '@/features/tools/lib/pdf/job';
+import type { ImageInput, ImagePageSize } from '@/features/tools/lib/pdf/types';
 import { FileDrop, Problems } from '@/features/tools/pdf/FileDrop';
 import { nextId, pdfBlob } from '@/features/tools/pdf/files';
 import { type PreparedImage, prepareImage, turnImage } from '@/features/tools/pdf/images';
+import { JobProgress } from '@/features/tools/pdf/JobProgress';
 import { moveItem } from '@/features/tools/pdf/order';
+import { usePdfJob } from '@/features/tools/pdf/usePdfJob';
 import { Field } from '@/features/tools/ui';
 import { downloadBlob } from '@/lib/download';
 import { formatBytes, pluralize } from '@/lib/format';
@@ -21,7 +24,7 @@ export default function ImagesToPdfTool() {
   const [size, setSize] = useState<ImagePageSize>('a4');
   const [orientation, setOrientation] = useState<'auto' | 'portrait' | 'landscape'>('auto');
   const [margin, setMargin] = useState<keyof typeof MARGINS>('small');
-  const [busy, setBusy] = useState(false);
+  const job = usePdfJob();
   const live = useRef<Item[]>([]);
   live.current = items;
   useEffect(
@@ -52,25 +55,26 @@ export default function ImagesToPdfTool() {
       return c.filter((i) => i.id !== id);
     });
 
-  const convert = async () => {
-    setBusy(true);
-    try {
-      const inputs = await Promise.all(items.map((i) => turnImage(i, i.turn)));
-      const out = await imagesToPdf(inputs, { size, margin: MARGINS[margin], orientation });
-      downloadBlob('images.pdf', pdfBlob(out));
-      notify.success('PDF ready', `${pluralize(items.length, 'page')} · ${formatBytes(out.length)}`);
-    } catch (err) {
-      notify.error('Couldn’t make the PDF', err instanceof Error ? err.message : undefined);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const convert = () =>
+    job.run(async (api) => {
+      // Rotated images are re-encoded on the page (it needs a canvas); the PDF itself is built in the worker.
+      const inputs: ImageInput[] = [];
+      for (const [n, item] of items.entries()) {
+        api.step(inBand({ done: n, total: items.length, label: `Preparing image ${n + 1} of ${items.length}` }, 0, 0.3));
+        inputs.push(await turnImage(item, item.turn));
+      }
+      const { files: out } = await api.run({ op: 'images', images: inputs, options: { size, margin: MARGINS[margin], orientation } }, [0.3, 1]);
+      const pdf = out[0];
+      if (!pdf) throw new Error('Nothing was produced.');
+      downloadBlob('images.pdf', pdfBlob(pdf));
+      notify.success('PDF ready', `${pluralize(items.length, 'page')} · ${formatBytes(pdf.length)}`);
+    }, 'Couldn’t make the PDF');
 
   return (
     <div className="space-y-4">
       <FileDrop
         accept="image/*"
-        onFiles={(f) => void add(f)}
+        onFiles={add}
         title={items.length ? 'Add more images' : 'Drop images here, or click to choose'}
         hint="JPG, PNG, WebP, GIF… one image per page · stays on your device"
         compact={items.length > 0}
@@ -162,6 +166,7 @@ export default function ImagesToPdfTool() {
           <div className="flex justify-end gap-2">
             <Button
               variant="ghost"
+              disabled={job.busy}
               onClick={() => {
                 for (const i of items) URL.revokeObjectURL(i.url);
                 setItems([]);
@@ -169,10 +174,11 @@ export default function ImagesToPdfTool() {
             >
               Clear
             </Button>
-            <Button variant="primary" loading={busy} onClick={() => void convert()}>
+            <Button variant="primary" disabled={job.busy} onClick={() => void convert()}>
               <Download /> Make PDF ({pluralize(items.length, 'page')})
             </Button>
           </div>
+          {job.busy && <JobProgress progress={job.progress} onCancel={job.cancel} />}
         </>
       )}
     </div>

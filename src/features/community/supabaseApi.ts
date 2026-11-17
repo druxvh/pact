@@ -4,9 +4,22 @@
  * shapes requests and responses. See supabase/migrations/*_communities.sql.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { avatarUrl } from '@/lib/supabase/avatar';
 import { supabase } from '@/lib/supabase/client';
 import type { CommunityApi, TypingChannel } from './api';
-import { toChannel, toCommunityError, toInvite, toMessage, toProfile, toReaction, toUnread } from './mapping';
+import {
+  isMissingColumn,
+  toActivityEvent,
+  toBan,
+  toChannel,
+  toCommunityError,
+  toInvite,
+  toMember,
+  toMessage,
+  toProfile,
+  toReaction,
+  toUnread,
+} from './mapping';
 import { attachmentPaths, listAllFiles, removeInBatches } from './storageCleanup';
 import {
   ATTACHMENT_MAX_BYTES,
@@ -17,6 +30,8 @@ import {
   type CommunityEvent,
   type GifPage,
   type LinkPreview,
+  type Member,
+  type Profile,
   type Role,
 } from './types';
 
@@ -43,6 +58,16 @@ async function okMaybe<T>(call: PromiseLike<{ data: T; error: unknown }>): Promi
   const { data, error } = await call;
   if (error) throw toCommunityError(error);
   return data;
+}
+
+/**
+ * Run `primary` (which selects a column added by a recent migration); if the database doesn't have that column yet, run
+ * `fallback` without it, so a build that is ahead of the database degrades (no avatars, no timeouts shown) instead of breaking.
+ */
+async function withColumnFallback<T>(primary: () => PromiseLike<{ data: T; error: unknown }>, fallback: () => PromiseLike<{ data: T; error: unknown }>) {
+  const first = await primary();
+  if (first.error && isMissingColumn(first.error)) return fallback();
+  return first;
 }
 
 async function imageSize(file: File): Promise<{ width: number; height: number } | null> {
@@ -152,7 +177,9 @@ export function createSupabaseApi(me: string): CommunityApi {
       await okMaybe(client().from('communities').delete().eq('id', id));
     },
     async leaveCommunity(id) {
-      await okMaybe(client().from('community_members').delete().eq('community_id', id).eq('user_id', me));
+      // A timed-out member can't leave (the database raises `timed_out`); the admin matches no row.
+      const rows = await ok(client().from('community_members').delete().eq('community_id', id).eq('user_id', me).select('user_id'));
+      if (!rows.length) throw new CommunityError('not_allowed');
     },
 
     async previewInvite(code) {
@@ -196,14 +223,32 @@ export function createSupabaseApi(me: string): CommunityApi {
       await removeFiles(await channelFilePaths(channelId));
       await okMaybe(client().from('channels').delete().eq('id', channelId));
     },
-
-    async listMembers(communityId) {
-      const rows = await ok(client().from('community_members').select('user_id, role, joined_at').eq('community_id', communityId).order('joined_at'));
-      return rows.map((r) => ({ userId: r.user_id as string, role: r.role as Role, joinedAt: r.joined_at as string }));
+    async setSlowmode(channelId, seconds) {
+      // RLS lets moderators and the admin through (a trigger keeps moderators to this one column); anyone else matches no row.
+      const rows = await ok(client().from('channels').update({ slowmode_seconds: seconds }).eq('id', channelId).select('*'));
+      const row = rows[0];
+      if (!row) throw new CommunityError('not_allowed');
+      return toChannel(row);
     },
-    async getProfiles(ids) {
+
+    async listMembers(communityId): Promise<Member[]> {
+      const q = (cols: string) => client().from('community_members').select(cols).eq('community_id', communityId).order('joined_at');
+      const { data, error } = await withColumnFallback(
+        () => q('user_id, role, joined_at, timeout_until'),
+        () => q('user_id, role, joined_at'),
+      );
+      if (error) throw toCommunityError(error);
+      return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(toMember);
+    },
+    async getProfiles(ids): Promise<Profile[]> {
       if (!ids.length) return [];
-      return (await ok(client().from('profiles').select('id, username, display_name, designation').in('id', ids))).map(toProfile);
+      const q = (cols: string) => client().from('profiles').select(cols).in('id', ids);
+      const { data, error } = await withColumnFallback(
+        () => q('id, username, display_name, designation, avatar_path'),
+        () => q('id, username, display_name, designation'),
+      );
+      if (error) throw toCommunityError(error);
+      return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((r) => toProfile(r, avatarUrl));
     },
     async setRole(communityId, userId, role) {
       const rows = await ok(client().from('community_members').update({ role }).eq('community_id', communityId).eq('user_id', userId).select('user_id'));
@@ -214,12 +259,43 @@ export function createSupabaseApi(me: string): CommunityApi {
       if (!rows?.length) throw new CommunityError('not_allowed');
     },
     async banMember(communityId, userId, reason) {
+      // One statement: a database trigger removes the membership as part of the ban, so it can't half-happen.
       await okMaybe(
         client()
           .from('community_bans')
           .insert({ community_id: communityId, user_id: userId, banned_by: me, reason: reason.slice(0, 200) }),
       );
-      await okMaybe(client().from('community_members').delete().eq('community_id', communityId).eq('user_id', userId)); // a no-op if they already left
+    },
+    async listBans(communityId) {
+      const rows = await ok(
+        client()
+          .from('community_bans')
+          .select('user_id, banned_by, reason, created_at')
+          .eq('community_id', communityId)
+          .order('created_at', { ascending: false }),
+      );
+      return rows.map(toBan);
+    },
+    async unbanMember(communityId, userId) {
+      // The policy lets the admin (any ban) or the moderator who issued it through; otherwise no row matches.
+      const rows = await ok(client().from('community_bans').delete().eq('community_id', communityId).eq('user_id', userId).select('user_id'));
+      if (!rows.length) throw new CommunityError('not_allowed');
+    },
+    async timeoutMember(communityId, userId, seconds) {
+      const until = await okMaybe(client().rpc('timeout_member', { p_community: communityId, p_user: userId, p_seconds: Math.max(0, Math.floor(seconds)) }));
+      return typeof until === 'string' ? until : null;
+    },
+    async transferAdmin(communityId, userId) {
+      try {
+        await okMaybe(client().rpc('transfer_admin', { p_community: communityId, p_new_admin: userId }));
+      } catch (err) {
+        if (err instanceof CommunityError && err.code === 'banned') throw new CommunityError('banned', 'That person is banned from this community.');
+        throw err;
+      }
+    },
+    async getMessageAuthor(messageId) {
+      const r = await okMaybe(client().from('messages').select('author_id').eq('id', messageId).maybeSingle());
+      return typeof r?.author_id === 'string' ? r.author_id : null;
     },
 
     async listMessages(channelId, opts) {
@@ -277,7 +353,11 @@ export function createSupabaseApi(me: string): CommunityApi {
       const safe = file.name.replace(/[^\w.-]+/g, '_').slice(-60) || 'file';
       const path = `${communityId}/${me}/${crypto.randomUUID()}-${safe}`;
       const { error } = await client().storage.from(MEDIA_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-      if (error) throw toCommunityError(error);
+      if (error) {
+        // Storage reports a refused insert as a row-level-security error; for an upload by a member it means the per-person quota.
+        const err = toCommunityError(error);
+        throw err.code === 'not_allowed' ? new CommunityError('upload_limit') : err;
+      }
       const dims = await imageSize(file);
       return { path, name: file.name.slice(0, 120), type: file.type, size: file.size, ...dims };
     },
@@ -311,9 +391,8 @@ export function createSupabaseApi(me: string): CommunityApi {
       const channel = c
         .channel('community-activity')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
-          const r = p.new as Record<string, unknown>;
-          if (typeof r.channel_id === 'string' && typeof r.community_id === 'string' && typeof r.author_id === 'string')
-            onMessage({ communityId: r.community_id, channelId: r.channel_id, authorId: r.author_id, createdAt: String(r.created_at ?? '') });
+          const e = toActivityEvent(p.new as Record<string, unknown>);
+          if (e) onMessage(e);
         })
         .subscribe();
       return () => void c.removeChannel(channel);

@@ -1,4 +1,4 @@
-import { CornerUpLeft, Paperclip, SendHorizonal, Smile, X } from 'lucide-react';
+import { CornerUpLeft, Paperclip, SendHorizonal, Smile, Timer, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { IconButton, Popover, PopoverContent, PopoverTrigger, Spinner, Textarea } from '@/components/ui';
 import { EmojiPicker } from '@/features/chat/EmojiPicker';
@@ -8,12 +8,19 @@ import { notify } from '@/lib/toast';
 import { GifPicker } from './GifPicker';
 import { snippet } from './links';
 import { describeError } from './mapping';
-import { ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, ATTACHMENTS_MAX, type Attachment, MESSAGE_MAX } from './types';
+import { can } from './permissions';
+import { formatUntil, formatWait, slowmodeLabel } from './safety';
+import { ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, ATTACHMENTS_MAX, type Attachment, type Channel, MESSAGE_MAX, type Role } from './types';
 import { getCommunityApi, useCommunityStore } from './useCommunityStore';
+import { useMyTimeout, useSlowmodeWait } from './useSafety';
 
 type Pending = { id: string; file: File; preview: string | null; status: 'uploading' | 'done' | 'error'; attachment?: Attachment; error?: string };
 
-export function Composer({ communityId, channelName }: { communityId: string; channelName: string }) {
+export function Composer({ communityId, channel, role }: { communityId: string; channel: Channel; role: Role }) {
+  const channelName = channel.name;
+  const timedOutUntil = useMyTimeout(communityId);
+  const waitMs = useSlowmodeWait(channel, role);
+  const waiting = waitMs > 0;
   const replyTo = useCommunityStore((s) => s.replyTo);
   const replyAuthor = useCommunityStore((s) => (s.replyTo ? s.profiles[s.replyTo.authorId] : undefined));
   const [text, setText] = useState('');
@@ -26,9 +33,11 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
 
   const uploading = pending.some((p) => p.status === 'uploading');
   const ready = pending.filter((p) => p.status === 'done' && p.attachment).map((p) => p.attachment as Attachment);
-  const canSend = !sending && !uploading && (text.trim().length > 0 || ready.length > 0);
+  const timedOut = timedOutUntil !== null;
+  const canSend = !sending && !uploading && !timedOut && !waiting && (text.trim().length > 0 || ready.length > 0);
 
   const addFiles = (files: File[]) => {
+    if (timedOut) return;
     const room = ATTACHMENTS_MAX - pending.length;
     if (files.length > room) notify.info(`Up to ${ATTACHMENTS_MAX} files per message`, room > 0 ? `Added the first ${room}.` : undefined);
     for (const file of files.slice(0, Math.max(0, room))) {
@@ -53,6 +62,7 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
   /** A GIF goes out as its own message right away (like in Discord); whatever you were typing stays in the box. */
   const sendGif = async (url: string) => {
     setGifOpen(false);
+    if (timedOut || waiting) return;
     try {
       await useCommunityStore.getState().send(url, []);
     } catch (err) {
@@ -145,6 +155,7 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           'flex items-end gap-1 rounded-lg border bg-card/60 p-1.5 transition-colors',
           over && 'border-brand bg-brand-soft',
           replyTo && 'rounded-t-none',
+          timedOut && 'opacity-60',
         )}
       >
         <input
@@ -160,7 +171,7 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
             e.target.value = '';
           }}
         />
-        <IconButton label="Attach images, GIFs or video" size="icon" onClick={() => fileRef.current?.click()}>
+        <IconButton label="Attach images, GIFs or video" size="icon" disabled={timedOut} onClick={() => fileRef.current?.click()}>
           <Paperclip />
         </IconButton>
         <Textarea
@@ -168,7 +179,8 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           value={text}
           maxLength={MESSAGE_MAX}
           rows={1}
-          placeholder={`Message #${channelName}`}
+          disabled={timedOut}
+          placeholder={timedOut ? `You’re timed out until ${formatUntil(timedOutUntil)}` : `Message #${channelName}`}
           aria-label={`Message #${channelName}`}
           onChange={(e) => {
             setText(e.target.value);
@@ -177,7 +189,7 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
-              void send();
+              void send(); // (does nothing while slowmode or a timeout applies)
             }
           }}
           onPaste={(e) => {
@@ -190,7 +202,7 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           className="max-h-40 min-h-9 flex-1 border-0 bg-transparent py-2 shadow-none focus-visible:ring-0"
         />
         <Popover open={gifOpen} onOpenChange={setGifOpen}>
-          <PopoverTrigger render={<IconButton label="Add a GIF" size="icon" />}>
+          <PopoverTrigger render={<IconButton label="Add a GIF" size="icon" disabled={timedOut || waiting} />}>
             <span className="text-[11px] font-bold leading-none tracking-tight">GIF</span>
           </PopoverTrigger>
           <PopoverContent align="end" side="top" className="w-auto p-2">
@@ -198,18 +210,45 @@ export function Composer({ communityId, channelName }: { communityId: string; ch
           </PopoverContent>
         </Popover>
         <Popover>
-          <PopoverTrigger render={<IconButton label="Add emoji" size="icon" />}>
+          <PopoverTrigger render={<IconButton label="Add emoji" size="icon" disabled={timedOut} />}>
             <Smile />
           </PopoverTrigger>
           <PopoverContent align="end" side="top" className="w-auto p-2">
             <EmojiPicker onPick={(emoji) => setText((t) => t + emoji)} />
           </PopoverContent>
         </Popover>
-        <IconButton label="Send message" size="icon" variant="primary" disabled={!canSend} onClick={() => void send()}>
+        {waiting && (
+          <span aria-hidden="true" className="tabular self-center px-1 text-xs font-semibold text-muted-foreground">
+            {formatWait(waitMs / 1000)}
+          </span>
+        )}
+        <IconButton
+          label={waiting ? 'Send message (slowmode: wait for the countdown)' : 'Send message'}
+          size="icon"
+          variant="primary"
+          disabled={!canSend}
+          onClick={() => void send()}
+        >
           {sending ? <Spinner /> : <SendHorizonal />}
         </IconButton>
       </div>
-      <p className="mt-1 px-1 text-[11px] text-subtle-foreground">Enter to send · Shift+Enter for a new line · paste or drop images and GIFs</p>
+      {timedOut ? (
+        <p role="status" className="mt-1 flex items-center gap-1.5 px-1 text-[12px] text-warning-text">
+          <Timer className="size-3.5 shrink-0" aria-hidden="true" />
+          You’re timed out until {formatUntil(timedOutUntil)}. You can read, but not send messages or react.
+        </p>
+      ) : channel.slowmodeSeconds > 0 ? (
+        <p className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-subtle-foreground">
+          <Timer className="size-3 shrink-0" aria-hidden="true" />
+          {can(role, 'bypassSlowmode')
+            ? `Slowmode is on (${slowmodeLabel(channel.slowmodeSeconds)}) — it doesn’t apply to you.`
+            : waiting
+              ? `Slowmode: you can send again in ${formatWait(waitMs / 1000)}.`
+              : `Slowmode: one message every ${slowmodeLabel(channel.slowmodeSeconds)}.`}
+        </p>
+      ) : (
+        <p className="mt-1 px-1 text-[11px] text-subtle-foreground">Enter to send · Shift+Enter for a new line · paste or drop images and GIFs</p>
+      )}
     </div>
   );
 }

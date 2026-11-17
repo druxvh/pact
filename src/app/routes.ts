@@ -1,4 +1,5 @@
 import { Clock3, Columns3, Disc3, House, type LucideIcon, MessageCircleMore, NotebookPen, Settings, Wrench } from 'lucide-react';
+import { defaultCaptureKeys } from '@/features/capture/shortcut';
 import { MOD_KEY } from '@/lib/hotkeys';
 import type { Section } from '@/store/useNavStore';
 
@@ -38,8 +39,14 @@ export type ShortcutDef = { keys: string[]; label: string; group: 'General' | 'N
 export const SHORTCUTS: readonly ShortcutDef[] = [
   { keys: [MOD_KEY, 'K'], label: 'Open command palette', group: 'General' },
   { keys: ['/'], label: 'Focus search (Home)', group: 'General' },
+  { keys: ['C'], label: 'Quick capture a note or task', group: 'General' },
+  { keys: defaultCaptureKeys(), label: 'Quick capture from any tab (browser shortcut)', group: 'General' },
   { keys: ['?'], label: 'Keyboard shortcuts', group: 'General' },
   { keys: ['Esc'], label: 'Close dialog / menu', group: 'General' },
+  { keys: [MOD_KEY, 'K'], label: 'Search box: actions for the highlighted result (or →)', group: 'General' },
+  { keys: [MOD_KEY, '↵'], label: 'Search box: secondary action (e.g. new tab)', group: 'General' },
+  { keys: ['Tab'], label: 'Search box: site chip (yt, gh…) / accept the grey completion', group: 'General' },
+  { keys: ['⌫'], label: 'Search box: remove the site chip', group: 'General' },
   ...SECTIONS.map((s): ShortcutDef => ({ keys: ['G', s.hotkey.toUpperCase()], label: `Go to ${s.label}`, group: 'Navigate' })),
   { keys: ['N'], label: 'New note / task / chat (current page)', group: 'Context' },
   { keys: ['Space'], label: 'Start / pause timer (Focus)', group: 'Context' },

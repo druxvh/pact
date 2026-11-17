@@ -4,13 +4,15 @@
  * (admin, moderator, member) without a database.
  */
 import type { CommunityApi, TypingChannel } from './api';
-import { can, canActOnMember } from './permissions';
+import { can, canActOnMember, canUnban } from './permissions';
+import { SLOWMODE_MAX_SECONDS, TIMEOUT_MAX_SECONDS, timeoutActive } from './safety';
 import { attachmentPaths } from './storageCleanup';
 import {
   type ActivityEvent,
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_TYPES,
   type Attachment,
+  type Ban,
   type Channel,
   type Community,
   CommunityError,
@@ -36,8 +38,8 @@ const code16 = () => [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b
 export class MemoryServer {
   users = new Map<string, Profile>();
   communities: Stored[] = [];
-  members: Array<{ communityId: string; userId: string; role: Role; joinedAt: string }> = [];
-  bans: Array<{ communityId: string; userId: string }> = [];
+  members: Array<{ communityId: string; userId: string; role: Role; joinedAt: string; timeoutUntil: string | null }> = [];
+  bans: Array<Ban & { communityId: string }> = [];
   channels: Channel[] = [];
   invites: Array<Invite & { communityId: string }> = [];
   messages: CommunityMessage[] = [];
@@ -59,9 +61,9 @@ export class MemoryServer {
     return new Date(this.last).toISOString();
   };
 
-  addUser(username: string, displayName = username): string {
+  addUser(username: string, displayName = username, avatarUrl?: string): string {
     const id = crypto.randomUUID();
-    this.users.set(id, { id, username, displayName, designation: '' });
+    this.users.set(id, { id, username, displayName, designation: '', ...(avatarUrl && { avatarUrl }) });
     return id;
   }
 
@@ -114,8 +116,8 @@ class MemoryApi implements CommunityApi {
     if (this.s.communities.filter((c) => c.createdBy === this.me).length >= 10) throw new CommunityError('community_limit');
     const id = crypto.randomUUID();
     this.s.communities.push({ id, name, description: input.description, hue: input.hue, createdBy: this.me, createdAt: this.s.clock() });
-    this.s.members.push({ communityId: id, userId: this.me, role: 'admin', joinedAt: this.s.clock() });
-    this.s.channels.push({ id: crypto.randomUUID(), communityId: id, name: 'general', topic: 'Say hi 👋' });
+    this.s.members.push({ communityId: id, userId: this.me, role: 'admin', joinedAt: this.s.clock(), timeoutUntil: null });
+    this.s.channels.push({ id: crypto.randomUUID(), communityId: id, name: 'general', topic: 'Say hi 👋', slowmodeSeconds: 0 });
     return id;
   }
 
@@ -144,7 +146,10 @@ class MemoryApi implements CommunityApi {
   }
 
   async leaveCommunity(id: string) {
-    if (this.role(id) === 'admin') throw new CommunityError('not_allowed', 'The admin can’t leave; delete the community instead.');
+    const mine = this.s.members.find((m) => m.communityId === id && m.userId === this.me);
+    if (this.role(id) === 'admin') throw new CommunityError('not_allowed', 'The admin can’t leave; transfer the community or delete it.');
+    // a timed-out member can't leave and rejoin to shake the timeout off
+    if (mine && timeoutActive(mine.timeoutUntil, Date.now())) throw new CommunityError('timed_out', undefined, { until: mine.timeoutUntil as string });
     this.s.members = this.s.members.filter((m) => !(m.communityId === id && m.userId === this.me));
     this.s.emit(id, { type: 'members-changed' });
   }
@@ -180,7 +185,7 @@ class MemoryApi implements CommunityApi {
     }
     if (this.s.bans.some((b) => b.communityId === i.communityId && b.userId === this.me)) throw new CommunityError('banned');
     if (this.role(i.communityId)) return i.communityId;
-    this.s.members.push({ communityId: i.communityId, userId: this.me, role: 'member', joinedAt: this.s.clock() });
+    this.s.members.push({ communityId: i.communityId, userId: this.me, role: 'member', joinedAt: this.s.clock(), timeoutUntil: null });
     i.uses++;
     this.s.emit(i.communityId, { type: 'members-changed' });
     return i.communityId;
@@ -192,6 +197,7 @@ class MemoryApi implements CommunityApi {
   }
   async createInvite(cid: string, opts: { maxUses: number | null; expiresInHours: number | null }) {
     this.need(cid, 'createInvite');
+    if (this.s.invites.filter((i) => i.communityId === cid).length >= 50) throw new CommunityError('invite_limit');
     const inv = {
       code: code16(),
       communityId: cid,
@@ -218,9 +224,10 @@ class MemoryApi implements CommunityApi {
   }
   async createChannel(cid: string, name: string, topic: string) {
     this.need(cid, 'createChannel');
+    if (this.s.channels.filter((c) => c.communityId === cid).length >= 50) throw new CommunityError('channel_limit');
     if (!/^[a-z0-9][a-z0-9-]{0,29}$/.test(name)) throw new CommunityError('unknown', 'Channel names are lowercase letters, numbers and dashes.');
     if (this.s.channels.some((c) => c.communityId === cid && c.name === name)) throw new CommunityError('unknown', 'That channel already exists.');
-    const ch = { id: crypto.randomUUID(), communityId: cid, name, topic };
+    const ch: Channel = { id: crypto.randomUUID(), communityId: cid, name, topic, slowmodeSeconds: 0 };
     this.s.channels.push(ch);
     this.s.emit(cid, { type: 'channels-changed' });
     return ch;
@@ -234,6 +241,17 @@ class MemoryApi implements CommunityApi {
     this.s.channels = this.s.channels.filter((c) => c.id !== id);
     this.s.messages = this.s.messages.filter((m) => m.channelId !== id);
     this.s.emit(ch.communityId, { type: 'channels-changed' });
+  }
+
+  async setSlowmode(channelId: string, seconds: number): Promise<Channel> {
+    const ch = this.s.channels.find((c) => c.id === channelId);
+    if (!ch || !this.role(ch.communityId)) throw new CommunityError('not_found');
+    this.need(ch.communityId, 'setSlowmode');
+    if (!Number.isInteger(seconds) || seconds < 0 || seconds > SLOWMODE_MAX_SECONDS)
+      throw new CommunityError('unknown', 'That doesn’t fit the allowed limits.');
+    ch.slowmodeSeconds = seconds;
+    this.s.emit(ch.communityId, { type: 'channels-changed' });
+    return { ...ch };
   }
 
   async listMembers(cid: string): Promise<Member[]> {
@@ -257,14 +275,57 @@ class MemoryApi implements CommunityApi {
     this.s.members = this.s.members.filter((m) => m !== target);
     this.s.emit(cid, { type: 'members-changed' });
   }
-  async banMember(cid: string, userId: string, _reason: string) {
+  async banMember(cid: string, userId: string, reason: string) {
     const target = this.s.members.find((m) => m.communityId === cid && m.userId === userId);
     const mine = this.role(cid);
     if (!mine || userId === this.me || (target && !canActOnMember(mine, target.role, 'ban')) || !can(mine, 'moderateMessages'))
       throw new CommunityError('not_allowed');
-    this.s.bans.push({ communityId: cid, userId });
+    if (this.s.bans.some((b) => b.communityId === cid && b.userId === userId)) throw new CommunityError('unknown', 'That already exists.');
+    this.s.bans.push({ communityId: cid, userId, bannedBy: this.me, reason: reason.slice(0, 200), createdAt: this.s.clock() });
     if (target) this.s.members = this.s.members.filter((m) => m !== target);
     this.s.emit(cid, { type: 'members-changed' });
+  }
+  async listBans(cid: string): Promise<Ban[]> {
+    this.need(cid, 'viewBans');
+    return this.s.bans
+      .filter((b) => b.communityId === cid)
+      .map(({ communityId: _c, ...b }) => b)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  async unbanMember(cid: string, userId: string) {
+    const mine = this.role(cid);
+    const ban = this.s.bans.find((b) => b.communityId === cid && b.userId === userId);
+    // like the database: a ban you may not lift is simply not there for you
+    if (!mine || !ban || !canUnban(mine, ban, this.me)) throw new CommunityError('not_allowed');
+    this.s.bans = this.s.bans.filter((b) => b !== ban);
+  }
+  async timeoutMember(cid: string, userId: string, seconds: number) {
+    if (!Number.isInteger(seconds) || seconds < 0 || seconds > TIMEOUT_MAX_SECONDS) throw new CommunityError('bad_duration');
+    const mine = this.role(cid);
+    if (!mine || mine === 'member' || userId === this.me) throw new CommunityError('not_allowed');
+    const target = this.s.members.find((m) => m.communityId === cid && m.userId === userId);
+    if (!target) throw new CommunityError('not_a_member');
+    if (!canActOnMember(mine, target.role, 'timeout')) throw new CommunityError('not_allowed');
+    target.timeoutUntil = seconds === 0 ? null : new Date(Date.now() + seconds * 1000).toISOString();
+    this.s.emit(cid, { type: 'members-changed' });
+    return target.timeoutUntil;
+  }
+  async transferAdmin(cid: string, userId: string) {
+    const me = this.s.members.find((m) => m.communityId === cid && m.userId === this.me);
+    if (me?.role !== 'admin' || userId === this.me) throw new CommunityError('not_allowed');
+    if (this.s.bans.some((b) => b.communityId === cid && b.userId === userId)) throw new CommunityError('banned', 'That person is banned from this community.');
+    const target = this.s.members.find((m) => m.communityId === cid && m.userId === userId);
+    if (!target) throw new CommunityError('not_a_member');
+    me.role = 'mod';
+    target.role = 'admin';
+    target.timeoutUntil = null; // the admin can't be timed out
+    const c = this.s.communities.find((x) => x.id === cid);
+    if (c) c.createdBy = userId; // ownership follows the admin (see the migration)
+    this.s.emit(cid, { type: 'members-changed' });
+  }
+  async getMessageAuthor(messageId: string) {
+    const m = this.s.messages.find((x) => x.id === messageId);
+    return m && this.role(m.communityId) ? m.authorId : null;
   }
 
   async listMessages(channelId: string, opts: { before?: { createdAt: string; id: string }; limit: number }) {
@@ -281,11 +342,26 @@ class MemoryApi implements CommunityApi {
       .map((m) => ({ ...m }));
   }
 
+  /** The posting rules the database applies in its insert trigger: timeouts first, then slowmode (moderators are exempt from it). */
+  private enforcePostingRules(communityId: string, channelId: string) {
+    const mine = this.s.members.find((m) => m.communityId === communityId && m.userId === this.me);
+    if (mine && mine.role !== 'admin' && timeoutActive(mine.timeoutUntil, Date.now()))
+      throw new CommunityError('timed_out', undefined, { until: mine.timeoutUntil as string });
+    const ch = this.s.channels.find((c) => c.id === channelId && c.communityId === communityId);
+    if (!ch || ch.slowmodeSeconds <= 0 || can(this.role(communityId), 'bypassSlowmode')) return;
+    // every message counts, deleted or hidden ones included (they are tombstoned, never erased)
+    const last = this.s.messages.filter((m) => m.channelId === channelId && m.authorId === this.me).reduce((t, m) => Math.max(t, Date.parse(m.createdAt)), 0);
+    // (never more than the slowmode itself — the database's clock can't run ahead of a message's own time)
+    const wait = Math.min(ch.slowmodeSeconds, Math.ceil((last + ch.slowmodeSeconds * 1000 - Date.now()) / 1000));
+    if (last > 0 && wait > 0) throw new CommunityError('slowmode', undefined, { seconds: wait });
+  }
+
   async sendMessage(input: { communityId: string; channelId: string; body: string; attachments: Attachment[]; replyTo: string | null }) {
     this.need(input.communityId, 'post');
+    if (input.attachments.some((a) => !a.path.startsWith(`${input.communityId}/`))) throw new CommunityError('not_allowed');
+    this.enforcePostingRules(input.communityId, input.channelId);
     if (!input.body.trim() && input.attachments.length === 0) throw new CommunityError('unknown', 'Say something or attach a file.');
     if (input.body.length > 4000 || input.attachments.length > 6) throw new CommunityError('too_large');
-    if (input.attachments.some((a) => !a.path.startsWith(`${input.communityId}/`))) throw new CommunityError('not_allowed');
     if (input.replyTo && !this.s.messages.some((m) => m.id === input.replyTo && m.channelId === input.channelId)) throw new CommunityError('not_found');
     const m: CommunityMessage = {
       id: crypto.randomUUID(),
@@ -307,7 +383,16 @@ class MemoryApi implements CommunityApi {
     this.s.emit(m.communityId, { type: 'message', message: { ...m } });
     for (const sub of this.s.activitySubs) {
       if (this.s.roleOf(m.communityId, sub.userId))
-        sub.cb({ communityId: m.communityId, channelId: m.channelId, authorId: m.authorId, createdAt: m.createdAt });
+        sub.cb({
+          messageId: m.id,
+          communityId: m.communityId,
+          channelId: m.channelId,
+          authorId: m.authorId,
+          createdAt: m.createdAt,
+          body: m.body,
+          replyTo: m.replyTo,
+          hasAttachments: m.attachments.length > 0,
+        });
     }
     return { ...m };
   }
@@ -326,6 +411,7 @@ class MemoryApi implements CommunityApi {
   async deleteMessage(id: string) {
     const m = this.message(id);
     if (m.authorId !== this.me) throw new CommunityError('not_allowed');
+    this.s.originals.delete(id); // the author's deletion wins: any archived original is purged too
     m.deletedAt = this.s.clock();
     m.body = '';
     m.attachments = [];
@@ -352,6 +438,8 @@ class MemoryApi implements CommunityApi {
       m.body = o.body;
       m.attachments = o.attachments;
       this.s.originals.delete(id);
+      // links a moderator removed stay removed
+      if (m.linksRemovedAt) m.body = m.body.replace(/(https?:\/\/|www\.)\S+/gi, '[link removed]');
     }
     m.hiddenAt = null;
     m.hiddenBy = null;
@@ -379,6 +467,11 @@ class MemoryApi implements CommunityApi {
   }
   async addReaction(message: { id: string; communityId: string }, emoji: string) {
     this.need(message.communityId, 'post');
+    const mine = this.s.members.find((m) => m.communityId === message.communityId && m.userId === this.me);
+    if (mine && mine.role !== 'admin' && timeoutActive(mine.timeoutUntil, Date.now()))
+      throw new CommunityError('timed_out', undefined, { until: mine.timeoutUntil as string });
+    const onMessage = this.s.reactions.filter((r) => r.messageId === message.id);
+    if (!onMessage.some((r) => r.emoji === emoji) && new Set(onMessage.map((r) => r.emoji)).size >= 20) throw new CommunityError('reaction_limit');
     if (!this.s.reactions.some((r) => r.messageId === message.id && r.userId === this.me && r.emoji === emoji)) {
       this.s.reactions.push({ messageId: message.id, communityId: message.communityId, userId: this.me, emoji });
       this.s.emit(message.communityId, { type: 'reaction-added', reaction: { messageId: message.id, userId: this.me, emoji } });
@@ -453,8 +546,8 @@ class MemoryApi implements CommunityApi {
     const all: Gif[] = ['cat', 'dog', 'party', 'facepalm', 'thumbs up', 'mind blown', 'dance', 'wow'].map((t, i) => ({
       id: `g${i}`,
       title: t,
-      url: `https://media.giphy.com/media/g${i}/giphy.gif`,
-      preview: `https://media.giphy.com/media/g${i}/200w.gif`,
+      url: `https://static.klipy.com/ii/demo/g${i}.webp`,
+      preview: `https://static.klipy.com/ii/demo/g${i}-sm.webp`,
       width: 200,
       height: 150,
     }));

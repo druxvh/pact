@@ -19,6 +19,11 @@ type AuthState = {
   /** The provider whose sign-in window is open right now. */
   signingIn: AuthProvider | null;
   error: string | null;
+  /**
+   * Signed in from the session stored on this device, which couldn't be checked with the server (no connection).
+   * Everything local works; it re-validates by itself once the network is back.
+   */
+  offline: boolean;
 };
 
 export const useAuthStore = create<AuthState>(() => ({
@@ -26,6 +31,7 @@ export const useAuthStore = create<AuthState>(() => ({
   user: null,
   signingIn: null,
   error: null,
+  offline: false,
 }));
 
 export const selectSignedIn = (s: AuthState) => s.status === 'signedIn';

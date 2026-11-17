@@ -13,6 +13,13 @@ const KEY: string = (import.meta.env.WXT_SUPABASE_PUBLISHABLE_KEY as string | un
 
 export const AUTH_STORAGE_KEY = 'pact-auth';
 
+/**
+ * Email sign-in sends a one-time CODE, which needs the project's email template to contain `{{ .Token }}` — and Supabase only
+ * lets you edit templates once custom SMTP is set up (its built-in mailer is also limited to a few emails an hour). Until
+ * that's done the option stays hidden; set WXT_EMAIL_SIGN_IN=true when the template + SMTP are ready.
+ */
+export const EMAIL_SIGN_IN_ENABLED = (import.meta.env.WXT_EMAIL_SIGN_IN as string | undefined)?.trim() === 'true';
+
 export const isBackendConfigured = SUPABASE_URL.startsWith('https://') && KEY.length > 0;
 
 export const supabase: SupabaseClient | null = isBackendConfigured

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>pact party host</title>
+    <!--
+      Never shown: Chromium loads this as an offscreen document (see src/features/party/vibeparty/host-page.ts). It exists
+      because the Realtime connection of a watch party needs the Supabase session (localStorage) and must not be killed
+      when the MV3 service worker goes idle.
+    -->
+  </head>
+  <body>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

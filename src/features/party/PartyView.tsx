@@ -1,4 +1,4 @@
-import { Check, Clock, Copy, Disc3, ExternalLink, Info, MessageCircle, RefreshCw, Server, Users, X } from 'lucide-react';
+import { Check, Clock, Copy, Disc3, ExternalLink, Info, MessageCircle, RefreshCw, ShieldCheck, Users, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import {
@@ -18,28 +18,38 @@ import {
   Skeleton,
 } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
+import { type ConnectionSummary, summarise } from '@/features/party/connection';
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from '@/features/party/roomCode';
 import { usePartyStore } from '@/features/party/store';
-import { type AppStatus, type ConnectionMode, type OpenResult, VIBEPARTY_NAME_KEY } from '@/features/party/vibeparty/protocol';
+import { extractRoomCode, inviteText } from '@/features/party/vibeparty/invite';
+import { type AppRoomStatus, type AppStatus, type ConnectionMode, type OpenResult, VIBEPARTY_NAME_KEY } from '@/features/party/vibeparty/protocol';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/cn';
 import { sendToBackground, storeLocal } from '@/lib/ext';
 import { relativeTime } from '@/lib/format';
 import { fadeUp, spring, stagger } from '@/lib/motion';
+import { isBackendConfigured } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 import { sendMessage } from '@/store/demoServer';
 import { useUiStore } from '@/store/useUiStore';
 import { findPerson, useUserStore } from '@/store/useUserStore';
 
-const inviteText = (room: string) => `🍿 Join my VibeParty — room code: ${room}`;
-
 const STEPS = [
-  ['Pick a room code', 'A fresh, unguessable one is ready for you. The code is the room’s password — share it only with people you want there.'],
-  ['Open YouTube and join', 'pact reuses a YouTube tab you already have open (or opens one) and puts the VibeParty panel on the page.'],
+  [
+    'Start in one click',
+    'Press “Watch together” under any YouTube video, or pick a room code here and press Open YouTube & join. pact copies an invite for you to send.',
+  ],
+  [
+    'Friends join with the link or the code',
+    'Opening the link on YouTube offers “Join party”; or paste the code (or the whole invite) into the Room code box. Everyone needs pact and to be signed in.',
+  ],
   ['Watch, chat, queue', 'Play, pause and seek stay in sync. Add videos to the shared queue — the most upvoted plays next.'],
 ] as const;
 
 const GOOD_TO_KNOW = [
+  'The room code is the room’s password: anyone who has it can join, so share it only with people you want there.',
+  'Nothing is stored: chat, the queue and who’s here exist only while someone is in the party. When the last person leaves, the room is gone.',
+  'A party keeps running if you close pact’s tab — it ends when you leave it or close the YouTube tab.',
   'Ads: when an ad plays on your side your player sits it out, then catches up. It never drags anyone else into your ad.',
   'Playback speed is held at 1× during a party so everyone stays together; tiny drift is corrected by gently nudging speed.',
   'The panel isn’t visible in fullscreen (the browser only draws the video). Theater mode keeps it on screen.',
@@ -85,25 +95,11 @@ function ModeBadge({ status }: { status: AppStatus | null | undefined }) {
       </Badge>
     );
   }
-  const watching = status.rooms.reduce((n, r) => n + r.peers, 0);
-  const mode: Record<ConnectionMode, { tone: 'neutral' | 'success' | 'warning'; label: string; hint: string }> = {
-    local: {
-      tone: 'neutral',
-      label: 'This browser',
-      hint: 'Parties sync the YouTube tabs in this browser. A relay is needed to watch with friends elsewhere.',
-    },
-    live: {
-      tone: 'success',
-      label: watching > 0 ? `Live · ${watching} watching` : 'Live',
-      hint: 'Connected to a relay — friends can join from anywhere with the room code.',
-    },
-    reconnecting: { tone: 'warning', label: 'Reconnecting…', hint: 'The relay is unreachable. Changes stay on this browser until it’s back.' },
-  };
-  const m = mode[status.mode];
+  const m = summarise(status, isBackendConfigured);
   return (
     <Badge tone={m.tone} className="h-6 gap-1.5 px-2.5 text-xs" title={m.hint}>
       <span className="relative flex size-1.5">
-        {status.mode !== 'local' && <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />}
+        {m.pulse && <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />}
         <span className="relative inline-flex size-1.5 rounded-full bg-current" />
       </span>
       {m.label}
@@ -111,11 +107,27 @@ function ModeBadge({ status }: { status: AppStatus | null | undefined }) {
   );
 }
 
-function ModeExplainer({ status }: { status: AppStatus | null | undefined }) {
-  if (status === undefined) return null;
-  const copyCmd = () => void copyText('bun run relay', 'Command copied');
+/** The one-word state of a single room, for the "Happening now" list. */
+function RoomState({ room }: { room: AppRoomStatus }) {
+  const label: Record<ConnectionMode, string> = {
+    live: 'Live',
+    connecting: 'Connecting…',
+    reconnecting: 'Reconnecting…',
+    error: 'Offline',
+    local: 'This browser',
+  };
+  const tone = { live: 'success', connecting: 'neutral', reconnecting: 'warning', error: 'destructive', local: 'neutral' } as const;
+  return (
+    <Badge tone={tone[room.mode]} title={room.message}>
+      {label[room.mode]}
+    </Badge>
+  );
+}
 
-  if (status === null) {
+function ConnectionCard({ status, summary }: { status: AppStatus | null | undefined; summary: ConnectionSummary | null }) {
+  if (status === undefined) return null;
+
+  if (status === null || summary === null) {
     return (
       <Card className="border-dashed bg-transparent shadow-none">
         <p className="flex items-start gap-2 text-[13px] text-muted-foreground">
@@ -129,31 +141,27 @@ function ModeExplainer({ status }: { status: AppStatus | null | undefined }) {
     );
   }
 
-  const text =
-    status.mode === 'live'
-      ? 'Connected to a relay: anyone with the room code can join from any computer. Chat and the queue are shared; playback is kept in sync across the internet.'
-      : status.mode === 'reconnecting'
-        ? 'A relay is configured but can’t be reached right now. Everything keeps working between YouTube tabs in this browser, and changes made meanwhile stay here.'
-        : 'No relay is configured, so a party syncs the YouTube tabs inside this browser only — handy for trying it out or watching on two screens. To watch with friends on other computers, run the relay and point pact at it.';
-
   return (
-    <Card title="Where parties run" action={<Server className="size-4 text-muted-foreground" />}>
-      <p className="text-[13px] leading-relaxed text-muted-foreground">{text}</p>
-      {status.mode === 'local' && (
-        <div className="mt-3 space-y-2 rounded-lg border bg-muted/40 p-3 text-[12.5px]">
-          <p className="text-muted-foreground">Start a relay (needs Bun or Node), then rebuild with its address:</p>
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">bun run relay</code>
-            <IconButton label="Copy command" size="icon-sm" onClick={copyCmd}>
-              <Copy />
-            </IconButton>
-          </div>
-          <code className="block truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">
-            WXT_VIBEPARTY_WS_URL=wss://your-relay.example bun run build
-          </code>
-          <p className="text-subtle-foreground">Remote relays must use wss:// — the extension refuses unencrypted ones. See the README for deployment.</p>
+    <Card title="How friends connect" action={<ShieldCheck className="size-4 text-muted-foreground" />}>
+      <p className="text-[13px] leading-relaxed text-muted-foreground">{summary.hint}</p>
+      {summary.retryable && (
+        <div className="mt-3">
+          <Button size="sm" variant="outline" onClick={() => void sendToBackground({ type: 'vibeparty:retry' })}>
+            <RefreshCw /> Try again now
+          </Button>
         </div>
       )}
+      <ul className="mt-3 space-y-1.5 border-t pt-3 text-[12.5px] leading-snug text-muted-foreground">
+        <li className="flex gap-2">
+          <span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-brand" />
+          Live parties use your pact account: that’s what lets friends on other computers connect — and keeps strangers out. Friends need pact and to be signed
+          in too.
+        </li>
+        <li className="flex gap-2">
+          <span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-brand" />
+          Without an account, a party still works between the YouTube tabs in this browser.
+        </li>
+      </ul>
     </Card>
   );
 }
@@ -165,6 +173,7 @@ export function PartyView() {
   const friendIds = useUserStore((s) => s.friendIds);
   const { name, setName, recent, remember, forget, clearRecent } = usePartyStore();
   const status = useStatus();
+  const summary = status ? summarise(status, isBackendConfigured) : null;
 
   const [code, setCode] = useState(() => useUiStore.getState().partyRoom ?? generateRoomCode());
   const [opening, setOpening] = useState(false);
@@ -185,6 +194,11 @@ export function PartyView() {
   const touched = code.length > 0;
   const displayName = (name || profileName).trim() || 'guest';
   const friends = friendIds.map(findPerson).filter((p): p is NonNullable<typeof p> => Boolean(p));
+
+  // The YouTube panel can't read this page's storage: share the name so "Watch together" starts parties under it.
+  useEffect(() => {
+    void storeLocal({ [VIBEPARTY_NAME_KEY]: displayName });
+  }, [displayName]);
 
   const flash = (what: 'code' | 'invite') => {
     setCopied(what);
@@ -214,7 +228,7 @@ export function PartyView() {
     if (!valid) return;
     const person = findPerson(personId);
     const conversationId = useChatStore.getState().ensureDm(personId);
-    sendMessage({ conversationId, body: inviteText(room) });
+    sendMessage({ conversationId, body: inviteText(room, null) });
     remember(room);
     notify.success('Invite sent', `Posted in your chat with ${person?.displayName ?? 'them'}.`);
   };
@@ -240,6 +254,14 @@ export function PartyView() {
                   id="party-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
+                  onPaste={(e) => {
+                    // An invite (link or text) pasted here becomes the code inside it.
+                    const found = extractRoomCode(e.clipboardData.getData('text'));
+                    if (!found || found === normalizeRoomCode(e.clipboardData.getData('text'))) return;
+                    e.preventDefault();
+                    setCode(found);
+                    notify.info('Room code taken from the invite');
+                  }}
                   spellCheck={false}
                   autoComplete="off"
                   maxLength={48}
@@ -302,7 +324,7 @@ export function PartyView() {
                 ? 'Room codes are 4–32 letters, numbers and dashes.'
                 : code !== room && valid
                   ? `Will join as #${room}`
-                  : 'Anyone with this code can join — treat it like a password.'}
+                  : 'Anyone with this code can join — treat it like a password. You can paste an invite link here too.'}
             </p>
           </div>
 
@@ -327,9 +349,9 @@ export function PartyView() {
               variant="outline"
               disabled={!valid}
               onClick={async () => {
-                if (await copyText(inviteText(room), '')) {
+                if (await copyText(inviteText(room, null), '')) {
                   flash('invite');
-                  notify.success('Invite copied', 'Paste it to a friend — chat links it to this page.');
+                  notify.success('Invite copied', 'A link and the room code — friends open the link on YouTube, or paste the code here.');
                 }
               }}
             >
@@ -380,6 +402,7 @@ export function PartyView() {
                       <span className={cn('relative inline-flex size-2 rounded-full', r.playing ? 'bg-brand' : 'bg-muted-foreground/40')} />
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">#{r.room}</span>
+                    <RoomState room={r} />
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular">
                       <Users className="size-3.5" /> {r.peers}
                     </span>
@@ -395,7 +418,7 @@ export function PartyView() {
       </AnimatePresence>
 
       <motion.div variants={fadeUp}>
-        <ModeExplainer status={status} />
+        <ConnectionCard status={status} summary={summary} />
       </motion.div>
 
       {recent.length > 0 && (

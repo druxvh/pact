@@ -24,6 +24,7 @@ const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(naviga
 
 /** Label for the platform's primary modifier key. */
 export const MOD_KEY = isMac ? '⌘' : 'Ctrl';
+export const IS_MAC = isMac;
 
 function isTypingTarget(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;

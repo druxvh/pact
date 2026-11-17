@@ -1,9 +1,14 @@
 export type Role = 'admin' | 'mod' | 'member';
 
 export type Community = { id: string; name: string; description: string; hue: number; role: Role; createdAt: string };
-export type Channel = { id: string; communityId: string; name: string; topic: string };
-export type Profile = { id: string; username: string; displayName: string; designation: string };
-export type Member = { userId: string; role: Role; joinedAt: string };
+/** `slowmodeSeconds`: the minimum gap between one member's messages here (0 = off; moderators are exempt). */
+export type Channel = { id: string; communityId: string; name: string; topic: string; slowmodeSeconds: number };
+/** `avatarUrl` is a public image URL, when the person has set one. */
+export type Profile = { id: string; username: string; displayName: string; designation: string; avatarUrl?: string };
+/** `timeoutUntil`: while in the future the member can read but not post or react (the server enforces it). */
+export type Member = { userId: string; role: Role; joinedAt: string; timeoutUntil: string | null };
+/** Someone banned from a community (only moderators can list these). */
+export type Ban = { userId: string; bannedBy: string | null; reason: string; createdAt: string };
 
 export type Attachment = { path: string; name: string; type: string; size: number; width?: number; height?: number };
 
@@ -31,8 +36,17 @@ export type InvitePreview = { communityId: string; name: string; description: st
 
 /** Unread messages in one channel (capped at 100 by the server, shown as "99+"). */
 export type UnreadEntry = { channelId: string; communityId: string; count: number };
-/** A new message somewhere in any of my communities (for unread badges). */
-export type ActivityEvent = { communityId: string; channelId: string; authorId: string; createdAt: string };
+/** A new message somewhere in any of my communities (for unread badges and notifications). */
+export type ActivityEvent = {
+  messageId: string;
+  communityId: string;
+  channelId: string;
+  authorId: string;
+  createdAt: string;
+  body: string;
+  replyTo: string | null;
+  hasAttachments: boolean;
+};
 export type TypingEvent = { channelId: string; userId: string };
 /** One GIF from the search provider: `url` is what gets posted, `preview` a small version for the picker. */
 export type Gif = { id: string; title: string; url: string; preview: string; width: number; height: number };
@@ -59,12 +73,23 @@ export type CommunityErrorCode =
   | 'too_large'
   | 'bad_type'
   | 'not_configured'
+  | 'channel_limit'
+  | 'invite_limit'
+  | 'reaction_limit'
+  | 'upload_limit'
+  | 'slowmode'
+  | 'timed_out'
+  | 'bad_duration'
+  | 'not_a_member'
   | 'network'
   | 'unknown';
+/** What a `slowmode` / `timed_out` error carries: how long to wait, or when the timeout ends. */
+export type CommunityErrorDetail = { seconds?: number; until?: string };
 export class CommunityError extends Error {
   constructor(
     public code: CommunityErrorCode,
     message?: string,
+    public detail?: CommunityErrorDetail,
   ) {
     super(message ?? code);
   }

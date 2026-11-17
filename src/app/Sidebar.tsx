@@ -15,7 +15,8 @@ function RailItem({ item, active, badge, onSelect }: { item: SectionMeta; active
     <Tooltip content={item.label} shortcut={`G ${item.hotkey.toUpperCase()}`} side="right">
       <button
         type="button"
-        aria-label={item.label}
+        data-tour={`nav-${item.id}`}
+        aria-label={typeof badge === 'number' ? `${item.label}, ${badge > 99 ? '99+' : badge} unread` : item.label}
         aria-current={active ? 'page' : undefined}
         onClick={onSelect}
         className={cn(
@@ -35,7 +36,7 @@ function RailItem({ item, active, badge, onSelect }: { item: SectionMeta; active
         <Icon className="relative size-[19px] transition-transform duration-200 ease-out-expo group-hover:scale-110" />
         {badge ? (
           <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold leading-4 text-brand-foreground ring-2 ring-background">
-            {badge === 'dot' ? '' : badge}
+            {badge === 'dot' ? '' : badge > 99 ? '99+' : badge}
           </span>
         ) : null}
       </button>
@@ -59,7 +60,7 @@ export function Sidebar({ badges = {} }: { badges?: Badges }) {
       </Tooltip>
 
       <LayoutGroup id="rail">
-        <nav aria-label="Sections" className="flex flex-1 flex-col items-center gap-1">
+        <nav aria-label="Sections" data-tour="sections" className="flex flex-1 flex-col items-center gap-1">
           {main.map((item) => (
             <RailItem key={item.id} item={item} active={section === item.id} badge={badges[item.id]} onSelect={() => go(item.id)} />
           ))}
@@ -79,7 +80,11 @@ export function MobileNav({ badges = {} }: { badges?: Badges }) {
   const section = useNavStore((s) => s.section);
   const go = useNavStore((s) => s.go);
   return (
-    <nav aria-label="Sections" className="surface-glass flex shrink-0 items-center justify-around border-t px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav
+      aria-label="Sections"
+      data-tour="sections"
+      className="surface-glass flex shrink-0 items-center justify-around border-t px-1 pb-[env(safe-area-inset-bottom)] md:hidden"
+    >
       {SECTIONS.map((item) => {
         const Icon = item.icon;
         const active = section === item.id;
@@ -88,6 +93,7 @@ export function MobileNav({ badges = {} }: { badges?: Badges }) {
           <button
             key={item.id}
             type="button"
+            data-tour={`nav-${item.id}`}
             aria-label={item.label}
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.id)}

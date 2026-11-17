@@ -2,12 +2,13 @@ import { ChevronLeft, ChevronRight, Download, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, IconButton, Input, Switch } from '@/components/ui';
 import { type FRect, FULL_PAGE, isFullPage, marginsFromRect, rectFromMargins } from '@/features/tools/lib/pdf/geometry';
-import { cropPdf } from '@/features/tools/lib/pdf/ops';
 import { FileDrop, Problems } from '@/features/tools/pdf/FileDrop';
 import { baseName, type LoadedPdf, pdfBlob, readPdfs } from '@/features/tools/pdf/files';
+import { JobProgress } from '@/features/tools/pdf/JobProgress';
 import { PagePreview } from '@/features/tools/pdf/PagePreview';
 import { RectBox } from '@/features/tools/pdf/RectBox';
 import { useDocs } from '@/features/tools/pdf/useDocs';
+import { usePdfJob } from '@/features/tools/pdf/usePdfJob';
 import { Field } from '@/features/tools/ui';
 import { downloadBlob } from '@/lib/download';
 import { notify } from '@/lib/toast';
@@ -48,7 +49,7 @@ export default function PdfCropTool() {
   const [page, setPage] = useState(0);
   const [crops, setCrops] = useState<FRect[]>([]);
   const [all, setAll] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const job = usePdfJob();
   const doc = useDocs(file ? [file] : []).get(file?.id ?? '');
 
   const load = async (picked: File[]) => {
@@ -82,16 +83,13 @@ export default function PdfCropTool() {
       notify.info('Nothing to crop', 'Drag the frame (or set the margins) first.');
       return;
     }
-    setBusy(true);
-    try {
-      const out = await cropPdf(file.bytes, edits);
-      downloadBlob(`${baseName(file.name)}-cropped.pdf`, pdfBlob(out));
+    await job.run(async (api) => {
+      const { files: out } = await api.run({ op: 'crop', bytes: file.bytes, crops: edits });
+      const cropped = out[0];
+      if (!cropped) throw new Error('Nothing was produced.');
+      downloadBlob(`${baseName(file.name)}-cropped.pdf`, pdfBlob(cropped));
       notify.success('Cropped PDF saved');
-    } catch (err) {
-      notify.error('Couldn’t crop', err instanceof Error ? err.message : undefined);
-    } finally {
-      setBusy(false);
-    }
+    }, 'Couldn’t crop');
   };
 
   return (
@@ -100,7 +98,7 @@ export default function PdfCropTool() {
         <FileDrop
           accept="application/pdf,.pdf"
           multiple={false}
-          onFiles={(f) => void load(f)}
+          onFiles={load}
           title="Drop a PDF here, or click to choose"
           hint="Trim the margins off every page · stays on your device"
         />
@@ -147,15 +145,20 @@ export default function PdfCropTool() {
               </label>
               <Switch id="crop-all" checked={all} onCheckedChange={setAll} aria-label="Same crop on every page" />
             </div>
-            <Button variant="outline" className="w-full" onClick={() => setRect(FULL_PAGE)}>
+            <Button variant="outline" className="w-full" disabled={job.busy} onClick={() => setRect(FULL_PAGE)}>
               <RotateCcw /> Reset this page
             </Button>
-            <Button variant="primary" className="w-full" loading={busy} onClick={() => void download()}>
-              <Download /> Download cropped PDF
-            </Button>
+            {job.busy ? (
+              <JobProgress stacked progress={job.progress} onCancel={job.cancel} />
+            ) : (
+              <Button variant="primary" className="w-full" onClick={() => void download()}>
+                <Download /> Download cropped PDF
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="w-full"
+              disabled={job.busy}
               onClick={() => {
                 setFile(null);
                 setCrops([]);

@@ -1,7 +1,8 @@
-import type { Session } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 import { getAuthRedirectUrl, isExtension, launchAuthFlow } from '@/lib/ext';
 import { supabase } from '@/lib/supabase/client';
-import { claimLocalData } from '@/lib/supabase/owner';
+import { bindTab, claimLocalData, startAccountWatch, tabOwner } from '@/lib/supabase/owner';
+import { removeStoredSession, type StoredSession, storedSession } from '@/lib/supabase/stored';
 import { type AuthProvider, type AuthUser, useAuthStore } from '@/store/useAuthStore';
 
 const toUser = (session: Session): AuthUser => {
@@ -16,32 +17,114 @@ const toUser = (session: Session): AuthUser => {
   };
 };
 
-async function applySession(session: Session | null): Promise<void> {
-  if (!session) {
-    useAuthStore.setState({ status: 'guest', user: null });
-    return;
-  }
-  const clean = await claimLocalData(session.user.id);
+const fromStored = (s: StoredSession): AuthUser => ({ id: s.userId, email: s.email, provider: s.provider, name: s.name });
+
+const setGuest = () => useAuthStore.setState({ status: 'guest', user: null, offline: false });
+
+/**
+ * Make `user` the signed-in account of this tab — after making sure this device's data is theirs. If it belonged to
+ * someone else (or this tab's memory does), nothing is shown to the new account: persistence is frozen, the old
+ * data is wiped by whichever tab noticed first, and the page reloads.
+ */
+async function adopt(user: AuthUser, offline: boolean): Promise<void> {
+  const clean = await claimLocalData(user.id, tabOwner());
   if (!clean) {
-    // Another person's data was on this device and has been removed; start every store fresh.
     window.location.reload();
     return;
   }
-  useAuthStore.setState({ status: 'signedIn', user: toUser(session), error: null });
+  useAuthStore.setState({ status: 'signedIn', user, error: null, offline });
+}
+
+async function applySession(session: Session | null): Promise<void> {
+  if (!session) {
+    setGuest();
+    return;
+  }
+  await adopt(toUser(session), false);
+}
+
+export type InitialSession = { kind: 'session'; session: Session } | { kind: 'offline'; user: AuthUser } | { kind: 'guest' };
+
+/**
+ * What to do with the answer to "is there a session?" at startup.
+ *
+ * `getSession()` refreshes an expired access token over the network (they last an hour). With no connection that
+ * fails, and the session comes back `null` even though a perfectly good one is stored — which used to lock the person
+ * out of every signed-in section while offline. A stored session with a refresh token, when the failure is "can't
+ * reach the server" (or we were offline / it timed out), opens the app in offline mode instead. A *rejected* session
+ * (revoked, invalid) is gone from storage already and correctly lands on guest.
+ */
+export function resolveInitialSession(input: {
+  session: Session | null;
+  error: unknown;
+  stored: StoredSession | null;
+  online: boolean;
+  timedOut?: boolean;
+}): InitialSession {
+  if (input.session) return { kind: 'session', session: input.session };
+  const { stored } = input;
+  if (stored?.hasRefreshToken && (input.timedOut || !input.online || isAuthRetryableFetchError(input.error)))
+    return { kind: 'offline', user: fromStored(stored) };
+  return { kind: 'guest' };
+}
+
+const START_TIMEOUT_MS = 4000;
+
+async function settleInitial(result: { session: Session | null; error: unknown } | 'timeout'): Promise<void> {
+  const decision = resolveInitialSession({
+    session: result === 'timeout' ? null : result.session,
+    error: result === 'timeout' ? null : result.error,
+    stored: storedSession(),
+    online: typeof navigator === 'undefined' ? true : navigator.onLine,
+    timedOut: result === 'timeout',
+  });
+  if (decision.kind === 'session') await applySession(decision.session);
+  else if (decision.kind === 'offline') await adopt(decision.user, true);
+  else setGuest();
 }
 
 let started = false;
+
+/** Ask the server whether the stored session still works (the network came back, or the first check timed out). */
+async function revalidate(): Promise<void> {
+  if (!supabase) return;
+  const { data, error } = await supabase.auth.getSession();
+  if (data.session) await applySession(data.session);
+  else if (!isAuthRetryableFetchError(error) && !storedSession()) setGuest();
+}
 
 /** Restore the session and follow sign-ins/outs (including from other tabs). Call once at startup. */
 export async function startAuth(): Promise<void> {
   if (started || !supabase) return;
   started = true;
+  bindTab(); // whose data did this tab's stores just load?
+  startAccountWatch({
+    onSessionRemoved: () => {
+      if (useAuthStore.getState().status !== 'guest') setGuest();
+    },
+  });
   // supabase-js warns against awaiting other client calls inside this callback (it holds an internal lock), so defer.
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    // The initial answer comes from getSession() below. (An offline start reports a `null` session here that is *not* a sign-out.)
+    if (event === 'INITIAL_SESSION') return;
+    if (!session && event !== 'SIGNED_OUT') return;
     window.setTimeout(() => void applySession(session), 0);
   });
-  const { data } = await supabase.auth.getSession();
-  await applySession(data.session);
+  window.addEventListener('online', () => {
+    if (useAuthStore.getState().offline) void revalidate();
+  });
+
+  const pending = supabase.auth.getSession();
+  let timer: number | undefined;
+  const first = await Promise.race([pending, new Promise<'timeout'>((resolve) => (timer = window.setTimeout(() => resolve('timeout'), START_TIMEOUT_MS)))]);
+  window.clearTimeout(timer);
+  if (first === 'timeout') {
+    // The network is stalling: open from the stored session now and let the real answer replace it when it lands.
+    await settleInitial('timeout');
+    void pending.then(({ data }) => (data.session ? applySession(data.session) : undefined)).catch(() => {});
+    return;
+  }
+  await settleInitial({ session: first.data.session, error: first.error });
 }
 
 const PROVIDER_LABEL: Record<AuthProvider, string> = { github: 'GitHub', google: 'Google' };
@@ -124,8 +207,51 @@ export async function verifyEmailCode(email: string, code: string): Promise<stri
 
 export const providerLabel = (p: AuthProvider) => PROVIDER_LABEL[p];
 
-/** Plain sign-out (callers that care about unsynced changes go through `requestSignOut`). */
-export async function signOut(): Promise<void> {
-  if (!supabase) return;
-  await supabase.auth.signOut();
+export type SignOutOutcome = {
+  /** This device is signed out (the stored session is gone and the app is in guest state). */
+  signedOutHere: boolean;
+  /** Every session of the account was ended on the server (needs a connection). */
+  revokedEverywhere: boolean;
+  /** Why the server-side part failed, if it did. */
+  message?: string;
+};
+
+/**
+ * Sign out, robustly. Callers that care about unsynced changes go through `requestSignOut`.
+ *
+ * supabase-js *returns* errors from `signOut()` instead of throwing them, so the old `await signOut()` + try/catch
+ * could never notice a failure: offline, the global sign-out is refused *before* the session is removed, the page
+ * reloaded still signed in — and with its notes already wiped. Now:
+ *  1. Online → `scope: 'global'`, which ends this account's sessions everywhere (a stolen refresh token dies too).
+ *  2. If that fails (offline, server error) → `scope: 'local'`, which removes the stored session *before* it contacts
+ *     the server, so it can't be blocked by the network.
+ *  3. Whatever happened, make sure the session is really gone from storage and the app is in guest state — never
+ *     half signed-in — and report what did and didn't happen so the UI can say so.
+ */
+export async function signOut(): Promise<SignOutOutcome> {
+  if (!supabase) return { signedOutHere: true, revokedEverywhere: true };
+  let revokedEverywhere = false;
+  let message: string | undefined;
+  if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      if (error) message = error.message;
+      else revokedEverywhere = true;
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+  } else {
+    message = 'You’re offline.';
+  }
+  if (!revokedEverywhere) {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      /* handled below: the stored session is removed by hand */
+    }
+  }
+  if (storedSession()) removeStoredSession();
+  const signedOutHere = storedSession() === null;
+  if (signedOutHere) setGuest();
+  return { signedOutHere, revokedEverywhere, ...(message ? { message } : null) };
 }

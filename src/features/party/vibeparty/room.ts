@@ -1,9 +1,9 @@
 /**
  * One VibeParty room as a pure state machine: who's here, the queue, recent chat, and where the video is.
  *
- * The extension's background script runs one `Room` per party for the tabs of THIS browser, and the relay
- * server runs one per party for everyone — the exact same rules in both places is what lets a local party
- * and a live party behave identically. No timers, no I/O: the clock is injected so every rule is testable.
+ * The party host runs one `Room` per party for the tabs of THIS browser (the controller's copy), and the room's hub
+ * (hub.ts, whichever member currently plays it) runs one for everyone — the exact same rules in both places is what
+ * lets a local party and a live party behave identically. No timers, no I/O: the clock is injected so every rule is testable.
  */
 import { type ChatMessage, LIMITS, type MediaEventName, type MediaSnapshot, type PeerInfo, type QueueItem, type RoomState } from './protocol.ts';
 import { cleanChat, cleanId, cleanMediaTime, cleanPeers, cleanQueue, cleanVideoId } from './sanitize.ts';
@@ -30,7 +30,7 @@ export class Room {
   private queueItems: QueueItem[] = [];
   private chatLog: ChatMessage[] = [];
   private anchor: Anchor | null = null;
-  /** When the last peer left (the relay garbage-collects rooms that stay empty). Null while anyone is here. */
+  /** When the last peer left (a room with nobody in it simply stops existing). Null while anyone is here. */
   emptySince: number | null;
 
   constructor(id: string, now: () => number = Date.now) {
@@ -57,7 +57,7 @@ export class Room {
     return had;
   }
 
-  /** Replace the whole roster (the relay is authoritative about who's in the room). */
+  /** Replace the whole roster (Presence is authoritative about who's in the room). */
   setPeers(peers: PeerInfo[]): void {
     this.peerMap.clear();
     for (const p of peers.slice(0, LIMITS.peersPerRoom)) this.peerMap.set(p.id, p);
@@ -138,7 +138,7 @@ export class Room {
 
   // ── chat ──────────────────────────────────────────────────────────────────
 
-  /** False when we already have this message (the relay echoes, and so do optimistic local adds). */
+  /** False when we already have this message (the hub echoes, and so do optimistic local adds). */
   addChat(message: ChatMessage): boolean {
     if (this.chatLog.some((m) => m.id === message.id)) return false;
     this.chatLog.push(message);
@@ -193,7 +193,7 @@ export class Room {
     return { room: this.id, peers: this.peers(), queue: this.sortedQueue(), chat: this.chat(), media: this.snapshot() };
   }
 
-  /** Replace everything with the relay's version of the room. */
+  /** Replace everything with the hub's version of the room. */
   replace(state: Omit<RoomState, 'room'>, latencyMs = 0): void {
     this.setPeers(state.peers);
     this.queueItems = state.queue.slice(0, LIMITS.queue);

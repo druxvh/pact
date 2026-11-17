@@ -28,6 +28,7 @@ export function TopBar() {
       {!isHome && (
         <button
           type="button"
+          data-tour="palette"
           onClick={() => openPalette(true)}
           className="group hidden h-8 w-72 items-center gap-2 rounded-lg border bg-card/60 px-3 text-[13px] text-muted-foreground transition-[border-color,background-color] duration-150 hover:border-foreground/20 hover:bg-accent md:flex"
         >
@@ -39,14 +40,14 @@ export function TopBar() {
 
       <div className="ml-auto flex items-center gap-1">
         {signedIn && <TimerPill />}
-        <IconButton label="Search" shortcut={`${MOD_KEY}K`} onClick={() => openPalette(true)} className={cn(!isHome && 'md:hidden')}>
+        <IconButton label="Search" shortcut={`${MOD_KEY}K`} data-tour="palette" onClick={() => openPalette(true)} className={cn(!isHome && 'md:hidden')}>
           <Search />
         </IconButton>
         <ThemeToggle />
         {signedIn && <SyncBadge />}
         {signedIn && <NotificationCenter />}
         {!signedIn && !checking && (
-          <Button variant="primary" size="sm" className="ml-1" onClick={() => setSignInOpen(true)}>
+          <Button variant="primary" size="sm" className="ml-1" data-tour="sign-in" onClick={() => setSignInOpen(true)}>
             Sign in
           </Button>
         )}

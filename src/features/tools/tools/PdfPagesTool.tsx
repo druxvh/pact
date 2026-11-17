@@ -1,12 +1,14 @@
 import { CheckSquare, Download, FilePlus2, RotateCcw, RotateCw, Square, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, IconButton } from '@/components/ui';
-import { assemble, type PageRef } from '@/features/tools/lib/pdf/ops';
+import type { PageRef } from '@/features/tools/lib/pdf/types';
 import { FileDrop, Problems } from '@/features/tools/pdf/FileDrop';
 import { baseName, type LoadedPdf, nextId, pdfBlob, readPdfs } from '@/features/tools/pdf/files';
+import { JobProgress } from '@/features/tools/pdf/JobProgress';
 import { moveItem } from '@/features/tools/pdf/order';
 import { PageThumb } from '@/features/tools/pdf/PageThumb';
 import { useDocs } from '@/features/tools/pdf/useDocs';
+import { usePdfJob } from '@/features/tools/pdf/usePdfJob';
 import { cn } from '@/lib/cn';
 import { downloadBlob } from '@/lib/download';
 import { pluralize } from '@/lib/format';
@@ -18,7 +20,7 @@ export default function PdfPagesTool() {
   const [files, setFiles] = useState<LoadedPdf[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [problems, setProblems] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
+  const job = usePdfJob();
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const docs = useDocs(files);
@@ -34,28 +36,37 @@ export default function PdfPagesTool() {
     ]);
   };
 
+  // A file whose pages were all deleted is no longer part of the document: let go of its bytes and its pdf.js document
+  // (both can be tens of megabytes) instead of holding them until "Start over".
+  useEffect(() => {
+    const inUse = new Set(items.map((i) => i.fileId));
+    setFiles((cur) => (cur.every((f) => inUse.has(f.id)) ? cur : cur.filter((f) => inUse.has(f.id))));
+  }, [items]);
+
   const selected = items.filter((i) => i.selected);
-  const fileIndex = useMemo(() => new Map(files.map((f, i) => [f.id, i])), [files]);
   const patch = (keys: Set<string>, fn: (i: Item) => Item) => setItems((cur) => cur.map((i) => (keys.has(i.key) ? fn(i) : i)));
   const targets = (key: string) => new Set(selected.length > 0 && items.find((i) => i.key === key)?.selected ? selected.map((i) => i.key) : [key]);
 
-  const toRefs = (list: Item[]): PageRef[] => list.map((i) => ({ source: fileIndex.get(i.fileId) ?? 0, page: i.page, rotate: i.turn }));
-
-  const save = async (list: Item[], suffix: string) => {
-    setBusy(true);
-    try {
-      const out = await assemble(
-        files.map((f) => f.bytes),
-        toRefs(list),
-      );
-      downloadBlob(`${files.length === 1 ? baseName(files[0]?.name ?? 'document') : 'document'}${suffix}.pdf`, pdfBlob(out));
-      notify.success('Saved', pluralize(list.length, 'page'));
-    } catch (err) {
-      notify.error('Couldn’t save', err instanceof Error ? err.message : undefined);
-    } finally {
-      setBusy(false);
-    }
+  /** Only the files the chosen pages come from are sent to the worker (extracting from one of five open files sends one). */
+  const plan = (list: Item[]): { sources: Uint8Array[]; pages: PageRef[] } => {
+    const ids = [...new Set(list.map((i) => i.fileId))];
+    const sources = ids.map((id) => {
+      const file = files.find((f) => f.id === id);
+      if (!file) throw new Error('A page belongs to a file that is no longer open.');
+      return file.bytes;
+    });
+    return { sources, pages: list.map((i) => ({ source: ids.indexOf(i.fileId), page: i.page, rotate: i.turn })) };
   };
+
+  const save = (list: Item[], suffix: string) =>
+    job.run(async (api) => {
+      const { sources, pages } = plan(list);
+      const { files: out } = await api.run({ op: 'assemble', sources, pages });
+      const result = out[0];
+      if (!result) throw new Error('Nothing was produced.');
+      downloadBlob(`${files.length === 1 ? baseName(files[0]?.name ?? 'document') : 'document'}${suffix}.pdf`, pdfBlob(result));
+      notify.success('Saved', pluralize(list.length, 'page'));
+    }, 'Couldn’t save');
 
   const rotate = (keys: Set<string>, by: number) => patch(keys, (i) => ({ ...i, turn: (i.turn + by + 360) % 360 }));
 
@@ -63,7 +74,7 @@ export default function PdfPagesTool() {
     <div className="space-y-4">
       <FileDrop
         accept="application/pdf,.pdf"
-        onFiles={(f) => void add(f)}
+        onFiles={add}
         title={files.length ? 'Add pages from another PDF' : 'Drop a PDF here, or click to choose'}
         hint="Rearrange, rotate, delete or pull out pages · stays on your device"
         compact={files.length > 0}
@@ -185,6 +196,7 @@ export default function PdfPagesTool() {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="ghost"
+              disabled={job.busy}
               onClick={() => {
                 setFiles([]);
                 setItems([]);
@@ -192,13 +204,14 @@ export default function PdfPagesTool() {
             >
               Start over
             </Button>
-            <Button variant="outline" disabled={!selected.length || busy} onClick={() => void save(selected, '-extract')}>
+            <Button variant="outline" disabled={!selected.length || job.busy} onClick={() => void save(selected, '-extract')}>
               <FilePlus2 /> Download selected ({selected.length})
             </Button>
-            <Button variant="primary" loading={busy} onClick={() => void save(items, '-edited')}>
+            <Button variant="primary" disabled={job.busy} onClick={() => void save(items, '-edited')}>
               <Download /> Download {pluralize(items.length, 'page')}
             </Button>
           </div>
+          {job.busy && <JobProgress progress={job.progress} onCancel={job.cancel} />}
         </>
       )}
     </div>

@@ -93,6 +93,18 @@ export function deriveAccent(brand: Oklch, theme: ThemeName): AccentTokens {
   };
 }
 
+/** Colours for the pact mark: a gradient around the accent, and ink that stays legible on it (same rule as `--brand-foreground`). */
+export function logoColors(choice: AccentChoice, theme: ThemeName = 'light'): { from: string; to: string; ink: string } {
+  const b = fitToGamut(baseColor(choice, theme));
+  const ink = c(0.16, 0.03, b.h);
+  const foreground = contrast(ink, b) >= contrast(WHITE, b) ? ink : WHITE;
+  return {
+    from: oklchToHex(fitToGamut({ ...b, l: Math.min(0.97, b.l + 0.07) })),
+    to: oklchToHex(fitToGamut({ ...b, l: Math.max(0.2, b.l - 0.06) })),
+    ink: oklchToHex(foreground),
+  };
+}
+
 const block = (selector: string, tokens: AccentTokens) =>
   `${selector}{${Object.entries(tokens)
     .map(([k, v]) => `${k}:${v}`)

@@ -9,6 +9,9 @@ type UiState = {
   setShortcutsOpen: (open: boolean) => void;
   signInOpen: boolean;
   setSignInOpen: (open: boolean) => void;
+  /** The quick-capture sheet (press `C`). */
+  captureOpen: boolean;
+  setCaptureOpen: (open: boolean) => void;
   /** One-shot intents: the palette sets them, the target view consumes them on mount. */
   pendingTaskId: string | null;
   pendingNewTask: boolean;
@@ -27,6 +30,8 @@ export const useUiStore = create<UiState>((set) => ({
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
   signInOpen: false,
   setSignInOpen: (signInOpen) => set({ signInOpen }),
+  captureOpen: false,
+  setCaptureOpen: (captureOpen) => set({ captureOpen }),
   pendingTaskId: null,
   pendingNewTask: false,
   setPendingTaskId: (pendingTaskId) => set({ pendingTaskId }),

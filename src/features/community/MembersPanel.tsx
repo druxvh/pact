@@ -1,8 +1,9 @@
-import { Ban, MoreHorizontal, ShieldCheck, ShieldOff, UserMinus } from 'lucide-react';
-import { useMemo } from 'react';
+import { Ban, Crown, MoreHorizontal, ShieldCheck, ShieldOff, Timer, TimerOff, UserMinus } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
   Avatar,
   Badge,
+  Button,
   confirm,
   DropdownContent,
   DropdownItem,
@@ -14,17 +15,24 @@ import {
 } from '@/components/ui';
 import { notify } from '@/lib/toast';
 import { describeError } from './mapping';
-import { canActOnMember, roleLabel } from './permissions';
+import { can, canActOnMember, roleLabel } from './permissions';
+import { TimeoutDialog } from './SafetyDialogs';
+import { formatUntil, timeoutActive } from './safety';
 import type { Community, Role } from './types';
+import { useNow } from './typing';
 import { getCommunityApi, useCommunityStore } from './useCommunityStore';
 
 const ORDER: Role[] = ['admin', 'mod', 'member'];
 const HEADINGS: Record<Role, string> = { admin: 'Admin', mod: 'Moderators', member: 'Members' };
 
-export function MembersPanel({ community }: { community: Community }) {
+export function MembersPanel({ community, onShowBans }: { community: Community; onShowBans?: () => void }) {
   const members = useCommunityStore((s) => s.members[community.id]) ?? [];
   const profiles = useCommunityStore((s) => s.profiles);
   const me = getCommunityApi().me;
+  const [timeoutFor, setTimeoutFor] = useState<{ userId: string; name: string } | null>(null);
+
+  // a "Timed out" badge disappears by itself when the time is up
+  useNow(members.some((m) => timeoutActive(m.timeoutUntil, Date.now())));
 
   const groups = useMemo(
     () =>
@@ -48,6 +56,16 @@ export function MembersPanel({ community }: { community: Community }) {
     }
   };
 
+  const makeAdmin = async (userId: string, name: string) => {
+    const ok = await confirm({
+      title: `Make ${name} the admin of ${community.name}?`,
+      description: `${name} becomes the only admin and you become a moderator. You will lose the admin-only powers: managing channels and settings, appointing and removing moderators, banning moderators, and deleting the community. Only ${name} can give them back. This can’t be undone by you.`,
+      confirmLabel: 'Transfer admin',
+      destructive: true,
+    });
+    if (ok) await act(() => getCommunityApi().transferAdmin(community.id, userId), `${name} is now the admin`);
+  };
+
   return (
     <aside aria-label="Members" className="hidden w-56 shrink-0 flex-col overflow-y-auto border-l p-2 lg:flex">
       {groups.map((g) => (
@@ -61,9 +79,12 @@ export function MembersPanel({ community }: { community: Community }) {
               const target = m.userId !== me ? m.role : null;
               const canKick = target !== null && canActOnMember(community.role, m.role, 'kick');
               const canRole = target !== null && canActOnMember(community.role, m.role, 'setRole');
+              const canTimeout = target !== null && canActOnMember(community.role, m.role, 'timeout');
+              const canTransfer = target !== null && canActOnMember(community.role, m.role, 'transferAdmin');
+              const timedOut = timeoutActive(m.timeoutUntil, Date.now());
               return (
                 <li key={m.userId} className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent/50">
-                  <Avatar name={name} size="md" />
+                  <Avatar name={name} src={m.profile?.avatarUrl} size="md" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">
                       {name}
@@ -71,8 +92,13 @@ export function MembersPanel({ community }: { community: Community }) {
                     </span>
                     {m.profile && <span className="block truncate text-[11px] text-subtle-foreground">@{m.profile.username}</span>}
                   </span>
+                  {timedOut && m.timeoutUntil && (
+                    <Badge tone="warning" title={`Timed out until ${formatUntil(m.timeoutUntil)}`}>
+                      <Timer aria-hidden="true" /> Timed out
+                    </Badge>
+                  )}
                   {m.role !== 'member' && <Badge tone={m.role === 'admin' ? 'brand' : 'neutral'}>{roleLabel[m.role]}</Badge>}
-                  {(canKick || canRole) && (
+                  {(canKick || canRole || canTimeout || canTransfer) && (
                     <DropdownMenu>
                       <DropdownTrigger
                         render={
@@ -98,7 +124,26 @@ export function MembersPanel({ community }: { community: Community }) {
                               Make moderator
                             </DropdownItem>
                           ))}
-                        {canKick && canRole && <DropdownSeparator />}
+                        {canTransfer && (
+                          <DropdownItem icon={<Crown />} onClick={() => void makeAdmin(m.userId, name)}>
+                            Make admin…
+                          </DropdownItem>
+                        )}
+                        {(canRole || canTransfer) && (canTimeout || canKick) && <DropdownSeparator />}
+                        {canTimeout &&
+                          (timedOut ? (
+                            <DropdownItem
+                              icon={<TimerOff />}
+                              onClick={() => void act(() => getCommunityApi().timeoutMember(community.id, m.userId, 0), `${name}’s timeout was lifted`)}
+                            >
+                              Remove timeout
+                            </DropdownItem>
+                          ) : (
+                            <DropdownItem icon={<Timer />} onClick={() => setTimeoutFor({ userId: m.userId, name })}>
+                              Time out…
+                            </DropdownItem>
+                          ))}
+                        {canTimeout && canKick && <DropdownSeparator />}
                         {canKick && (
                           <>
                             <DropdownItem
@@ -146,6 +191,20 @@ export function MembersPanel({ community }: { community: Community }) {
           </ul>
         </div>
       ))}
+      {onShowBans && can(community.role, 'viewBans') && (
+        <Button variant="ghost" size="sm" className="mt-auto justify-start text-muted-foreground" onClick={onShowBans}>
+          <Ban /> Banned people
+        </Button>
+      )}
+      <TimeoutDialog
+        name={timeoutFor?.name ?? ''}
+        open={timeoutFor !== null}
+        onOpenChange={(o) => !o && setTimeoutFor(null)}
+        onConfirm={async (seconds) => {
+          if (!timeoutFor) return;
+          await act(() => getCommunityApi().timeoutMember(community.id, timeoutFor.userId, seconds), `${timeoutFor.name} was timed out`);
+        }}
+      />
     </aside>
   );
 }

@@ -26,6 +26,7 @@ import { notify } from '@/lib/toast';
 import { CommunityIcon } from './CommunityIcon';
 import { isPlausibleInviteCode, parseInviteCode } from './links';
 import { describeError } from './mapping';
+import { SlowmodeSelect } from './SafetyDialogs';
 import type { Channel, Community, Invite, InvitePreview } from './types';
 import { getCommunityApi, useCommunityStore } from './useCommunityStore';
 
@@ -441,6 +442,7 @@ export function SettingsDialog({ community, open, onOpenChange }: { community: C
                 <li key={c.id} className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm">
                   <span className="text-muted-foreground">#</span>
                   <span className="flex-1">{c.name}</span>
+                  <SlowmodeSelect channel={c} className="w-32" />
                   <IconButton
                     label={`Delete #${c.name}`}
                     size="icon-sm"

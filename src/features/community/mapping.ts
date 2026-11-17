@@ -1,13 +1,18 @@
 /** Row ↔ app-type mapping and error translation for the Supabase data layer (pure, so it is unit-tested). */
+import { formatUntil, formatWait } from './safety';
 import {
+  type ActivityEvent,
   type Attachment,
+  type Ban,
   type Channel,
   CommunityError,
   type CommunityErrorCode,
   type CommunityMessage,
   type Invite,
+  type Member,
   type Profile,
   type Reaction,
+  type Role,
   type UnreadEntry,
 } from './types';
 
@@ -48,8 +53,52 @@ export function toMessage(r: Row): CommunityMessage {
   };
 }
 
-export const toChannel = (r: Row): Channel => ({ id: str(r.id), communityId: str(r.community_id), name: str(r.name), topic: str(r.topic) });
-export const toProfile = (r: Row): Profile => ({ id: str(r.id), username: str(r.username), displayName: str(r.display_name), designation: str(r.designation) });
+const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+const asRole = (v: unknown): Role => (v === 'admin' || v === 'mod' ? v : 'member');
+
+export const toChannel = (r: Row): Channel => ({
+  id: str(r.id),
+  communityId: str(r.community_id),
+  name: str(r.name),
+  topic: str(r.topic),
+  slowmodeSeconds: Math.max(0, Math.floor(num(r.slowmode_seconds))), // older databases don't have the column
+});
+/**
+ * `profiles.avatar_path` is a Storage path, never a URL; `resolveAvatar` turns it into the public URL (lib/supabase/avatar).
+ * A database without the column (migration not applied yet) simply has no avatars.
+ */
+export const toProfile = (r: Row, resolveAvatar?: (path: string) => string | undefined): Profile => {
+  const avatar = resolveAvatar && typeof r.avatar_path === 'string' && r.avatar_path ? resolveAvatar(r.avatar_path) : undefined;
+  return { id: str(r.id), username: str(r.username), displayName: str(r.display_name), designation: str(r.designation), ...(avatar && { avatarUrl: avatar }) };
+};
+export const toMember = (r: Row): Member => ({
+  userId: str(r.user_id),
+  role: asRole(r.role),
+  joinedAt: str(r.joined_at),
+  timeoutUntil: strOrNull(r.timeout_until),
+});
+export const toBan = (r: Row): Ban => ({ userId: str(r.user_id), bannedBy: strOrNull(r.banned_by), reason: str(r.reason), createdAt: str(r.created_at) });
+
+/** A realtime INSERT payload on `messages` → what the activity feed needs (null if it isn't a usable row). */
+export function toActivityEvent(r: Row): ActivityEvent | null {
+  if (typeof r.id !== 'string' || typeof r.channel_id !== 'string' || typeof r.community_id !== 'string' || typeof r.author_id !== 'string') return null;
+  return {
+    messageId: r.id,
+    communityId: r.community_id,
+    channelId: r.channel_id,
+    authorId: r.author_id,
+    createdAt: str(r.created_at),
+    body: str(r.body),
+    replyTo: strOrNull(r.reply_to),
+    hasAttachments: toAttachments(r.attachments).length > 0,
+  };
+}
+
+/** Did the error say a column doesn't exist? (A database that hasn't had the latest migration applied yet.) */
+export function isMissingColumn(err: unknown): boolean {
+  const e = (err ?? {}) as { code?: string; message?: string };
+  return e.code === '42703' || e.code === 'PGRST204' || /column .* does not exist|could not find the .* column/i.test(e.message ?? '');
+}
 export const toReaction = (r: Row): Reaction => ({ messageId: str(r.message_id), userId: str(r.user_id), emoji: str(r.emoji) });
 export const toInvite = (r: Row): Invite => ({
   code: str(r.code),
@@ -66,7 +115,21 @@ export const toUnread = (r: Row): UnreadEntry => ({
   count: typeof r.unread === 'number' ? r.unread : Number(r.unread) || 0,
 });
 
-const KNOWN: CommunityErrorCode[] = ['rate_limited', 'banned', 'too_many_communities', 'community_limit', 'not_allowed', 'not_found'];
+const KNOWN: CommunityErrorCode[] = [
+  'rate_limited',
+  'banned',
+  'too_many_communities',
+  'community_limit',
+  'channel_limit',
+  'invite_limit',
+  'reaction_limit',
+  'slowmode',
+  'timed_out',
+  'bad_duration',
+  'not_a_member',
+  'not_allowed',
+  'not_found',
+];
 
 /** Turn whatever PostgREST / Storage / fetch threw into a CommunityError the UI can explain. */
 export function toCommunityError(err: unknown): CommunityError {
@@ -74,7 +137,13 @@ export function toCommunityError(err: unknown): CommunityError {
   const e = (err ?? {}) as { message?: string; code?: string; status?: number; statusCode?: string | number };
   const message = typeof e.message === 'string' ? e.message : '';
   const known = KNOWN.find((k) => message === k || message.startsWith(`${k}:`));
-  if (known) return new CommunityError(known);
+  if (known) {
+    // `slowmode:<seconds to wait>` and `timed_out:<iso time it ends>` carry what the person needs to see.
+    const rest = message.slice(known.length + 1);
+    if (known === 'slowmode' && Number.isFinite(Number(rest)) && rest !== '') return new CommunityError(known, undefined, { seconds: Number(rest) });
+    if (known === 'timed_out' && Number.isFinite(Date.parse(rest))) return new CommunityError(known, undefined, { until: rest });
+    return new CommunityError(known);
+  }
   if (e.code === '42501' || e.status === 403 || e.statusCode === '403' || /row-level security|permission denied/i.test(message))
     return new CommunityError('not_allowed');
   if (e.code === 'PGRST116' || e.status === 404) return new CommunityError('not_found');
@@ -93,7 +162,7 @@ export function describeError(err: unknown): string {
     case 'rate_limited':
       return 'Too many wrong codes. Wait a few minutes and try again.';
     case 'banned':
-      return 'You can’t join this community.';
+      return e.message && e.message !== 'banned' ? e.message : 'You can’t join this community.';
     case 'too_many_communities':
       return 'You’re in the maximum of 50 communities.';
     case 'community_limit':
@@ -104,6 +173,26 @@ export function describeError(err: unknown): string {
       return 'That doesn’t exist any more.';
     case 'too_large':
       return 'That file is too big (25 MB max).';
+    case 'channel_limit':
+      return 'A community can have up to 50 channels.';
+    case 'invite_limit':
+      return 'This community already has 50 open invites. Revoke some first.';
+    case 'reaction_limit':
+      return 'That message already has 20 different reactions.';
+    case 'upload_limit':
+      return 'You’ve reached the limit of 300 uploaded files in this community.';
+    case 'slowmode':
+      return e.detail?.seconds
+        ? `Slowmode is on in this channel — you can send again in ${formatWait(e.detail.seconds)}.`
+        : 'Slowmode is on in this channel — wait a moment before sending again.';
+    case 'timed_out':
+      return e.detail?.until
+        ? `You’re timed out until ${formatUntil(e.detail.until)}. You can read, but not post or react.`
+        : 'You’re timed out. You can read, but not post or react.';
+    case 'bad_duration':
+      return 'Choose a time out of up to 28 days.';
+    case 'not_a_member':
+      return 'That person isn’t in this community any more.';
     case 'not_configured':
       return 'GIF search isn’t set up on this server yet — you can still paste a GIF’s link or upload a file.';
     case 'bad_type':

@@ -12,10 +12,11 @@ import { syncAcrossTabs } from '@/lib/persist';
 export const CLOCK_STYLES = ['digital', 'compact', 'analog', 'none'] as const;
 export type ClockStyle = (typeof CLOCK_STYLES)[number];
 
-export const WIDGET_IDS = ['today', 'focus', 'pinned', 'quickNote', 'quote', 'countdown'] as const;
+export const WIDGET_IDS = ['mainFocus', 'today', 'focus', 'pinned', 'quickNote', 'quote', 'countdown'] as const;
 export type WidgetId = (typeof WIDGET_IDS)[number];
 
 export const WIDGET_INFO: Record<WidgetId, { label: string; description: string }> = {
+  mainFocus: { label: 'Main focus', description: 'One intention for the day, checked off when it’s done — with a streak.' },
   today: { label: 'Today', description: 'Tasks that are overdue, due today or in progress.' },
   focus: { label: 'Focus', description: 'Minutes focused today and your streak.' },
   pinned: { label: 'Pinned notes', description: 'The notes you pinned, one click away.' },
@@ -56,7 +57,7 @@ export const PRESETS: readonly HomePreset[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    description: 'Everything at a glance: tasks, focus and a quote.',
+    description: 'Everything at a glance: your main focus, tasks, focus time and a quote.',
     layout: {
       clockStyle: 'digital',
       showSeconds: false,
@@ -64,7 +65,7 @@ export const PRESETS: readonly HomePreset[] = [
       showSearch: true,
       showShortcuts: true,
       showHints: false,
-      widgets: ['today', 'focus', 'quote'],
+      widgets: ['mainFocus', 'today', 'focus', 'quote'],
     },
   },
   {
@@ -84,7 +85,7 @@ export const PRESETS: readonly HomePreset[] = [
   {
     id: 'focus',
     label: 'Focus',
-    description: 'Your next task, your focus time and a scratch pad.',
+    description: 'Your main focus, next task, focus time and a scratch pad.',
     layout: {
       clockStyle: 'compact',
       showSeconds: false,
@@ -92,7 +93,7 @@ export const PRESETS: readonly HomePreset[] = [
       showSearch: false,
       showShortcuts: false,
       showHints: false,
-      widgets: ['today', 'focus', 'quickNote'],
+      widgets: ['mainFocus', 'today', 'focus', 'quickNote'],
     },
   },
 ];
@@ -115,10 +116,30 @@ const sameLayout = (a: HomeLayout, b: HomeLayout) =>
   a.widgets.length === b.widgets.length &&
   a.widgets.every((w, i) => w === b.widgets[i]);
 
+/**
+ * Widget lists a preset had before it gained a widget. A layout saved from one still counts as that preset — the picker keeps
+ * highlighting it — without its Home changing under the person (presets are snapshots; nothing migrates stored layouts).
+ */
+const LEGACY_WIDGETS: Partial<Record<PresetId, ReadonlyArray<readonly WidgetId[]>>> = {
+  dashboard: [['today', 'focus', 'quote']],
+  focus: [['today', 'focus', 'quickNote']],
+};
+
 /** Which preset the layout currently equals, or `'custom'`. */
 export function presetOf(layout: HomeLayout): PresetId | 'custom' {
-  return PRESETS.find((p) => sameLayout(p.layout, layout))?.id ?? 'custom';
+  const match = PRESETS.find(
+    (p) => sameLayout(p.layout, layout) || LEGACY_WIDGETS[p.id]?.some((widgets) => sameLayout({ ...p.layout, widgets: [...widgets] }, layout)),
+  );
+  return match?.id ?? 'custom';
 }
+
+/**
+ * What a guest sees on Home. Widgets normally read account data (tasks, notes, the timer), so guests get none of those — only
+ * the two that live entirely on this device: the day's main focus, and the Quick note (where quick capture puts a guest's text).
+ */
+export const GUEST_WIDGETS: readonly WidgetId[] = ['mainFocus', 'quickNote'];
+
+export const visibleWidgets = (widgets: readonly WidgetId[], signedIn: boolean): WidgetId[] => [...(signedIn ? widgets : GUEST_WIDGETS)];
 
 const isWidgetId = (v: unknown): v is WidgetId => (WIDGET_IDS as readonly unknown[]).includes(v);
 const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);

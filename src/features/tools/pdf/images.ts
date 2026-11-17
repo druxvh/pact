@@ -1,6 +1,6 @@
 /** Getting arbitrary images into a form pdf-lib can embed (JPEG or PNG), upright. Uses canvas, so browser-only. */
 import { jpegOrientation } from '@/features/tools/lib/pdf/exif';
-import type { ImageInput } from '@/features/tools/lib/pdf/ops';
+import type { ImageInput } from '@/features/tools/lib/pdf/types';
 
 export const MAX_IMAGE_BYTES = 40 * 1024 * 1024;
 

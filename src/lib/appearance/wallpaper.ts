@@ -276,3 +276,41 @@ export async function processWallpaperImage(file: File): Promise<ProcessedImage>
     bitmap.close();
   }
 }
+
+// ── keeping a wallpaper picture backup-sized ─────────────────────────────────
+
+/**
+ * How to shrink a picture that is too big for a backup: a linear `scale` and a WebP `quality` for attempt `n`
+ * (0-based). Pixel count drives file size, so the first try scales by √(target/size) with a safety margin; later tries
+ * get stricter. `null` = give up (after 4 attempts, or when it would shrink below 320 px).
+ */
+export function shrinkPlan(bytes: number, width: number, height: number, maxBytes: number, attempt: number): { scale: number; quality: number } | null {
+  if (attempt >= 4 || bytes <= 0 || maxBytes <= 0) return null;
+  const margin = 0.9 - attempt * 0.12;
+  const scale = Math.min(1, Math.sqrt(maxBytes / bytes) * margin);
+  if (Math.min(width, height) * scale < 320) return null;
+  return { scale, quality: Math.max(0.5, 0.82 - attempt * 0.08) };
+}
+
+/** Re-encode a stored wallpaper so it is at most `maxBytes` (for backups and exports). Throws if it can't be made small enough. */
+export async function shrinkWallpaperBlob(blob: Blob, maxBytes: number): Promise<Blob> {
+  const bitmap = await createImageBitmap(blob);
+  try {
+    for (let attempt = 0; ; attempt++) {
+      const plan = shrinkPlan(blob.size, bitmap.width, bitmap.height, maxBytes, attempt);
+      if (!plan) throw new Error('The wallpaper picture is too large to include.');
+      const width = Math.max(1, Math.round(bitmap.width * plan.scale));
+      const height = Math.max(1, Math.round(bitmap.height * plan.scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Your browser couldn’t process the image.');
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      const out = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', plan.quality));
+      if (out && out.size <= maxBytes) return out;
+    }
+  } finally {
+    bitmap.close();
+  }
+}

@@ -4,7 +4,7 @@ import { ease } from '@/lib/motion';
 
 function Digit({ ch }: { ch: string }) {
   return (
-    <span className="relative inline-block h-[1.08em] w-[0.6em] overflow-hidden align-top">
+    <span className="relative inline-block h-[1.12em] w-[0.6em] overflow-hidden align-top">
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={ch}
@@ -28,7 +28,10 @@ export function AnimatedDigits({ value, className, running }: { value: string; c
       role="timer"
       aria-live="off"
       aria-label={value}
-      className={cn('tabular inline-flex items-center font-light leading-none tracking-tighter', className)}
+      // An inline line-height on purpose: the caller sets a `text-[…]` size, and tailwind-merge treats that as overriding any
+      // `leading-*` class — the line box then fell back to 1.5× and the digits were clipped at the bottom by the slot below.
+      style={{ lineHeight: 1.12 }}
+      className={cn('tabular inline-flex items-center font-light tracking-tighter', className)}
     >
       {Array.from(value).map((ch, i) =>
         ch === ':' ? (

@@ -7,7 +7,10 @@ const noop = () => {};
 function callbacks(over: Partial<OverlayCallbacks> = {}): OverlayCallbacks {
   return {
     onJoin: noop,
+    onStart: noop,
     onLeave: noop,
+    onRetry: noop,
+    onOpenPact: noop,
     onChat: noop,
     onReaction: noop,
     onQueueAdd: async () => null,
@@ -176,13 +179,13 @@ describe('behaviour', () => {
     mount(callbacks({ onJoin }));
     overlay.setSavedName('Alex');
     q<HTMLInputElement>('#vp-room').value = '!';
-    q('.vp-join .vp-btn--primary').click();
+    q('.vp-submit').click();
     expect(onJoin).not.toHaveBeenCalled();
     expect(q('#vp-room').getAttribute('aria-invalid')).toBe('true');
     expect(q('.vp-join .vp-error').textContent).toMatch(/4–32/);
 
     q<HTMLInputElement>('#vp-room').value = '  Friday Vibes ';
-    q('.vp-join .vp-btn--primary').click();
+    q('.vp-submit').click();
     expect(onJoin).toHaveBeenCalledWith('friday-vibes', 'Alex');
   });
 
@@ -233,18 +236,180 @@ describe('behaviour', () => {
     mount(callbacks({ onFollow }));
     overlay.setRoom('friday-vibes');
     overlay.setNotice({ kind: 'mismatch', videoId: 'dQw4w9WgXcQ' });
-    expect(q('.vp-notice').hidden).toBe(false);
+    expect(q('.vp-notice:not(.vp-link-notice)').hidden).toBe(false);
     [...root.querySelectorAll('.vp-notice button')].find((b) => b.textContent === 'Go to it')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onFollow).toHaveBeenCalledWith('dQw4w9WgXcQ');
     overlay.clearNotice('ad'); // different kind: stays
-    expect(q('.vp-notice').hidden).toBe(false);
+    expect(q('.vp-notice:not(.vp-link-notice)').hidden).toBe(false);
     overlay.clearNotice('mismatch');
-    expect(q('.vp-notice').hidden).toBe(true);
+    expect(q('.vp-notice:not(.vp-link-notice)').hidden).toBe(true);
   });
 
   it('re-mounting replaces an orphaned panel instead of stacking a second one', () => {
     mount();
     mount();
     expect(document.querySelectorAll(`#${OVERLAY_HOST_ID}`)).toHaveLength(1);
+  });
+});
+
+describe('starting, joining and being invited', () => {
+  const host = () => document.getElementById(OVERLAY_HOST_ID) as HTMLElement;
+
+  it('stays out of the way until asked: hidden when there is no party, shown by openJoin, closed again by the X', () => {
+    mount();
+    expect(host().style.display).toBe('none');
+    overlay.openJoin();
+    expect(host().style.display).toBe('block');
+    expect(q('.vp').dataset.view).toBe('join');
+    expect(q('.vp').dataset.collapsed).toBe('false'); // minimize doesn't apply here
+    q('.vp-header-join').click();
+    expect(host().style.display).toBe('none');
+    overlay.setRoom('friday-vibes');
+    expect(host().style.display).toBe('block');
+    expect(q('.vp').dataset.view).toBe('party');
+    overlay.setRoom(null);
+    expect(host().style.display).toBe('none'); // leaving a party doesn't pop the join panel back up
+  });
+
+  it('"Start a party" reports the name typed (or guest) and needs a video', () => {
+    const onStart = vi.fn();
+    mount(callbacks({ onStart }));
+    overlay.openJoin();
+    overlay.setStartable(false);
+    expect(q<HTMLButtonElement>('.vp-start').disabled).toBe(true);
+    overlay.setStartable(true);
+    q('.vp-start').click();
+    expect(onStart).toHaveBeenLastCalledWith('guest');
+    q<HTMLInputElement>('#vp-name').value = 'Alex';
+    q('.vp-start').click();
+    expect(onStart).toHaveBeenLastCalledWith('Alex');
+  });
+
+  it('accepts a pasted invite link or the whole invite text in the code field', () => {
+    const onJoin = vi.fn();
+    mount(callbacks({ onJoin }));
+    q<HTMLInputElement>('#vp-room').value =
+      `🍿 Join my VibeParty — room code: amber-lofi-k7q2x9dm\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ&pact=amber-lofi-k7q2x9dm`;
+    q('.vp-submit').click();
+    expect(onJoin).toHaveBeenCalledWith('amber-lofi-k7q2x9dm', 'guest');
+
+    q<HTMLInputElement>('#vp-room').value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'; // a plain video link has no code
+    q('.vp-submit').click();
+    expect(onJoin).toHaveBeenCalledTimes(1);
+    expect(q('#vp-room').getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('offers an invite from a link — it opens the panel and prefills the code, but joins only on a click', () => {
+    const onJoin = vi.fn();
+    mount(callbacks({ onJoin }));
+    overlay.setSavedName('Alex');
+    overlay.setInvite('amber-lofi-k7q2x9dm');
+    expect(host().style.display).toBe('block');
+    expect(q('.vp-invite').hidden).toBe(false);
+    expect(q('.vp-invite').textContent).toContain('amber-lofi-k7q2x9dm');
+    expect(q<HTMLInputElement>('#vp-room').value).toBe('amber-lofi-k7q2x9dm');
+    expect(onJoin).not.toHaveBeenCalled();
+    q('.vp-invite .vp-btn--primary').click();
+    expect(onJoin).toHaveBeenCalledWith('amber-lofi-k7q2x9dm', 'Alex');
+
+    overlay.setInvite(null);
+    expect(q('.vp-invite').hidden).toBe(true);
+  });
+
+  it('an invite to another party while in one asks before switching, and ignores one to the room you are in', () => {
+    const onJoin = vi.fn();
+    mount(callbacks({ onJoin }));
+    overlay.setRoom('friday-vibes');
+    overlay.setInvite('friday-vibes');
+    expect(q('.vp-notice:not(.vp-link-notice)').hidden).toBe(true);
+    overlay.setInvite('other-party-code');
+    expect(q('.vp-notice:not(.vp-link-notice)').hidden).toBe(false);
+    expect(onJoin).not.toHaveBeenCalled();
+    [...root.querySelectorAll('.vp-notice button')].find((b) => b.textContent === 'Switch party')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onJoin).toHaveBeenCalledWith('other-party-code', 'guest');
+  });
+
+  it('copies an invite with the code and a link to the current video', async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    mount();
+    overlay.setCurrentVideo('dQw4w9WgXcQ');
+    expect(await overlay.copyInvite('amber-lofi-k7q2x9dm')).toBe(true); // before the room is set: the start flow
+    expect(writeText).toHaveBeenCalledWith(
+      '🍿 Join my VibeParty — room code: amber-lofi-k7q2x9dm\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ&pact=amber-lofi-k7q2x9dm',
+    );
+    overlay.setRoom('friday-vibes');
+    q('.vp-header .vp-icon-btn[aria-label="Copy invite link"]').click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('pact=friday-vibes'));
+
+    writeText.mockRejectedValueOnce(new Error('denied'));
+    expect(await overlay.copyInvite()).toBe(false);
+    expect(q('.vp-toast').textContent).toContain('friday-vibes'); // the code is still shown so it can be copied by hand
+  });
+});
+
+describe('connection state', () => {
+  beforeEach(() => {
+    mount();
+    overlay.setRoom('friday-vibes');
+  });
+  const notice = () => q('.vp-link-notice');
+
+  it('labels every state honestly', () => {
+    const chip = () => ({ mode: q('.vp-mode').dataset.mode, text: q('.vp-mode').textContent });
+    overlay.setLink({ mode: 'connecting' });
+    expect(chip()).toEqual({ mode: 'connecting', text: 'Connecting…' });
+    overlay.setLink({ mode: 'live' });
+    expect(chip()).toEqual({ mode: 'live', text: 'Live' });
+    overlay.setLink({ mode: 'reconnecting' });
+    expect(chip()).toEqual({ mode: 'reconnecting', text: 'Reconnecting…' });
+    overlay.setLink({ mode: 'error', reason: 'failed', message: 'Can’t reach the party server.' });
+    expect(chip()).toEqual({ mode: 'error', text: 'Offline' });
+    overlay.setLink({ mode: 'local', reason: 'signed-out' });
+    expect(chip()).toEqual({ mode: 'local', text: 'This browser' });
+  });
+
+  it('a signed-out party says only this browser is in it, and offers the way to sign in', () => {
+    const onOpenPact = vi.fn();
+    overlay.unmount();
+    mount(callbacks({ onOpenPact }));
+    overlay.setRoom('friday-vibes');
+    overlay.setLink({ mode: 'local', reason: 'signed-out' });
+    expect(notice().hidden).toBe(false);
+    expect(notice().textContent).toMatch(/only this browser/i);
+    [...root.querySelectorAll('.vp-link-notice button')]
+      .find((b) => b.textContent?.includes('Sign in'))
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onOpenPact).toHaveBeenCalled();
+
+    overlay.setLink({ mode: 'local', reason: 'unconfigured' });
+    expect(notice().textContent).toMatch(/no account service/i);
+    expect(notice().querySelector('button')).toBeNull();
+  });
+
+  it('reconnecting explains where changes go; an error offers a retry; live and connecting say nothing extra', () => {
+    const onRetry = vi.fn();
+    overlay.unmount();
+    mount(callbacks({ onRetry }));
+    overlay.setRoom('friday-vibes');
+    overlay.setLink({ mode: 'reconnecting' });
+    expect(notice().textContent).toMatch(/stay on this browser/i);
+    overlay.setLink({ mode: 'error', reason: 'failed', message: 'Can’t reach the party server. Still trying…' });
+    expect(notice().textContent).toContain('Can’t reach the party server');
+    [...root.querySelectorAll('.vp-link-notice button')]
+      .find((b) => b.textContent?.includes('Try again'))
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onRetry).toHaveBeenCalled();
+
+    overlay.setLink({ mode: 'live' });
+    expect(notice().hidden).toBe(true);
+    overlay.setLink({ mode: 'connecting' });
+    expect(notice().hidden).toBe(true);
+  });
+
+  it('a refused room also offers opening pact (to sign in again)', () => {
+    overlay.setLink({ mode: 'error', reason: 'denied', message: 'The server refused this room.' });
+    expect([...root.querySelectorAll('.vp-link-notice button')].map((b) => b.textContent?.trim())).toEqual(['Try again', 'Open pact']);
   });
 });

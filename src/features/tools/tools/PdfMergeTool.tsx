@@ -1,12 +1,13 @@
 import { ArrowDown, ArrowUp, Download, FilePlus2, GripVertical, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button, IconButton } from '@/components/ui';
-import { mergePdfs } from '@/features/tools/lib/pdf/ops';
 import { FileDrop, Problems } from '@/features/tools/pdf/FileDrop';
 import { baseName, type LoadedPdf, pdfBlob, readPdfs } from '@/features/tools/pdf/files';
+import { JobProgress } from '@/features/tools/pdf/JobProgress';
 import { moveItem } from '@/features/tools/pdf/order';
 import { PageThumb } from '@/features/tools/pdf/PageThumb';
 import { useDocs } from '@/features/tools/pdf/useDocs';
+import { usePdfJob } from '@/features/tools/pdf/usePdfJob';
 import { cn } from '@/lib/cn';
 import { downloadBlob } from '@/lib/download';
 import { formatBytes, pluralize } from '@/lib/format';
@@ -15,7 +16,7 @@ import { notify } from '@/lib/toast';
 export default function PdfMergeTool() {
   const [files, setFiles] = useState<LoadedPdf[]>([]);
   const [problems, setProblems] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
+  const job = usePdfJob();
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const docs = useDocs(files);
@@ -27,25 +28,22 @@ export default function PdfMergeTool() {
   };
 
   const totalPages = files.reduce((n, f) => n + f.pages, 0);
+  const totalBytes = files.reduce((n, f) => n + f.bytes.length, 0);
 
-  const merge = async () => {
-    setBusy(true);
-    try {
-      const out = await mergePdfs(files.map((f) => f.bytes));
-      downloadBlob(`${files.length === 2 ? `${baseName(files[0]?.name ?? 'merged')}+${baseName(files[1]?.name ?? '')}` : 'merged'}.pdf`, pdfBlob(out));
-      notify.success('Merged', `${pluralize(totalPages, 'page')} · ${formatBytes(out.length)}`);
-    } catch (err) {
-      notify.error('Couldn’t merge', err instanceof Error ? err.message : undefined);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const merge = () =>
+    job.run(async (api) => {
+      const { files: out } = await api.run({ op: 'merge', files: files.map((f) => f.bytes) });
+      const merged = out[0];
+      if (!merged) throw new Error('Nothing was produced.');
+      downloadBlob(`${files.length === 2 ? `${baseName(files[0]?.name ?? 'merged')}+${baseName(files[1]?.name ?? '')}` : 'merged'}.pdf`, pdfBlob(merged));
+      notify.success('Merged', `${pluralize(totalPages, 'page')} · ${formatBytes(merged.length)}`);
+    }, 'Couldn’t merge');
 
   return (
     <div className="space-y-4">
       <FileDrop
         accept="application/pdf,.pdf"
-        onFiles={(f) => void add(f)}
+        onFiles={add}
         title={files.length ? 'Add more PDFs' : 'Drop PDFs here, or click to choose'}
         hint="Merge in the order you arrange them · stays on your device"
         compact={files.length > 0}
@@ -113,13 +111,13 @@ export default function PdfMergeTool() {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[13px] text-muted-foreground">
-              {pluralize(files.length, 'file')} · {pluralize(totalPages, 'page')} in total
+              {pluralize(files.length, 'file')} · {pluralize(totalPages, 'page')} · {formatBytes(totalBytes)} in total
             </p>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setFiles([])}>
+              <Button variant="ghost" disabled={job.busy} onClick={() => setFiles([])}>
                 Clear
               </Button>
-              <Button variant="primary" loading={busy} disabled={files.length < 2} onClick={() => void merge()}>
+              <Button variant="primary" disabled={files.length < 2 || job.busy} onClick={() => void merge()}>
                 {files.length < 2 ? (
                   <>
                     <FilePlus2 /> Add another PDF
@@ -132,6 +130,7 @@ export default function PdfMergeTool() {
               </Button>
             </div>
           </div>
+          {job.busy && <JobProgress progress={job.progress} onCancel={job.cancel} />}
         </>
       )}
     </div>

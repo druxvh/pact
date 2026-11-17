@@ -212,6 +212,39 @@ describe('unread counts, typing, GIFs and storage cleanup', () => {
     });
   });
 
+  describe('moderation rules that mirror the database', () => {
+    it('a message its author deleted while hidden stays gone when a moderator restores it', async () => {
+      const m = await server.api(bob).sendMessage({ communityId: cid, channelId: general, body: 'please forget me', attachments: [], replyTo: null });
+      await server.api(alice).hideMessage(m.id, 'x');
+      await server.api(bob).deleteMessage(m.id);
+      expect(server.originals.has(m.id)).toBe(false);
+      const back = await server.api(alice).restoreMessage(m.id);
+      expect(back).toMatchObject({ body: '', hiddenAt: null });
+      expect(back.deletedAt).not.toBeNull();
+    });
+
+    it('links a moderator removed stay removed after hide → restore', async () => {
+      const m = await server
+        .api(carol)
+        .sendMessage({ communityId: cid, channelId: general, body: 'buy at https://evil.test now', attachments: [], replyTo: null });
+      await server.api(alice).stripLinks(m.id);
+      await server.api(alice).hideMessage(m.id, 'x');
+      expect((await server.api(alice).restoreMessage(m.id)).body).toBe('buy at [link removed] now');
+    });
+
+    it('limits: 50 channels, 50 open invites, 20 different reactions per message', async () => {
+      const api = server.api(alice);
+      for (let i = 0; i < 49; i++) await api.createChannel(cid, `c${i}`, '');
+      await expect(api.createChannel(cid, 'one-too-many', '')).rejects.toMatchObject({ code: 'channel_limit' });
+      for (let i = 0; i < 49; i++) await api.createInvite(cid, { maxUses: null, expiresInHours: null });
+      await expect(api.createInvite(cid, { maxUses: null, expiresInHours: null })).rejects.toMatchObject({ code: 'invite_limit' });
+      const m = await api.sendMessage({ communityId: cid, channelId: general, body: 'react', attachments: [], replyTo: null });
+      for (let i = 0; i < 20; i++) await api.addReaction({ id: m.id, communityId: cid }, `e${i}`);
+      await expect(api.addReaction({ id: m.id, communityId: cid }, 'e20')).rejects.toMatchObject({ code: 'reaction_limit' });
+      await server.api(bob).addReaction({ id: m.id, communityId: cid }, 'e3'); // joining an existing one is fine
+    });
+  });
+
   describe('storage cleanup', () => {
     const png = () => new File([new Uint8Array(4)], 'a.png', { type: 'image/png' });
 

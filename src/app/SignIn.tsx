@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { siGithub, siGoogle } from 'simple-icons';
 import { SECTION_BY_ID } from '@/app/routes';
 import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Label } from '@/components/ui';
+import { PrivacyLink } from '@/entrypoints/privacy/PrivacyLink';
 import { authRedirectUrl, isCode, isEmail, providerLabel, sendEmailCode, signInWith, verifyEmailCode } from '@/lib/supabase/auth';
-import { isBackendConfigured } from '@/lib/supabase/client';
+import { EMAIL_SIGN_IN_ENABLED, isBackendConfigured } from '@/lib/supabase/client';
 import { type AuthProvider, useAuthStore } from '@/store/useAuthStore';
 import type { Section } from '@/store/useNavStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -155,12 +156,16 @@ export function SignInCard() {
           {error}
         </p>
       )}
-      <div className="flex items-center gap-3 text-xs text-subtle-foreground" aria-hidden="true">
-        <span className="h-px flex-1 bg-border" />
-        or
-        <span className="h-px flex-1 bg-border" />
-      </div>
-      <EmailSignIn />
+      {EMAIL_SIGN_IN_ENABLED && (
+        <>
+          <div className="flex items-center gap-3 text-xs text-subtle-foreground" aria-hidden="true">
+            <span className="h-px flex-1 bg-border" />
+            or
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <EmailSignIn />
+        </>
+      )}
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer select-none py-1 hover:text-foreground">Trouble signing in?</summary>
         <p className="mt-1 leading-relaxed">
@@ -169,7 +174,8 @@ export function SignInCard() {
         <code className="mt-1.5 block break-all rounded-md border bg-muted px-2 py-1.5 font-mono text-[11px] text-foreground">{authRedirectUrl()}</code>
       </details>
       <p className="text-xs leading-relaxed text-subtle-foreground">
-        No password to remember. pact uses GitHub, Google or your email only to sign you in, and your notes are private to your account.
+        No password to remember. pact uses {EMAIL_SIGN_IN_ENABLED ? 'GitHub, Google or your email' : 'GitHub or Google'} only to sign you in, and your notes are
+        private to your account. <PrivacyLink>Read the privacy policy</PrivacyLink>.
       </p>
     </div>
   );

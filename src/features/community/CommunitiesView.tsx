@@ -1,5 +1,5 @@
-import { Plus, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { BellOff, Plus, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button, EmptyState, IconButton, Tooltip } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { useMediaQuery } from '@/lib/useMediaQuery';
@@ -9,6 +9,9 @@ import { CommunityIcon } from './CommunityIcon';
 import { CreateOrJoinDialog, InviteDialog, SettingsDialog } from './Dialogs';
 import { MembersPanel } from './MembersPanel';
 import { MessagePane } from './MessagePane';
+import { communityLinkFromSub } from './notifications';
+import { isMuted, useCommunityPrefs } from './prefs';
+import { ModerationDialog, type ModerationTab } from './SafetyDialogs';
 import { communityUnread } from './store';
 import { useCommunityStore } from './useCommunityStore';
 
@@ -22,6 +25,7 @@ export function CommunitiesView() {
   const activeId = useCommunityStore((s) => s.activeId);
   const select = useCommunityStore((s) => s.select);
   const unread = useCommunityStore((s) => s.unread);
+  const muted = useCommunityPrefs((s) => s.muted);
   const sub = useNavStore((s) => s.sub);
   const go = useNavStore((s) => s.go);
   const isDesktop = useMediaQuery('(min-width: 768px)');
@@ -31,13 +35,37 @@ export function CommunitiesView() {
   const [initialCode, setInitialCode] = useState<string | undefined>();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moderation, setModeration] = useState<{ open: boolean; tab: ModerationTab }>({ open: false, tab: 'slowmode' });
   const [membersOpen, setMembersOpen] = useState(true);
   const [mobileChannel, setMobileChannel] = useState(false);
 
+  // A notification link (`#/chat/c:<community>:<channel>`) opens that channel — once the view has loaded, whether it was
+  // already open or is opening because of the link.
+  const openLink = useCallback(async () => {
+    const link = communityLinkFromSub(useNavStore.getState().sub);
+    if (!link) return;
+    go('chat', null, { replace: true });
+    const store = useCommunityStore.getState();
+    if (!store.communities.some((c) => c.id === link.communityId)) await store.refreshCommunities();
+    if (!useCommunityStore.getState().communities.some((c) => c.id === link.communityId)) return; // no longer a member
+    if (useCommunityStore.getState().activeId !== link.communityId) await useCommunityStore.getState().select(link.communityId);
+    if (useCommunityStore.getState().channels[link.communityId]?.some((c) => c.id === link.channelId))
+      await useCommunityStore.getState().selectChannel(link.channelId);
+    setMobileChannel(true);
+  }, [go]);
   useEffect(() => {
-    void useCommunityStore.getState().init();
+    void useCommunityStore
+      .getState()
+      .init()
+      .then(() => openLink());
     return () => useCommunityStore.getState().dispose();
-  }, []);
+  }, [openLink]);
+
+  // (declared after the load effect, so while that is still loading `loading` is already true and it takes care of the link)
+  useEffect(() => {
+    const st = useCommunityStore.getState();
+    if (communityLinkFromSub(sub) && st.ready && !st.loading) void openLink();
+  }, [sub, openLink]);
 
   // An invite link opens the join box with the code filled in.
   useEffect(() => {
@@ -63,6 +91,15 @@ export function CommunitiesView() {
       <CreateOrJoinDialog open={joinOpen} onOpenChange={setJoinOpen} initialCode={initialCode} />
       {active && <InviteDialog community={active} open={inviteOpen} onOpenChange={setInviteOpen} />}
       {active && <SettingsDialog community={active} open={settingsOpen} onOpenChange={setSettingsOpen} />}
+      {active && (
+        <ModerationDialog
+          community={active}
+          tab={moderation.tab}
+          onTabChange={(tab) => setModeration((m) => ({ ...m, tab }))}
+          open={moderation.open}
+          onOpenChange={(open) => setModeration((m) => ({ ...m, open }))}
+        />
+      )}
     </>
   );
 
@@ -105,12 +142,13 @@ export function CommunitiesView() {
         )}
       >
         {communities.map((c) => {
-          const n = c.id === activeId ? 0 : communityUnread(unread, c.id);
+          const silenced = isMuted(muted, c.id);
+          const n = c.id === activeId || silenced ? 0 : communityUnread(unread, c.id);
           return (
             <Tooltip key={c.id} content={c.name} side="right">
               <button
                 type="button"
-                aria-label={n > 0 ? `${c.name}, ${n > 99 ? '99+' : n} unread` : c.name}
+                aria-label={`${c.name}${silenced ? ', muted' : ''}${n > 0 ? `, ${n > 99 ? '99+' : n} unread` : ''}`}
                 aria-current={c.id === activeId ? 'true' : undefined}
                 onClick={() => {
                   void select(c.id);
@@ -122,6 +160,14 @@ export function CommunitiesView() {
                 )}
               >
                 <CommunityIcon name={c.name} hue={c.hue} />
+                {silenced && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-background text-muted-foreground ring-1 ring-border"
+                  >
+                    <BellOff className="size-2.5" />
+                  </span>
+                )}
                 {n > 0 && (
                   <span
                     aria-hidden="true"
@@ -147,6 +193,7 @@ export function CommunitiesView() {
           onOpenChannel={() => setMobileChannel(true)}
           onInvite={() => setInviteOpen(true)}
           onSettings={() => setSettingsOpen(true)}
+          onModeration={() => setModeration({ open: true, tab: 'slowmode' })}
         />
       )}
       {active && showPane && (
@@ -157,7 +204,7 @@ export function CommunitiesView() {
             membersOpen={membersOpen && wide}
             onToggleMembers={() => setMembersOpen((v) => !v)}
           />
-          {membersOpen && wide && <MembersPanel community={active} />}
+          {membersOpen && wide && <MembersPanel community={active} onShowBans={() => setModeration({ open: true, tab: 'bans' })} />}
         </>
       )}
       {dialogs}

@@ -161,6 +161,13 @@
 .vp[data-view='party'] .vp-join {
   display: none;
 }
+/* The close button only exists in the start / join view; a party has "minimize" instead. */
+.vp-header-join {
+  display: none;
+}
+.vp[data-view='join'] .vp-header-join {
+  display: grid;
+}
 
 /* ── header ────────────────────────────────────────────────────────────── */
 
@@ -280,6 +287,19 @@
 .vp-mode[data-mode='reconnecting'] .vp-pulse {
   background: var(--warn);
   animation: vp-blink 1s infinite;
+}
+.vp-mode[data-mode='connecting'] {
+  color: var(--muted);
+}
+.vp-mode[data-mode='connecting'] .vp-pulse {
+  background: var(--muted);
+  animation: vp-blink 1s infinite;
+}
+.vp-mode[data-mode='error'] {
+  color: var(--danger);
+}
+.vp-mode[data-mode='error'] .vp-pulse {
+  background: var(--danger);
 }
 
 /* ── buttons & inputs ──────────────────────────────────────────────────── */
@@ -420,9 +440,60 @@
   color: var(--muted);
   font-size: 12px;
 }
-.vp-join .vp-btn--primary {
+.vp-start {
   margin-top: 14px;
-  height: 38px;
+  height: 40px;
+}
+.vp-start[disabled] {
+  opacity: 0.45;
+}
+.vp-hint {
+  margin: 8px 0 0;
+  color: var(--subtle);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.vp-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 12px;
+  color: var(--subtle);
+  font-size: 11.5px;
+}
+.vp-or::before,
+.vp-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.vp-label--first {
+  margin-top: 0;
+}
+.vp-submit {
+  margin-top: 12px;
+  height: 36px;
+}
+.vp-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid oklch(0.705 0.213 47.6 / 40%);
+  border-radius: var(--r);
+  background: var(--brand-soft);
+  font-size: 12.5px;
+  animation: vp-in 0.25s var(--ease);
+}
+.vp-invite svg {
+  color: var(--brand-text);
+}
+.vp-invite > span {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── notice & toast ────────────────────────────────────────────────────── */
@@ -439,8 +510,18 @@
   border-color: oklch(0.705 0.213 47.6 / 40%);
   background: var(--brand-soft);
 }
-.vp-notice[data-kind='blocked'] {
+.vp-notice[data-kind='blocked'],
+.vp-link-notice[data-kind='reconnecting'] {
   border-color: oklch(0.82 0.15 85 / 40%);
+}
+.vp-link-notice[data-kind='error'] {
+  border-color: oklch(0.72 0.19 25 / 45%);
+}
+.vp-link-notice[data-kind='error'] .vp-notice-body svg {
+  color: var(--danger);
+}
+.vp-link-notice[data-kind='reconnecting'] .vp-notice-body svg {
+  color: var(--warn);
 }
 .vp-notice-body {
   display: flex;

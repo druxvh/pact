@@ -18,9 +18,12 @@ import {
 import { useChatStore } from '@/features/chat/store';
 import { useKanbanStore } from '@/features/kanban/store';
 import { useNotesStore } from '@/features/notes/store';
+import { UsernameHint } from '@/features/settings/UsernameHint';
+import { useTourStore } from '@/features/tour/store';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
 import { useProfileSync } from '@/lib/supabase/profile';
+import { useUsernameAvailability } from '@/lib/supabase/username';
 import { notify } from '@/lib/toast';
 import { loadSampleWorkspace } from '@/store/demoServer';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
@@ -75,11 +78,15 @@ export function Onboarding() {
     setUsername((u) => u || me.username);
     setUsernameTouched(true);
   }, [open]);
-  const error = profileStepError(name, username);
-  const showUsernameError = usernameTouched && username !== '' ? error : null;
+  // Usernames are unique: ask the database while they type (only for a valid name that isn't the account's own).
+  const usernameStatus = useUsernameAvailability(normalizeUsername(username), me.username);
+  const takenError = usernameStatus === 'taken' ? 'That username is taken — try another' : null;
+  const error = profileStepError(name, username) ?? takenError ?? (usernameStatus === 'checking' ? 'Checking that username…' : null);
+  const showUsernameError = usernameTouched && username !== '' ? (profileStepError(name, username) ?? takenError) : null;
 
   const finish = () => {
     const displayName = name.trim() || 'You';
+    useTourStore.getState().request(); // hand off to the first-run tour (before `complete`, so it can tell this from a returning user)
     complete({ displayName, username: normalizeUsername(username) || 'you', designation: role.trim() });
     if (start === 'sample') loadSampleWorkspace();
     notify.success(`Welcome to pact, ${displayName}`, start === 'sample' ? 'Sample data is loaded — poke around.' : 'Press ⌘K any time to jump anywhere.');
@@ -146,13 +153,12 @@ export function Onboarding() {
                     aria-invalid={showUsernameError ? true : undefined}
                     aria-describedby="ob-username-hint"
                   />
-                  <p
+                  <UsernameHint
                     id="ob-username-hint"
-                    role={showUsernameError ? 'alert' : undefined}
-                    className={cn('mt-1 text-xs', showUsernameError ? 'text-destructive-text' : 'text-subtle-foreground')}
-                  >
-                    {showUsernameError ?? 'How friends find you. Letters, numbers and underscores.'}
-                  </p>
+                    error={showUsernameError}
+                    status={usernameStatus}
+                    idleText="How friends find you. Letters, numbers and underscores."
+                  />
                 </div>
                 <div>
                   <Label htmlFor="ob-role">What do you do? (optional)</Label>

@@ -25,6 +25,14 @@
       style.textContent = (boot.fonts || '') + (boot.css || '');
       document.head.appendChild(style);
       if (boot.mode) el.dataset.wallpaper = boot.mode;
+      // The tab icon follows the accent too (src/lib/appearance/favicon.ts).
+      if (boot.icon) {
+        var link = document.querySelector('link[rel~="icon"]');
+        if (link) {
+          link.type = 'image/svg+xml';
+          link.href = boot.icon;
+        }
+      }
     }
   } catch (e) {}
 })();

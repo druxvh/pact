@@ -1,8 +1,8 @@
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react';
 import { AppShell } from '@/app/AppShell';
-import { needsAccount } from '@/app/routes';
+import { needsAccount, SECTION_BY_ID } from '@/app/routes';
 import { SignInGate } from '@/app/SignIn';
-import { Skeleton } from '@/components/ui';
+import { PageSkeleton } from '@/components/skeletons/PageSkeleton';
 import { useAuthStore } from '@/store/useAuthStore';
 import { type Section, useNavStore } from '@/store/useNavStore';
 
@@ -26,18 +26,9 @@ const views = Object.fromEntries((Object.keys(loaders) as Section[]).map((id) =>
   LazyExoticComponent<ComponentType>
 >;
 
-function ViewFallback() {
-  return (
-    <div className="space-y-4 p-6" role="status" aria-busy="true" aria-label="Loading">
-      <Skeleton className="h-8 w-48" />
-      <Skeleton className="h-4 w-72" />
-      <div className="grid gap-3 pt-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-      </div>
-    </div>
-  );
+/** The loading state is the page's own shape, so nothing jumps when the real view arrives. */
+function ViewFallback({ section }: { section: Section }) {
+  return <PageSkeleton section={section} label={SECTION_BY_ID[section].label} />;
 }
 
 export default function App() {
@@ -58,12 +49,12 @@ export default function App() {
       {locked ? (
         // A stored session is still being checked → don't flash the sign-in prompt at someone who's already signed in.
         status === 'loading' ? (
-          <ViewFallback />
+          <ViewFallback section={section} />
         ) : (
           <SignInGate section={section} />
         )
       ) : (
-        <Suspense fallback={<ViewFallback />}>
+        <Suspense fallback={<ViewFallback section={section} />}>
           <View />
         </Suspense>
       )}

@@ -5,10 +5,14 @@ import {
   cleanName,
   cleanRoom,
   cleanText,
+  jsonBytes,
   parseAppMessage,
+  parseClientEnvelope,
   parseClientMessage,
   parseContentMessage,
-  parseRelayUrl,
+  parseHostCommand,
+  parsePresenceMeta,
+  parseServerEnvelope,
   parseServerMessage,
 } from './sanitize';
 
@@ -140,7 +144,7 @@ describe('content-script messages', () => {
   });
 });
 
-describe('relay messages (untrusted)', () => {
+describe('hub messages (untrusted)', () => {
   const peer = { id: 'peer-1', name: 'Alex' };
 
   it('rebuilds queue URLs from the video id and drops invalid items', () => {
@@ -195,7 +199,7 @@ describe('relay messages (untrusted)', () => {
     expect(parseServerMessage('{"t":"pong"}')).toBeNull();
   });
 
-  it('client messages (as seen by the relay) are validated too', () => {
+  it('client messages (as seen by the hub) are validated too', () => {
     expect(parseClientMessage({ t: 'ping', ts: 5 })).toEqual({ t: 'ping', ts: 5 });
     expect(parseClientMessage({ t: 'join', room: 'friday-vibes', peerId: 'abc-123', name: 'Z' })).toMatchObject({ t: 'join' });
     expect(parseClientMessage({ t: 'join', room: 'friday-vibes', peerId: 'has space', name: 'Z' })).toBeNull();
@@ -204,13 +208,96 @@ describe('relay messages (untrusted)', () => {
   });
 });
 
-describe('relay URL', () => {
-  it('requires TLS except for a relay on this machine', () => {
-    expect(parseRelayUrl('wss://relay.example.com/party')).toBe('wss://relay.example.com/party');
-    expect(parseRelayUrl('ws://localhost:8787')).toBe('ws://localhost:8787/');
-    expect(parseRelayUrl('ws://127.0.0.1:8787')).toBe('ws://127.0.0.1:8787/');
-    for (const bad of ['ws://relay.example.com', 'http://localhost:8787', 'https://relay.example.com', 'relay.example.com', '', undefined, 42]) {
-      expect(parseRelayUrl(bad)).toBeNull();
+describe('the room’s wire format', () => {
+  it('reads a client envelope, and nothing that is not one', () => {
+    const msg = { t: 'chat', room: 'friday-vibes', peerId: 'p-1', id: 'i-1', text: 'hey', at: 1 };
+    expect(parseClientEnvelope({ from: 'client-a', msg })).toEqual({ from: 'client-a', msg });
+    expect(parseClientEnvelope({ from: 'client-a', msg: { t: 'ping', ts: 7 } })).toEqual({ from: 'client-a', msg: { t: 'ping', ts: 7 } });
+    for (const bad of [
+      null,
+      'x',
+      5,
+      [],
+      {},
+      { from: 'client-a' },
+      { msg },
+      { from: 'has space', msg },
+      { from: 'x'.repeat(65), msg },
+      { from: 'client-a', msg: { t: 'chat' } },
+    ]) {
+      expect(parseClientEnvelope(bad)).toBeNull();
     }
+  });
+
+  it('reads a server envelope with optional addressing', () => {
+    const msg = { t: 'pong', ts: 9 };
+    expect(parseServerEnvelope({ msg })).toEqual({ to: null, except: null, msg });
+    expect(parseServerEnvelope({ to: 'client-a', except: 'client-b', msg })).toEqual({ to: 'client-a', except: 'client-b', msg });
+    expect(parseServerEnvelope({ to: { evil: 1 }, msg })).toEqual({ to: null, except: null, msg }); // bad addressing is ignored, not obeyed
+    for (const bad of [null, 'x', {}, { msg: { t: 'nope' } }, { msg: { t: 'media', room: '!!', media: {} } }]) expect(parseServerEnvelope(bad)).toBeNull();
+  });
+
+  it('cleans a Presence entry: peers are sanitised, the hub flag must be literally true, anything else is dropped', () => {
+    expect(
+      parsePresenceMeta({
+        v: 1,
+        seq: 5,
+        hub: true,
+        peers: [
+          { id: 'p-1', name: `${RLO}Sam` },
+          { id: 'bad id', name: 'x' },
+          { id: 'p-1', name: 'dup' },
+        ],
+      }),
+    ).toEqual({
+      v: 1,
+      seq: 5,
+      hub: true,
+      peers: [{ id: 'p-1', name: 'Sam' }],
+    });
+    expect(parsePresenceMeta({ v: 1, seq: 5, hub: 'yes', peers: 'nope' })).toEqual({ v: 1, seq: 5, hub: false, peers: [] });
+    for (const bad of [null, 'x', {}, { v: 2, seq: 1, peers: [] }, { v: 1, seq: -1 }, { v: 1, seq: Number.NaN }, { v: 1 }])
+      expect(parsePresenceMeta(bad)).toBeNull();
+  });
+
+  it('measures payloads in UTF-8 bytes, and treats the unmeasurable as too big', () => {
+    expect(jsonBytes('ab')).toBe(4);
+    expect(jsonBytes('🔥')).toBe(6); // 4 bytes + quotes
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    expect(jsonBytes(cyclic)).toBe(Number.POSITIVE_INFINITY);
+    expect(jsonBytes(undefined)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('parses the service worker’s commands to the host, rejecting anything malformed', () => {
+    expect(parseHostCommand({ type: 'vibeparty-host:status' })).toEqual({ type: 'vibeparty-host:status' });
+    expect(parseHostCommand({ type: 'vibeparty-host:content', tabId: 3, message: { type: 'vibeparty:hello' } })).toEqual({
+      type: 'vibeparty-host:content',
+      tabId: 3,
+      message: { type: 'vibeparty:hello' },
+    });
+    expect(parseHostCommand({ type: 'vibeparty-host:join-tab', tabId: 3, room: 'Friday Vibes', name: ' Zed ' })).toEqual({
+      type: 'vibeparty-host:join-tab',
+      tabId: 3,
+      room: 'friday-vibes',
+      name: 'Zed',
+    });
+    for (const bad of [
+      null,
+      {},
+      { type: 'vibeparty:hello' }, // content messages are not host commands
+      { type: 'vibeparty-host:content', tabId: -1 },
+      { type: 'vibeparty-host:content', tabId: 1.5 },
+      { type: 'vibeparty-host:content', tabId: '3' },
+      { type: 'vibeparty-host:join-tab', tabId: 3, room: '!!', name: 'x' },
+      { type: 'vibeparty-host:nope' },
+    ])
+      expect(parseHostCommand(bad)).toBeNull();
+  });
+
+  it('accepts the new content / app messages', () => {
+    expect(parseContentMessage({ type: 'vibeparty:retry' })).toEqual({ type: 'vibeparty:retry' });
+    expect(parseContentMessage({ type: 'vibeparty:open-pact', extra: 1 })).toEqual({ type: 'vibeparty:open-pact' });
+    expect(parseAppMessage({ type: 'vibeparty:retry' })).toEqual({ type: 'vibeparty:retry' });
   });
 });

@@ -31,9 +31,11 @@ export function PageThumb({ doc, index, width = 140, turn = 0, className }: { do
   useEffect(() => {
     if (!visible || !canvas.current) return;
     let cancelled = false;
-    renderPage(doc, index, canvas.current, width * 2).catch(() => !cancelled && setFailed(true)); // 2× → stays sharp when rotated/scaled
+    const ac = new AbortController();
+    renderPage(doc, index, canvas.current, width * 2, ac.signal).catch(() => !cancelled && setFailed(true)); // 2× → stays sharp when rotated/scaled
     return () => {
       cancelled = true;
+      ac.abort();
     };
   }, [visible, doc, index, width]);
 

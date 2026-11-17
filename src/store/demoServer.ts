@@ -40,6 +40,9 @@ export const STORAGE_KEYS = [
   'pact-appearance',
   'pact-theme',
   'pact-notifications',
+  'pact-main-focus',
+  'pact-capture',
+  'pact-tour',
 ] as const;
 
 // ── chat ─────────────────────────────────────────────────────────────────────

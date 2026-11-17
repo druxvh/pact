@@ -1,4 +1,5 @@
-import { PdfError, pageCount } from '@/features/tools/lib/pdf/ops';
+import { PdfError } from '@/features/tools/lib/pdf/errors';
+import { pdfRunner } from '@/features/tools/pdf/pdfRunner';
 import { formatBytes } from '@/lib/format';
 
 export const MAX_FILE_BYTES = 150 * 1024 * 1024;
@@ -23,7 +24,9 @@ export async function readPdfs(files: File[]): Promise<{ ok: LoadedPdf[]; proble
     }
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      ok.push({ id: nextId('pdf'), name: file.name, bytes, pages: await pageCount(bytes) });
+      // Parsing a big PDF takes a while; the worker does it so the page stays responsive.
+      const { info } = await pdfRunner.run({ op: 'inspect', bytes });
+      ok.push({ id: nextId('pdf'), name: file.name, bytes, pages: (info as { pages: number }).pages });
     } catch (err) {
       problems.push(`${file.name}: ${err instanceof PdfError ? err.message : 'couldn’t be read.'}`);
     }
@@ -33,4 +36,5 @@ export async function readPdfs(files: File[]): Promise<{ ok: LoadedPdf[]; proble
 
 export const baseName = (name: string) => name.replace(/\.[^.]+$/, '');
 
-export const pdfBlob = (bytes: Uint8Array) => new Blob([bytes.slice().buffer], { type: 'application/pdf' });
+/** A download-ready Blob. (Blob construction copies the bytes, so no extra `.slice()` is needed.) */
+export const pdfBlob = (bytes: Uint8Array) => new Blob([bytes as BlobPart], { type: 'application/pdf' });

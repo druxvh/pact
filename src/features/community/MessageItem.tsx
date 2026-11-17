@@ -56,6 +56,8 @@ type Props = {
   reactions: Reaction[];
   me: string;
   myRole: Role;
+  /** I'm timed out: I can read, but not react (the server refuses). */
+  timedOut?: boolean;
   onJumpTo: (id: string) => void;
 };
 
@@ -80,7 +82,7 @@ function GifImage({ url, alt }: { url: string; alt: string }) {
   );
 }
 
-export function MessageItem({ message: m, previous, replied, author, repliedAuthor, authorRole, reactions, me, myRole, onJumpTo }: Props) {
+export function MessageItem({ message: m, previous, replied, author, repliedAuthor, authorRole, reactions, me, myRole, timedOut = false, onJumpTo }: Props) {
   const store = useCommunityStore;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(m.body);
@@ -220,7 +222,7 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
         {grouped ? (
           <span className="hidden pt-1 text-right text-[10px] text-subtle-foreground group-hover:block">{time(m.createdAt)}</span>
         ) : (
-          <Avatar name={name} size="lg" />
+          <Avatar name={name} src={author?.avatarUrl} size="lg" />
         )}
       </div>
 
@@ -264,10 +266,11 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
                 key={emoji}
                 type="button"
                 aria-pressed={c.mine}
+                disabled={timedOut}
                 onClick={() => void run(() => store.getState().toggleReaction(m, emoji))}
                 className={cn(
-                  'inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-xs transition-colors',
-                  c.mine ? 'border-brand/60 bg-brand-soft text-brand-text' : 'hover:bg-accent',
+                  'inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                  c.mine ? 'border-brand/60 bg-brand-soft text-brand-text' : !timedOut && 'hover:bg-accent',
                 )}
               >
                 <span>{emoji}</span>
@@ -281,7 +284,7 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
       {intact && !editing && (
         <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-lg border bg-popover p-0.5 shadow-sm focus-within:flex group-focus-within:flex group-hover:flex">
           <Popover open={picker} onOpenChange={setPicker}>
-            <PopoverTrigger render={<IconButton label="Add reaction" size="icon-xs" />}>
+            <PopoverTrigger render={<IconButton label={timedOut ? 'Add reaction (you’re timed out)' : 'Add reaction'} size="icon-xs" disabled={timedOut} />}>
               <SmilePlus />
             </PopoverTrigger>
             <PopoverContent align="end" className="w-auto p-1.5">

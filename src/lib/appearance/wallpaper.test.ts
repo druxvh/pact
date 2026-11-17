@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultDim, GRADIENTS, legibility, MESHES, SOLIDS, suggestDim, wallpaperBackground, wallpaperLuminance } from './wallpaper';
+import { defaultDim, GRADIENTS, legibility, MESHES, SOLIDS, shrinkPlan, suggestDim, wallpaperBackground, wallpaperLuminance } from './wallpaper';
 
 describe('wallpaperBackground', () => {
   it('builds CSS for each colour-type wallpaper and nothing for none/image', () => {
@@ -77,5 +77,23 @@ describe('wallpaperLuminance', () => {
   it('has sensible default dims', () => {
     expect(defaultDim('none')).toBe(0);
     expect(defaultDim('image')).toBeGreaterThan(defaultDim('solid'));
+  });
+});
+
+describe('shrinkPlan — keeping a wallpaper picture backup-sized', () => {
+  it('scales by √(target/size) with a margin, and gets stricter on each attempt', () => {
+    const first = shrinkPlan(8_000_000, 4000, 3000, 2_000_000, 0);
+    expect(first).not.toBeNull();
+    expect(first?.scale).toBeCloseTo(Math.sqrt(2 / 8) * 0.9, 5);
+    const second = shrinkPlan(8_000_000, 4000, 3000, 2_000_000, 1);
+    expect(second?.scale).toBeLessThan(first?.scale ?? 0);
+    expect(second?.quality).toBeLessThan(first?.quality ?? 0);
+  });
+
+  it('never upscales, and gives up rather than make a thumbnail', () => {
+    expect(shrinkPlan(2_100_000, 4000, 3000, 2_000_000, 0)?.scale).toBeLessThanOrEqual(1);
+    expect(shrinkPlan(900_000_000, 800, 600, 2_000_000, 0)).toBeNull(); // would shrink below 320 px
+    expect(shrinkPlan(8_000_000, 4000, 3000, 2_000_000, 4)).toBeNull(); // out of attempts
+    expect(shrinkPlan(0, 100, 100, 1, 0)).toBeNull();
   });
 });

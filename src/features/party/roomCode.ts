@@ -1,5 +1,5 @@
-// Relative (not `@/`) on purpose: the relay server imports this module directly under Node/Bun, which
-// know nothing about the bundler's path alias.
+// Relative (not `@/`) on purpose: the vibeparty modules that import this one use relative paths throughout, so they can
+// run outside the bundler too (Node/Bun scripts, tests) where the `@/` alias doesn't exist.
 import { pick, randomInt } from '../../lib/random.ts';
 
 const WORDS = [

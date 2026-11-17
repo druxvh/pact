@@ -25,7 +25,8 @@ export function parseInviteCode(input: string): string {
 
 export const isPlausibleInviteCode = (code: string) => /^[a-f0-9]{16}$/.test(code);
 
-const GIF_HOST = /^(?:media\d*|i)\.giphy\.com$/i;
+// KLIPY serves from static.klipy.com; the GIPHY hosts stay accepted so any GIF posted earlier keeps rendering.
+const GIF_HOST = /^(?:(?:[a-z0-9-]+\.)*klipy\.com|(?:media\d*|i)\.giphy\.com)$/i;
 
 /**
  * If a message is nothing but a link to a GIF on the GIF provider's own hosts, that link — so it can be shown as a

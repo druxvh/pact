@@ -1,11 +1,11 @@
 /**
  * Everything that crosses a trust boundary is validated here before it touches state:
  *   • content-script messages (a compromised/odd page context, or a bug),
- *   • relay messages (other people's clients — assume hostile),
- *   • and, on the server, every client message.
+ *   • room messages — everything other members' clients send over Realtime (assume hostile: anyone holding the room code
+ *     can join and send arbitrary JSON, and the hub applies member messages to the room's state).
  *
  * The contract is "never throw, return null / a cleaned value". Callers drop what comes back null.
- * Pure + dependency-light so the relay server can import it directly.
+ * Pure and dependency-free so every context (and the tests) can import it.
  */
 import { isValidRoomCode, normalizeRoomCode } from '../roomCode.ts';
 import {
@@ -13,10 +13,12 @@ import {
   type ChatMessage,
   type ClientMessage,
   type ContentToBackground,
+  type HostCommand,
   LIMITS,
   type MediaEventName,
   type MediaSnapshot,
   type PeerInfo,
+  type PresenceMeta,
   parseYouTubeId,
   type QueueItem,
   type ReactionEvent,
@@ -190,6 +192,8 @@ export function parseContentMessage(raw: unknown): ContentToBackground | null {
     case 'vibeparty:hello':
     case 'vibeparty:leave':
     case 'vibeparty:resync':
+    case 'vibeparty:retry':
+    case 'vibeparty:open-pact':
       return { type: raw.type };
     case 'vibeparty:join':
     case 'vibeparty:ping': {
@@ -227,7 +231,7 @@ export function parseContentMessage(raw: unknown): ContentToBackground | null {
 /** Messages from the pact page → background. */
 export function parseAppMessage(raw: unknown): AppToBackground | null {
   if (!isObj(raw) || typeof raw.type !== 'string') return null;
-  if (raw.type === 'vibeparty:app-status') return { type: raw.type };
+  if (raw.type === 'vibeparty:app-status' || raw.type === 'vibeparty:retry') return { type: raw.type };
   if (raw.type === 'vibeparty:open') {
     const room = cleanRoom(raw.room);
     return room ? { type: raw.type, room, name: cleanName(raw.name) } : null;
@@ -235,7 +239,7 @@ export function parseAppMessage(raw: unknown): AppToBackground | null {
   return null;
 }
 
-/** Messages from a client → relay. Run by the server on every frame. */
+/** A member's message as the hub reads it. Run on every `c` event. */
 export function parseClientMessage(raw: unknown): ClientMessage | null {
   if (!isObj(raw) || typeof raw.t !== 'string') return null;
   if (raw.t === 'ping') {
@@ -282,7 +286,7 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   }
 }
 
-/** Messages from the relay → background. Treat the relay (and the people behind it) as untrusted. */
+/** The hub's message as a member reads it. Treat the hub (any member of the room can claim to be it) as untrusted. */
 export function parseServerMessage(raw: unknown): ServerMessage | null {
   if (!isObj(raw) || typeof raw.t !== 'string') return null;
   switch (raw.t) {
@@ -328,18 +332,61 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
   }
 }
 
-/**
- * `WXT_VIBEPARTY_WS_URL` must be `wss://…` — or plain `ws://` only for a relay on this machine.
- * Anything else is ignored (an unencrypted relay would leak every room code and chat message).
- */
-export function parseRelayUrl(raw: unknown): string | null {
-  if (typeof raw !== 'string' || !raw.trim()) return null;
+// ── the room's wire format ───────────────────────────────────────────────────
+
+/** UTF-8 size of the JSON form of `v` — what a payload cap is measured against. `Infinity` if it can't be serialised. */
+export function jsonBytes(v: unknown): number {
   try {
-    const url = new URL(raw.trim());
-    const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
-    if (url.protocol === 'wss:' || (url.protocol === 'ws:' && local)) return url.toString();
+    const json = JSON.stringify(v);
+    if (json === undefined) return Number.POSITIVE_INFINITY;
+    return typeof TextEncoder === 'undefined' ? json.length * 3 : new TextEncoder().encode(json).length;
   } catch {
-    // fall through
+    return Number.POSITIVE_INFINITY;
   }
-  return null;
+}
+
+/** `c` events (member → hub): `{ from: <client id>, msg: ClientMessage }`. */
+export function parseClientEnvelope(raw: unknown): { from: string; msg: ClientMessage } | null {
+  if (!isObj(raw)) return null;
+  const from = cleanId(raw.from);
+  const msg = parseClientMessage(raw.msg);
+  return from && msg ? { from, msg } : null;
+}
+
+/** `s` events (hub → members): `{ to?: <client id>, except?: <client id>, msg: ServerMessage }`. */
+export function parseServerEnvelope(raw: unknown): { to: string | null; except: string | null; msg: ServerMessage } | null {
+  if (!isObj(raw)) return null;
+  const msg = parseServerMessage(raw.msg);
+  return msg ? { to: cleanId(raw.to), except: cleanId(raw.except), msg } : null;
+}
+
+/** One Presence entry. Anything that doesn't fit is dropped — a member can put whatever it likes in its own entry. */
+export function parsePresenceMeta(raw: unknown): PresenceMeta | null {
+  if (!isObj(raw) || raw.v !== 1) return null;
+  const seq = cleanTimestamp(raw.seq);
+  if (seq === null) return null;
+  return { v: 1, seq, hub: raw.hub === true, peers: cleanPeers(raw.peers) };
+}
+
+/** Service worker → party host. */
+export function parseHostCommand(raw: unknown): HostCommand | null {
+  if (!isObj(raw) || typeof raw.type !== 'string' || !raw.type.startsWith('vibeparty-host:')) return null;
+  const tabId = typeof raw.tabId === 'number' && Number.isInteger(raw.tabId) && raw.tabId >= 0 ? raw.tabId : null;
+  switch (raw.type) {
+    case 'vibeparty-host:status':
+    case 'vibeparty-host:retry':
+    case 'vibeparty-host:ping':
+      return { type: raw.type };
+    case 'vibeparty-host:content':
+      return tabId === null ? null : { type: raw.type, tabId, message: raw.message };
+    case 'vibeparty-host:tab-closed':
+      return tabId === null ? null : { type: raw.type, tabId };
+    case 'vibeparty-host:join-tab':
+    case 'vibeparty-host:expect-tab': {
+      const room = cleanRoom(raw.room);
+      return tabId === null || !room ? null : { type: raw.type, tabId, room, name: cleanName(raw.name) };
+    }
+    default:
+      return null;
+  }
 }

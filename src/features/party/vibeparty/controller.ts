@@ -1,13 +1,15 @@
 /**
- * The brain of the background script, with no browser APIs in it: tabs are plain numbers, messages go out
- * through an injected `send`, and the relay is an injected interface. That makes the whole party lifecycle
- * (join, ghost cleanup, queue, ad-free sync, relay failover) unit-testable — see controller.test.ts.
+ * The brain of the party host, with no browser APIs in it: tabs are plain numbers, messages go out through an
+ * injected `send`, and the network is an injected `Transport`. That makes the whole party lifecycle (join, ghost
+ * cleanup, queue, ad-free sync, hub failover) unit-testable — see controller.test.ts.
  *
- * Authority model:
- *   • No relay → this controller IS the room for the tabs of this browser ("local mode").
- *   • Relay connected → the relay is the room. We still apply your own actions immediately (so chat and
- *     playback feel instant) and forward them; everything the relay sends back replaces/merges into our copy.
- *     Whether the queue advances when a video ends is decided by whoever is authoritative, never both.
+ * Authority model, per room:
+ *   • No live link (not signed in, no backend, or still connecting / reconnecting) → this controller IS the room
+ *     for the tabs of this browser ("local mode").
+ *   • Link live → the room's hub is the authority (see hub.ts; the transport elects it). We still apply your own
+ *     actions immediately (so chat and playback feel instant) and forward them; everything the hub sends back
+ *     replaces/merges into our copy. Whether the queue advances when a video ends is decided by whoever is
+ *     authoritative, never both.
  */
 
 import {
@@ -15,13 +17,14 @@ import {
   type AppStatus,
   type BackgroundToContent,
   type ChatMessage,
-  type ConnectionMode,
+  type LinkStatus,
   parseYouTubeId,
   type QueueItem,
   type ReactionEvent,
+  type RoomState,
   type ServerMessage,
 } from './protocol.ts';
-import type { RelayLike } from './relay-client.ts';
+import type { Transport } from './realtime-client.ts';
 import { Room, type SerializedRoom } from './room.ts';
 import { cleanName, cleanRoom, parseContentMessage } from './sanitize.ts';
 
@@ -32,7 +35,8 @@ export type ControllerDeps = {
   now: () => number;
   uuid: () => string;
   send: (tabId: number, msg: BackgroundToContent) => void;
-  relay: RelayLike | null;
+  /** null = no backend in this build: every party is local. */
+  transport: Transport | null;
   /** Called after any state change worth persisting. */
   onChange?: () => void;
 };
@@ -57,9 +61,27 @@ export class PartyController {
 
   constructor(private readonly deps: ControllerDeps) {}
 
-  get mode(): ConnectionMode {
-    const r = this.deps.relay;
-    return !r ? 'local' : r.connected ? 'live' : 'reconnecting';
+  /** Where a room's connection stands. */
+  linkOf(roomId: string): LinkStatus {
+    return this.deps.transport?.status(roomId) ?? { mode: 'local', reason: 'unconfigured' };
+  }
+
+  private isLive(roomId: string): boolean {
+    return this.linkOf(roomId).mode === 'live';
+  }
+
+  /** The room as this browser has it — what a newly elected hub continues from. */
+  stateOf(roomId: string): RoomState | null {
+    return this.rooms.get(roomId)?.state() ?? null;
+  }
+
+  retry(): void {
+    this.deps.transport?.retry();
+  }
+
+  /** Nobody is in a party and no tab is on its way to one. */
+  get idle(): boolean {
+    return this.members.size === 0 && this.pending.size === 0;
   }
 
   // ── from YouTube tabs ───────────────────────────────────────────────────────
@@ -79,11 +101,16 @@ export class PartyController {
         this.joinTab(tabId, msg.room, msg.name);
         return;
       case 'vibeparty:ping':
-        if (!member) this.joinTab(tabId, msg.room, msg.name); // the worker lost its state — heal
+        if (!member) this.joinTab(tabId, msg.room, msg.name); // the host lost its state — heal
         return;
       case 'vibeparty:leave':
         this.leaveTab(tabId);
         return;
+      case 'vibeparty:retry':
+        this.retry();
+        return;
+      case 'vibeparty:open-pact':
+        return; // the service worker opens pact's page; it needs the tabs API
       default:
         break;
     }
@@ -101,7 +128,7 @@ export class PartyController {
         }
         const snap = room.applyMedia(peerId, msg.ev, msg.mediaTime, msg.playing, msg.videoId);
         this.broadcast(room.id, { type: 'vibeparty:media', from: peerId, media: snap }, { tabId });
-        this.deps.relay?.send({ t: 'media', room: room.id, peerId, ev: msg.ev, mediaTime: msg.mediaTime, playing: msg.playing, videoId: msg.videoId });
+        this.deps.transport?.send({ t: 'media', room: room.id, peerId, ev: msg.ev, mediaTime: msg.mediaTime, playing: msg.playing, videoId: msg.videoId });
         this.changed();
         return;
       }
@@ -114,14 +141,14 @@ export class PartyController {
         const message: ChatMessage = { id: this.deps.uuid(), peerId, name: member.name, text: msg.text, at: this.deps.now() };
         room.addChat(message);
         this.broadcast(room.id, { type: 'vibeparty:chat', message });
-        this.deps.relay?.send({ t: 'chat', room: room.id, peerId, id: message.id, text: message.text, at: message.at });
+        this.deps.transport?.send({ t: 'chat', room: room.id, peerId, id: message.id, text: message.text, at: message.at });
         this.changed();
         return;
       }
       case 'vibeparty:reaction': {
         const reaction: ReactionEvent = { id: this.deps.uuid(), peerId, name: member.name, emoji: msg.emoji, messageId: msg.messageId, at: this.deps.now() };
         this.broadcast(room.id, { type: 'vibeparty:reaction', reaction }, { tabId });
-        this.deps.relay?.send({ t: 'reaction', room: room.id, peerId, id: reaction.id, emoji: msg.emoji, messageId: msg.messageId });
+        this.deps.transport?.send({ t: 'reaction', room: room.id, peerId, id: reaction.id, emoji: msg.emoji, messageId: msg.messageId });
         return;
       }
       case 'vibeparty:queue:add': {
@@ -145,21 +172,21 @@ export class PartyController {
           return;
         }
         this.broadcastQueue(room);
-        this.deps.relay?.send({ t: 'queue:add', room: room.id, peerId, id: item.id, url: item.url, title: item.title });
+        this.deps.transport?.send({ t: 'queue:add', room: room.id, peerId, id: item.id, url: item.url, title: item.title });
         this.changed();
         return;
       }
       case 'vibeparty:queue:vote': {
         if (!room.vote(msg.id, peerId)) return;
         this.broadcastQueue(room);
-        this.deps.relay?.send({ t: 'queue:vote', room: room.id, peerId, id: msg.id });
+        this.deps.transport?.send({ t: 'queue:vote', room: room.id, peerId, id: msg.id });
         this.changed();
         return;
       }
       case 'vibeparty:queue:remove': {
         if (!room.removeQueue(msg.id, peerId)) return;
         this.broadcastQueue(room);
-        this.deps.relay?.send({ t: 'queue:remove', room: room.id, peerId, id: msg.id });
+        this.deps.transport?.send({ t: 'queue:remove', room: room.id, peerId, id: msg.id });
         this.changed();
         return;
       }
@@ -183,15 +210,15 @@ export class PartyController {
 
   private onEnded(tabId: number, room: Room, member: Member, mediaTime: number, videoId: string | null): void {
     const { peerId } = member;
-    if (this.deps.relay?.connected) {
+    if (this.deps.transport && this.isLive(room.id)) {
       // Every viewer's player fires `ended` at about the same moment. If the room already moved on from this
-      // video, this one is a duplicate: don't regress our copy of the room, and don't bother the relay.
+      // video, this one is a duplicate: don't regress our copy of the room, and don't bother the hub.
       const current = room.snapshot();
       if (current && current.videoId !== videoId) return;
-      // The relay decides whether the queue advances. Record "paused at the end" meanwhile.
+      // The hub decides whether the queue advances. Record "paused at the end" meanwhile.
       const snap = room.applyMedia(peerId, 'ended', mediaTime, false, videoId);
       this.broadcast(room.id, { type: 'vibeparty:media', from: peerId, media: snap }, { tabId });
-      this.deps.relay.send({ t: 'media', room: room.id, peerId, ev: 'ended', mediaTime, playing: false, videoId });
+      this.deps.transport.send({ t: 'media', room: room.id, peerId, ev: 'ended', mediaTime, playing: false, videoId });
       this.changed();
       return;
     }
@@ -239,7 +266,7 @@ export class PartyController {
       this.members.set(tabId, member);
     }
 
-    this.deps.relay?.send({ t: 'join', room: roomId, peerId: member.peerId, name });
+    this.deps.transport?.send({ t: 'join', room: roomId, peerId: member.peerId, name });
     this.sendJoined(tabId);
     this.broadcast(roomId, { type: 'vibeparty:presence', peers: room.peers() }, { tabId });
     this.changed();
@@ -261,7 +288,7 @@ export class PartyController {
     this.members.delete(tabId);
     const room = this.rooms.get(member.room);
     room?.leave(member.peerId);
-    this.deps.relay?.send({ t: 'leave', room: member.room, peerId: member.peerId });
+    this.deps.transport?.send({ t: 'leave', room: member.room, peerId: member.peerId });
     if (!silent) this.deps.send(tabId, { type: 'vibeparty:left' });
     if (room) {
       if (this.tabsIn(member.room).length === 0) this.rooms.delete(member.room);
@@ -286,23 +313,23 @@ export class PartyController {
     }
   }
 
-  // ── from the relay ──────────────────────────────────────────────────────────
+  // ── from the transport ──────────────────────────────────────────────────────
 
   setLatency(ms: number): void {
     this.latencyMs = ms;
   }
 
-  relayOpened(): void {
-    // The relay forgot us when the socket dropped — re-announce every peer.
-    for (const m of this.members.values()) this.deps.relay?.send({ t: 'join', room: m.room, peerId: m.peerId, name: m.name });
-    this.broadcastStatus();
+  /** The host restarted with members restored from storage: tell the transport who is here again. */
+  announceMembers(): void {
+    for (const m of this.members.values()) this.deps.transport?.send({ t: 'join', room: m.room, peerId: m.peerId, name: m.name });
   }
 
-  relayClosed(): void {
-    this.broadcastStatus();
+  /** A room's connection changed (connecting → live → reconnecting …). */
+  transportStatus(roomId: string, status: LinkStatus): void {
+    this.broadcast(roomId, { type: 'vibeparty:status', room: roomId, ...status });
   }
 
-  relayMessage(msg: ServerMessage): void {
+  transportMessage(msg: ServerMessage): void {
     if (msg.t === 'pong') return;
     if (msg.t === 'error') {
       for (const tabId of this.members.keys()) this.deps.send(tabId, { type: 'vibeparty:error', message: msg.message });
@@ -356,10 +383,11 @@ export class PartyController {
     const rooms: AppRoomStatus[] = [];
     for (const room of this.rooms.values()) {
       if (this.tabsIn(room.id).length === 0) continue;
-      rooms.push({ room: room.id, peers: room.size, queue: room.sortedQueue().length, playing: room.snapshot()?.playing ?? false });
+      rooms.push({ room: room.id, peers: room.size, queue: room.sortedQueue().length, playing: room.snapshot()?.playing ?? false, ...this.linkOf(room.id) });
     }
     rooms.sort((a, b) => b.peers - a.peers);
-    return { mode: this.mode, rooms };
+    const { online, reason } = this.deps.transport?.availability() ?? { online: false, reason: 'unconfigured' as const };
+    return { hostRunning: true, idle: this.idle, online, ...(reason ? { reason } : {}), rooms };
   }
 
   serialize(): PersistedController {
@@ -409,7 +437,7 @@ export class PartyController {
     const m = this.members.get(tabId);
     const room = m && this.rooms.get(m.room);
     if (!m || !room) return;
-    this.deps.send(tabId, { type: 'vibeparty:joined', selfId: m.peerId, mode: this.mode, state: room.state() });
+    this.deps.send(tabId, { type: 'vibeparty:joined', selfId: m.peerId, ...this.linkOf(m.room), state: room.state() });
   }
 
   private broadcast(roomId: string, msg: BackgroundToContent, except: { tabId?: number; peerId?: string } = {}): void {
@@ -422,10 +450,6 @@ export class PartyController {
 
   private broadcastQueue(room: Room): void {
     this.broadcast(room.id, { type: 'vibeparty:queue', items: room.sortedQueue() });
-  }
-
-  private broadcastStatus(): void {
-    for (const [tabId, m] of this.members) this.deps.send(tabId, { type: 'vibeparty:status', mode: this.mode, room: m.room });
   }
 
   private changed(): void {

@@ -50,6 +50,36 @@ export function placeUpright(box: Box, rotation: Rotation, r: FRect): { x: numbe
   return { x: anchor.x, y: anchor.y, width: r.width * vis.width, height: r.height * vis.height, angle: rotation };
 }
 
+/**
+ * Shape of a signature's rectangle in *page-fraction* space (rect.width / rect.height), given the picture's own
+ * width / height (`imageRatio`) and the displayed page's height / width (`pageRatio`).
+ *
+ * Fractions are of different lengths — a page is taller than it is wide — so a picture that is 3:1 in pixels is
+ * `3 × pageRatio` : 1 in fractions. The preview (RectBox's locked aspect), the first placement and the stamped
+ * output all go through this one function, so they can't drift apart (the preview once divided where it should have
+ * multiplied, and signatures were squashed whenever they were resized on screen).
+ */
+export const fractionAspect = (imageRatio: number, pageRatio: number): number => imageRatio * pageRatio;
+
+/** Height (as a page fraction) a rectangle of `width` needs so a picture with this `imageRatio` isn't stretched. */
+export const heightForWidth = (width: number, imageRatio: number, pageRatio: number): number => width / fractionAspect(imageRatio, pageRatio);
+
+/**
+ * Re-shape `rect` to `aspect` (see `fractionAspect`) keeping its left edge, top edge and width, then pull it back on
+ * the page. A rectangle that already has the right shape comes back unchanged. Used when a signature placed on one
+ * page is stamped on pages of other proportions.
+ */
+export function fitAspect(rect: FRect, aspect: number): FRect {
+  if (!(aspect > 0)) return rect;
+  let width = Math.min(1, rect.width);
+  let height = width / aspect;
+  if (height > 1) {
+    height = 1;
+    width = aspect;
+  }
+  return clampRect({ left: rect.left, top: rect.top, width, height });
+}
+
 export const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 /** Keep a rectangle fully on the page. */

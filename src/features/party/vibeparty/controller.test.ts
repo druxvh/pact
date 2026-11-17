@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { PartyController, PENDING_TTL_MS, STALE_MEMBER_MS } from './controller';
-import { type BackgroundToContent, type ClientMessage, type ServerMessage, watchUrlFor } from './protocol';
+import {
+  type BackgroundToContent,
+  type ClientMessage,
+  type ConnectionMode,
+  type LinkReason,
+  type LinkStatus,
+  type ServerMessage,
+  watchUrlFor,
+} from './protocol';
+import type { Transport } from './realtime-client';
 
 const ROOM = 'friday-vibes';
 const VID = 'dQw4w9WgXcQ';
@@ -8,13 +17,25 @@ const VID2 = 'jNQXAC9IVRw';
 
 type Msg<T extends BackgroundToContent['type']> = Extract<BackgroundToContent, { type: T }>;
 
-class FakeRelay {
-  connected = false;
+/** A transport whose connection state the test controls. Joins and leaves are always accepted, like the real one. */
+class FakeTransport implements Transport {
+  mode: ConnectionMode = 'live';
+  reason: LinkReason | undefined;
   sent: ClientMessage[] = [];
+  retries = 0;
+  status(): LinkStatus {
+    return this.reason ? { mode: this.mode, reason: this.reason } : { mode: this.mode };
+  }
+  availability() {
+    return this.mode === 'local' ? { online: false, reason: this.reason } : { online: true };
+  }
   send(m: ClientMessage): boolean {
-    if (!this.connected) return false;
+    if (m.t !== 'join' && m.t !== 'leave' && this.mode !== 'live') return false;
     this.sent.push(m);
     return true;
+  }
+  retry() {
+    this.retries++;
   }
 }
 
@@ -22,14 +43,13 @@ function setup(opts: { relay?: boolean } = {}) {
   let now = 1_000_000;
   let n = 0;
   const sent: Array<{ tabId: number; msg: BackgroundToContent }> = [];
-  const relay = opts.relay ? new FakeRelay() : null;
-  if (relay) relay.connected = true;
+  const relay = opts.relay ? new FakeTransport() : null;
   let changes = 0;
   const c = new PartyController({
     now: () => now,
     uuid: () => `id-${++n}`,
     send: (tabId, msg) => sent.push({ tabId, msg }),
-    relay,
+    transport: relay,
     onChange: () => {
       changes++;
     },
@@ -124,7 +144,7 @@ describe('joining & presence', () => {
     expect(c.appStatus().rooms).toEqual([]);
   });
 
-  it('heals after the worker lost its state (ping re-joins) and re-syncs after a page navigation (hello)', () => {
+  it('heals after the host lost its state (ping re-joins) and re-syncs after a page navigation (hello)', () => {
     const { c, to } = setup();
     c.handleContent(7, { type: 'vibeparty:ping', room: ROOM, name: 'Zed' });
     expect(to(7, 'vibeparty:joined')).toHaveLength(1);
@@ -284,8 +304,8 @@ describe('local mode: the queue advances when a video ends', () => {
   });
 });
 
-describe('live mode (relay connected)', () => {
-  it('forwards your actions to the relay and applies them locally straight away', () => {
+describe('live mode (the room link is up)', () => {
+  it('forwards your actions to the hub and applies them locally straight away', () => {
     const { c, relay, to } = setup({ relay: true });
     join(c, 1, 'Alex');
     expect(relay?.sent[0]).toEqual({ t: 'join', room: ROOM, peerId: 'id-1', name: 'Alex' });
@@ -302,7 +322,7 @@ describe('live mode (relay connected)', () => {
     expect(relay?.sent.at(-1)).toMatchObject({ t: 'queue:add', url: watchUrlFor(VID), title: 'One' });
   });
 
-  it('lets the relay — not this browser — decide whether the queue advances', () => {
+  it('lets the hub — not this browser — decide whether the queue advances', () => {
     const { c, relay, to, clear } = setup({ relay: true });
     join(c, 1, 'Alex');
     c.handleContent(1, { type: 'vibeparty:queue:add', url: watchUrlFor(VID2), title: 'Two' });
@@ -314,9 +334,14 @@ describe('live mode (relay connected)', () => {
     expect(to(1, 'vibeparty:media')).toHaveLength(0); // no local advance
     expect(to(1, 'vibeparty:queue')).toHaveLength(0);
 
-    // …the relay's verdict arrives and reaches every local tab, including the origin
-    c.relayMessage({ t: 'queue', room: ROOM, items: [] });
-    c.relayMessage({ t: 'media', room: ROOM, from: null, media: { playing: true, mediaTime: 0, videoId: VID2, controllerPeerId: null, reason: 'advance' } });
+    // …the hub's verdict arrives and reaches every local tab, including the origin
+    c.transportMessage({ t: 'queue', room: ROOM, items: [] });
+    c.transportMessage({
+      t: 'media',
+      room: ROOM,
+      from: null,
+      media: { playing: true, mediaTime: 0, videoId: VID2, controllerPeerId: null, reason: 'advance' },
+    });
     expect(to(1, 'vibeparty:media')[0]?.media).toMatchObject({ videoId: VID2, reason: 'advance' });
     expect(to(1, 'vibeparty:queue')[0]?.items).toEqual([]);
   });
@@ -324,7 +349,12 @@ describe('live mode (relay connected)', () => {
   it('ignores a duplicate `ended` for a video the room has already moved on from', () => {
     const { c, relay, to, clear } = setup({ relay: true });
     join(c, 1, 'Alex');
-    c.relayMessage({ t: 'media', room: ROOM, from: null, media: { playing: true, mediaTime: 0, videoId: VID2, controllerPeerId: null, reason: 'advance' } });
+    c.transportMessage({
+      t: 'media',
+      room: ROOM,
+      from: null,
+      media: { playing: true, mediaTime: 0, videoId: VID2, controllerPeerId: null, reason: 'advance' },
+    });
     clear();
     c.handleContent(1, { type: 'vibeparty:media', ev: 'ended', mediaTime: 200, playing: false, videoId: VID }); // the old video's late echo
     expect(relay?.sent).toEqual([]);
@@ -332,7 +362,7 @@ describe('live mode (relay connected)', () => {
     expect(to(1, 'vibeparty:media').at(-1)?.media).toMatchObject({ videoId: VID2, playing: true }); // our copy wasn't regressed
   });
 
-  it('merges relay traffic without echoing your own actions back at you', () => {
+  it('merges hub traffic without echoing your own actions back at you', () => {
     const { c, to } = setup({ relay: true });
     join(c, 1, 'Alex');
     join(c, 2, 'Sam');
@@ -340,27 +370,27 @@ describe('live mode (relay connected)', () => {
     const mine = to(1, 'vibeparty:chat')[0]?.message;
     expect(mine).toBeDefined();
 
-    // the relay echoing our own message back is ignored (de-duplicated by id)…
-    c.relayMessage({ t: 'chat', room: ROOM, message: mine as NonNullable<typeof mine> });
+    // the hub echoing our own message back is ignored (de-duplicated by id)…
+    c.transportMessage({ t: 'chat', room: ROOM, message: mine as NonNullable<typeof mine> });
     expect(to(1, 'vibeparty:chat')).toHaveLength(1);
     // …a new message from someone else is delivered to both local tabs
-    c.relayMessage({ t: 'chat', room: ROOM, message: { id: 'r1', peerId: 'remote-1', name: 'Remote', text: 'yo', at: 1 } });
+    c.transportMessage({ t: 'chat', room: ROOM, message: { id: 'r1', peerId: 'remote-1', name: 'Remote', text: 'yo', at: 1 } });
     expect(to(1, 'vibeparty:chat')).toHaveLength(2);
     expect(to(2, 'vibeparty:chat')).toHaveLength(2);
 
     // a remote player event reaches both tabs; one that originated from a local peer skips that peer
-    c.relayMessage({ t: 'media', room: ROOM, from: 'remote-1', media: { playing: true, mediaTime: 1, videoId: VID, controllerPeerId: 'remote-1' } });
+    c.transportMessage({ t: 'media', room: ROOM, from: 'remote-1', media: { playing: true, mediaTime: 1, videoId: VID, controllerPeerId: 'remote-1' } });
     expect(to(1, 'vibeparty:media')).toHaveLength(1);
     expect(to(2, 'vibeparty:media')).toHaveLength(1);
-    c.relayMessage({ t: 'media', room: ROOM, from: 'id-1', media: { playing: false, mediaTime: 2, videoId: VID, controllerPeerId: 'id-1' } });
+    c.transportMessage({ t: 'media', room: ROOM, from: 'id-1', media: { playing: false, mediaTime: 2, videoId: VID, controllerPeerId: 'id-1' } });
     expect(to(1, 'vibeparty:media')).toHaveLength(1);
     expect(to(2, 'vibeparty:media')).toHaveLength(2);
 
-    c.relayMessage({ t: 'reaction', room: ROOM, reaction: { id: 'x', peerId: 'id-2', name: 'Sam', emoji: '🎉', messageId: null, at: 1 } });
+    c.transportMessage({ t: 'reaction', room: ROOM, reaction: { id: 'x', peerId: 'id-2', name: 'Sam', emoji: '🎉', messageId: null, at: 1 } });
     expect(to(2, 'vibeparty:reaction')).toHaveLength(0);
     expect(to(1, 'vibeparty:reaction')).toHaveLength(1);
 
-    c.relayMessage({
+    c.transportMessage({
       t: 'presence',
       room: ROOM,
       peers: [
@@ -375,7 +405,7 @@ describe('live mode (relay connected)', () => {
     ).toEqual(['Alex', 'Remote']);
   });
 
-  it('a relay `state` replaces the room and re-sends `joined` to every local tab', () => {
+  it('a hub `state` replaces the room and re-sends `joined` to every local tab', () => {
     const { c, to } = setup({ relay: true });
     join(c, 1, 'Alex');
     const state: Extract<ServerMessage, { t: 'state' }> = {
@@ -389,55 +419,102 @@ describe('live mode (relay connected)', () => {
       chat: [{ id: 'old', peerId: 'r', name: 'Remote', text: 'earlier', at: 1 }],
       media: { playing: false, mediaTime: 33, videoId: VID, controllerPeerId: 'r' },
     };
-    c.relayMessage(state);
+    c.transportMessage(state);
     const joined = to(1, 'vibeparty:joined').at(-1);
     expect(joined?.state.chat.map((m) => m.text)).toEqual(['earlier']);
     expect(joined?.state.media).toMatchObject({ mediaTime: 33, playing: false });
     expect(joined?.state.peers).toHaveLength(2);
   });
 
-  it('back-dates relay snapshots by the measured latency (clock-skew proof)', () => {
+  it('back-dates hub snapshots by the measured latency (clock-skew proof)', () => {
     const { c, to } = setup({ relay: true });
     join(c, 1, 'Alex');
     c.setLatency(300);
-    c.relayMessage({ t: 'media', room: ROOM, from: 'remote', media: { playing: true, mediaTime: 50, videoId: VID, controllerPeerId: 'remote' } });
+    c.transportMessage({ t: 'media', room: ROOM, from: 'remote', media: { playing: true, mediaTime: 50, videoId: VID, controllerPeerId: 'remote' } });
     expect(to(1, 'vibeparty:media')[0]?.media.mediaTime).toBeCloseTo(50.3, 5);
   });
 
-  it('re-announces everyone when the relay reconnects, and reports the connection mode to the overlay', () => {
+  it('tells the overlay about every change of the connection, and keeps offline changes local', () => {
     const { c, relay, to, clear } = setup({ relay: true });
     join(c, 1, 'Alex');
     join(c, 2, 'Sam');
     clear();
 
-    if (relay) relay.connected = false;
-    c.relayClosed();
+    const t = relay as FakeTransport;
+    t.mode = 'reconnecting';
+    c.transportStatus(ROOM, t.status());
     expect(to(1, 'vibeparty:status')[0]).toMatchObject({ mode: 'reconnecting', room: ROOM });
-    expect(c.appStatus().mode).toBe('reconnecting');
+    expect(to(2, 'vibeparty:status')[0]).toMatchObject({ mode: 'reconnecting', room: ROOM });
+    expect(c.appStatus().rooms[0]).toMatchObject({ room: ROOM, mode: 'reconnecting' });
 
     // changes made while offline stay local…
     c.handleContent(1, { type: 'vibeparty:chat', text: 'offline' });
-    expect(relay?.sent).toHaveLength(0);
+    expect(to(2, 'vibeparty:chat')).toHaveLength(1);
+    expect(t.sent.filter((m) => m.t === 'chat')).toHaveLength(0);
+    // …and a video that ends while offline advances the local room, since nobody else is deciding
+    c.handleContent(1, { type: 'vibeparty:queue:add', url: watchUrlFor(VID2), title: 'Two' });
+    c.handleContent(1, { type: 'vibeparty:media', ev: 'play', mediaTime: 0, playing: true, videoId: VID });
+    c.handleContent(1, { type: 'vibeparty:media', ev: 'ended', mediaTime: 9, playing: false, videoId: VID });
+    expect(to(2, 'vibeparty:media').at(-1)?.media).toMatchObject({ videoId: VID2, reason: 'advance' });
 
-    if (relay) relay.connected = true;
-    c.relayOpened();
-    expect(relay?.sent.filter((m) => m.t === 'join')).toEqual([
-      { t: 'join', room: ROOM, peerId: 'id-1', name: 'Alex' },
-      { t: 'join', room: ROOM, peerId: 'id-2', name: 'Sam' },
-    ]);
+    t.mode = 'error';
+    t.reason = 'denied';
+    c.transportStatus(ROOM, { mode: 'error', reason: 'denied', message: 'nope' });
+    expect(to(1, 'vibeparty:status').at(-1)).toMatchObject({ mode: 'error', reason: 'denied', message: 'nope' });
+
+    t.mode = 'live';
+    t.reason = undefined;
+    c.transportStatus(ROOM, t.status());
     expect(to(2, 'vibeparty:status').at(-1)).toMatchObject({ mode: 'live' });
   });
 
-  it('forwards the relay’s errors to the overlay', () => {
+  it('puts the link state in `joined`, and reports the sign-in requirement when there is no account', () => {
+    const { c, relay, to } = setup({ relay: true });
+    const t = relay as FakeTransport;
+    t.mode = 'local';
+    t.reason = 'signed-out';
+    join(c, 1, 'Alex');
+    expect(to(1, 'vibeparty:joined')[0]).toMatchObject({ mode: 'local', reason: 'signed-out' });
+    expect(c.appStatus()).toMatchObject({ online: false, reason: 'signed-out' });
+    c.handleContent(1, { type: 'vibeparty:retry' });
+    expect(t.retries).toBe(1);
+  });
+
+  it('is a plain local room when there is no transport at all', () => {
+    const { c, to } = setup();
+    join(c, 1, 'Alex');
+    expect(to(1, 'vibeparty:joined')[0]).toMatchObject({ mode: 'local', reason: 'unconfigured' });
+    expect(c.appStatus()).toMatchObject({ online: false, reason: 'unconfigured' });
+  });
+
+  it('re-announces its tabs after a restart (stable peer ids) and exposes its copy of the room for a new hub', () => {
+    const a = setup({ relay: true });
+    join(a.c, 1, 'Alex');
+    join(a.c, 2, 'Sam');
+    a.c.handleContent(1, { type: 'vibeparty:chat', text: 'kept' });
+    const snapshot = JSON.parse(JSON.stringify(a.c.serialize()));
+
+    const b = setup({ relay: true });
+    b.c.restore(snapshot);
+    b.c.announceMembers();
+    expect(b.relay?.sent).toEqual([
+      { t: 'join', room: ROOM, peerId: 'id-1', name: 'Alex' },
+      { t: 'join', room: ROOM, peerId: 'id-2', name: 'Sam' },
+    ]);
+    expect(b.c.stateOf(ROOM)?.chat.map((m) => m.text)).toEqual(['kept']);
+    expect(b.c.stateOf('nowhere')).toBeNull();
+  });
+
+  it('forwards error messages to the overlay', () => {
     const { c, to } = setup({ relay: true });
     join(c, 1, 'Alex');
-    c.relayMessage({ t: 'error', code: 'room_full', message: 'This room is full.' });
+    c.transportMessage({ t: 'error', code: 'room_full', message: 'This room is full.' });
     expect(to(1, 'vibeparty:error')[0]?.message).toBe('This room is full.');
   });
 });
 
-describe('surviving a service-worker restart', () => {
-  it('restores tabs, peer ids and room state from storage.session', () => {
+describe('surviving a restart of the party host', () => {
+  it('restores tabs, peer ids and room state from storage', () => {
     const a = setup();
     join(a.c, 1, 'Alex');
     join(a.c, 2, 'Sam');
@@ -458,7 +535,7 @@ describe('surviving a service-worker restart', () => {
     expect(joined?.state.media).toMatchObject({ playing: true, videoId: VID });
   });
 
-  it('drops members that went stale while the worker was asleep, and never throws on garbage', () => {
+  it('drops members that went stale while the host was down, and never throws on garbage', () => {
     const a = setup();
     join(a.c, 1, 'Alex');
     const snapshot = JSON.parse(JSON.stringify(a.c.serialize()));

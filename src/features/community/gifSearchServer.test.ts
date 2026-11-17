@@ -1,17 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { cleanQuery, giphyUrl, isGifUrl, PAGE_SIZE, parseGiphy, parseOffset } from '../../../supabase/functions/gif-search/lib';
+import { cleanQuery, isGifUrl, klipyUrl, PAGE_SIZE, parseKlipy, parsePage } from '../../../supabase/functions/gif-search/lib';
 import { gifUrl } from './links';
 
-const item = (id: string, over: Record<string, unknown> = {}) => ({
-  id,
-  title: `Title ${id}`,
-  images: {
-    original: { url: `https://media1.giphy.com/media/${id}/giphy.gif`, width: '480', height: '270' },
-    downsized: { url: `https://media1.giphy.com/media/${id}/giphy-downsized.gif`, width: '300', height: '169' },
-    fixed_width: { url: `https://media1.giphy.com/media/${id}/200w.gif`, width: '200', height: '113' },
+const H = 'https://static.klipy.com/ii/abc123/84/09';
+const rend = (name: string, w = 220, h = 229, size = 70_000) => ({ url: `${H}/${name}`, width: w, height: h, size });
+/** The shape KLIPY really returns: file.<hd|md|sm|xs>.<gif|webp|jpg|mp4|webm> */
+const item = (slug: string, over: Record<string, unknown> = {}) => ({
+  id: 2484942301552561,
+  slug,
+  title: `Title ${slug}`,
+  type: 'gif',
+  file: {
+    hd: { gif: rend(`${slug}-hd.gif`, 220, 229, 273_000), webp: rend(`${slug}-hd.webp`), jpg: rend(`${slug}-hd.jpg`), mp4: rend(`${slug}-hd.mp4`) },
+    md: { gif: rend(`${slug}-md.gif`, 220, 229, 271_000), webp: rend(`${slug}-md.webp`, 220, 229, 137_000) },
+    sm: { gif: rend(`${slug}-sm.gif`, 200, 208, 100_000), webp: rend(`${slug}-sm.webp`, 200, 208, 50_000) },
+    xs: { gif: rend(`${slug}-xs.gif`, 87, 90, 99_000), webp: rend(`${slug}-xs.webp`, 87, 90, 29_000) },
   },
   ...over,
 });
+const page = (items: unknown[], has_next = true) => ({ result: true, data: { data: items, current_page: 1, per_page: 24, has_next } });
 
 describe('gif-search: request building', () => {
   it('cleans the query: control characters, whitespace, length, wrong types', () => {
@@ -21,77 +28,109 @@ describe('gif-search: request building', () => {
     expect(cleanQuery(undefined)).toBe('');
   });
 
-  it('only accepts numeric cursors', () => {
-    expect(parseOffset('24')).toBe(24);
-    expect(parseOffset('../../etc')).toBe(0);
-    expect(parseOffset('99999')).toBe(0);
-    expect(parseOffset(null)).toBe(0);
-    expect(parseOffset('9999')).toBe(4900);
+  it('only accepts small numeric page cursors', () => {
+    expect(parsePage('2')).toBe(2);
+    expect(parsePage('../../etc')).toBe(1);
+    expect(parsePage('99999')).toBe(1);
+    expect(parsePage(null)).toBe(1);
+    expect(parsePage('0')).toBe(1);
+    expect(parsePage('999')).toBe(100);
   });
 
-  it('builds a search URL or a trending URL, always pg-13, and encodes the query', () => {
-    const s = new URL(giphyUrl('KEY', 'cats & dogs', 24));
-    expect(s.pathname).toBe('/v1/gifs/search');
+  it('builds a search URL with the key in the path and a trending URL without a query', () => {
+    const s = new URL(klipyUrl('KEY', 'cats & dogs', 2));
+    expect(s.origin).toBe('https://api.klipy.com');
+    expect(s.pathname).toBe('/api/v1/KEY/gifs/search');
     expect(s.searchParams.get('q')).toBe('cats & dogs');
-    expect(s.searchParams.get('offset')).toBe('24');
+    expect(s.searchParams.get('page')).toBe('2');
+    expect(s.searchParams.get('per_page')).toBe(String(PAGE_SIZE));
     expect(s.searchParams.get('rating')).toBe('pg-13');
-    expect(s.searchParams.get('limit')).toBe(String(PAGE_SIZE));
-    expect(new URL(giphyUrl('KEY', '', 0)).pathname).toBe('/v1/gifs/trending');
+    expect(new URL(klipyUrl('KEY', '', 1)).pathname).toBe('/api/v1/KEY/gifs/trending');
+    expect(new URL(klipyUrl('KEY', '', 1)).searchParams.has('q')).toBe(false);
+  });
+
+  it('cannot be steered to another path by a strange key', () => {
+    const u = new URL(klipyUrl('a/../../evil?x=', 'q', 1));
+    expect(u.origin).toBe('https://api.klipy.com');
+    expect(u.pathname.startsWith('/api/v1/')).toBe(true);
+    expect(u.pathname.endsWith('/gifs/search')).toBe(true);
+    expect(u.pathname.split('/').length).toBe(6); // /api/v1/<one segment>/gifs/search
   });
 });
 
-describe('gif-search: response trimming', () => {
-  it('keeps what the picker needs and prefers the lighter download for posting', () => {
-    const page = parseGiphy({ data: [item('a1')], pagination: { total_count: 100, count: 1, offset: 0 } }, 0);
-    expect(page.gifs).toEqual([
-      {
-        id: 'a1',
-        title: 'Title a1',
-        url: 'https://media1.giphy.com/media/a1/giphy-downsized.gif',
-        preview: 'https://media1.giphy.com/media/a1/200w.gif',
-        width: 200,
-        height: 113,
+describe('gif-search: response parsing', () => {
+  it('maps an item: animated WebP to post, a small WebP as the preview, the slug as id', () => {
+    const p = parseKlipy(page([item('cat-1')]), 1);
+    expect(p.gifs).toEqual([{ id: 'cat-1', title: 'Title cat-1', url: `${H}/cat-1-hd.webp`, preview: `${H}/cat-1-sm.webp`, width: 200, height: 208 }]);
+    expect(p.next).toBe('2');
+  });
+
+  it('falls back to GIF renditions when there is no WebP', () => {
+    const only = item('g', { file: { hd: { gif: rend('g-hd.gif') }, sm: { gif: rend('g-sm.gif', 100, 80) } } });
+    expect(parseKlipy(page([only]), 1).gifs[0]).toMatchObject({ url: `${H}/g-hd.gif`, preview: `${H}/g-sm.gif`, width: 100, height: 80 });
+  });
+
+  it('skips oversized files, so chat stays light', () => {
+    const big = item('big', {
+      file: {
+        hd: { webp: rend('big-hd.webp', 400, 300, 9_000_000), gif: rend('big-hd.gif', 400, 300, 9_000_000) },
+        md: { webp: rend('big-md.webp', 300, 200, 800_000) },
+        sm: { webp: rend('big-sm.webp') },
       },
-    ]);
-    expect(page.next).toBe('1');
+    });
+    expect(parseKlipy(page([big]), 1).gifs[0]?.url).toBe(`${H}/big-md.webp`);
+    const allBig = item('huge', { file: { hd: { webp: rend('h.webp', 1, 1, 9_000_000) }, sm: { webp: rend('s.webp') } } });
+    expect(parseKlipy(page([allBig]), 1).gifs).toEqual([]);
   });
 
-  it('every URL it returns is one the message renderer will show as a GIF', () => {
-    const page = parseGiphy({ data: [item('a1'), item('b2')], pagination: { total_count: 2, count: 2 } }, 0);
-    for (const g of page.gifs) expect(gifUrl(g.url)).toBe(g.url);
-  });
-
-  it('drops anything off-host, non-https, malformed or missing — never trusts the upstream blindly', () => {
+  it('drops sponsored items and anything off-host, http, or malformed', () => {
+    const evil = (url: string) => item('x', { slug: 'x', file: { hd: { webp: { url } }, sm: { webp: { url } } } });
     const bad = [
-      item('x1', { images: { downsized: { url: 'https://evil.example/a.gif' }, fixed_width: { url: 'https://media.giphy.com/a/200w.gif' } } }),
-      item('x2', { images: { downsized: { url: 'http://media.giphy.com/a.gif' }, fixed_width: { url: 'https://media.giphy.com/a/200w.gif' } } }),
-      item('x3', { images: {} }), // nothing to show
-      item('../x4'),
-      { id: 7 },
+      item('ad-1', { type: 'ad' }),
+      evil('https://evil.example/a.webp'),
+      evil('http://static.klipy.com/a.webp'),
+      evil('https://static.klipy.com.evil.example/a.webp'),
+      evil('https://user:pw@static.klipy.com/a.webp'),
+      evil('https://static.klipy.com/page.html'),
+      item('no-file', { file: undefined }),
+      item('bad id!', { slug: 'bad id!', id: undefined }),
       null,
-      'junk',
+      'nope',
     ];
-    const page = parseGiphy({ data: [...bad, item('ok')], pagination: { total_count: 8, count: 8 } }, 0);
-    expect(page.gifs.map((g) => g.id)).toEqual(['ok']);
+    const p = parseKlipy(page([...bad, item('ok')]), 1);
+    expect(p.gifs.map((g) => g.id)).toEqual(['ok']);
   });
 
-  it('falls back to the downsized copy for the preview when there is no fixed-width one', () => {
-    const only = item('d1', { images: { downsized: { url: 'https://media.giphy.com/a/giphy.gif', width: '300', height: '200' } } });
-    const page = parseGiphy({ data: [only], pagination: { total_count: 1, count: 1 } }, 0);
-    expect(page.gifs[0]).toMatchObject({ url: 'https://media.giphy.com/a/giphy.gif', preview: 'https://media.giphy.com/a/giphy.gif', width: 300 });
+  it('falls back to the numeric id when there is no slug, and keeps unknown-type items out only when typed otherwise', () => {
+    const noSlug = item('s', { slug: undefined, id: 123456 });
+    expect(parseKlipy(page([noSlug]), 1).gifs[0]?.id).toBe('123456');
+    const untyped = item('u', { type: undefined });
+    expect(parseKlipy(page([untyped]), 1).gifs).toHaveLength(1);
   });
 
-  it('computes the next cursor, and stops at the end', () => {
-    expect(parseGiphy({ data: [item('a')], pagination: { total_count: 50, count: 24 } }, 24).next).toBe('48');
-    expect(parseGiphy({ data: [item('a')], pagination: { total_count: 48, count: 24 } }, 24).next).toBeNull();
-    expect(parseGiphy({ data: [], pagination: { total_count: 0, count: 0 } }, 0)).toEqual({ gifs: [], next: null });
-    expect(parseGiphy(null, 0)).toEqual({ gifs: [], next: null });
+  it('only offers a next page while the API says there is one', () => {
+    expect(parseKlipy(page([item('a')], true), 3).next).toBe('4');
+    expect(parseKlipy(page([item('a')], false), 3).next).toBeNull();
+    expect(parseKlipy(page([], true), 1)).toEqual({ gifs: [], next: null });
+    expect(parseKlipy(page([item('a')], true), 100).next).toBeNull();
+    expect(parseKlipy(null, 1)).toEqual({ gifs: [], next: null });
+    expect(parseKlipy({ result: false, errors: { message: ['The provided API key is invalid.'] } }, 1)).toEqual({ gifs: [], next: null });
+  });
+});
+
+describe('gif URLs', () => {
+  it('only the provider’s own https GIF/WebP hosts pass', () => {
+    expect(isGifUrl('https://static.klipy.com/ii/x/84/09/a.gif')).toBe(true);
+    expect(isGifUrl('https://static.klipy.com/ii/x/84/09/a.webp')).toBe(true);
+    expect(isGifUrl('https://klipy.com/gifs/x')).toBe(false);
+    expect(isGifUrl('https://static.klipy.com.evil.example/x.gif')).toBe(false);
+    expect(isGifUrl('https://media.giphy.com/media/x/giphy.gif')).toBe(false); // the server no longer hands those out
   });
 
-  it('isGifUrl is strict about hosts', () => {
-    expect(isGifUrl('https://media4.giphy.com/media/x/giphy.gif')).toBe(true);
-    expect(isGifUrl('https://giphy.com/gifs/x')).toBe(false);
-    expect(isGifUrl('https://media.giphy.com.evil.example/x.gif')).toBe(false);
-    expect(isGifUrl(5)).toBe(false);
+  it('the app renders both KLIPY links and any GIPHY GIF posted earlier as a picture', () => {
+    expect(gifUrl('https://static.klipy.com/ii/x/84/09/a.webp')).not.toBeNull();
+    expect(gifUrl('https://media.giphy.com/media/abc/giphy.gif')).not.toBeNull();
+    expect(gifUrl('https://static.klipy.com/ii/x/a.webp and more text')).toBeNull();
+    expect(gifUrl('https://static.klipy.com.evil.example/a.gif')).toBeNull();
   });
 });

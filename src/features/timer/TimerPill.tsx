@@ -1,6 +1,7 @@
 import { Pause, Timer } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { PHASE_LABEL } from '@/features/timer/store';
+import { PresetIcon } from '@/features/timer/PresetIcon';
+import { activePreset, PHASE_LABEL, useTimerStore } from '@/features/timer/store';
 import { useCountdown } from '@/features/timer/useCountdown';
 import { cn } from '@/lib/cn';
 import { formatClock } from '@/lib/format';
@@ -11,6 +12,7 @@ import { useNavStore } from '@/store/useNavStore';
 export function TimerPill() {
   const { status, phase, seconds } = useCountdown();
   const go = useNavStore((s) => s.go);
+  const preset = useTimerStore(activePreset);
   const onTimerPage = useNavStore((s) => s.section === 'timer');
   const visible = status !== 'idle' && !onTimerPage;
 
@@ -33,7 +35,7 @@ export function TimerPill() {
           {status === 'running' ? (
             <span className="relative grid size-4 place-items-center">
               <span className="absolute size-2 animate-pulse-ring rounded-full bg-brand" />
-              <Timer className="size-3.5" />
+              {preset && phase === 'focus' ? <PresetIcon icon={preset.icon} className="size-3.5" /> : <Timer className="size-3.5" />}
             </span>
           ) : (
             <Pause className="size-3.5" />

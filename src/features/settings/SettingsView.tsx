@@ -17,25 +17,31 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Avatar, Button, Card, confirm, IconButton, Input, Label, PageHeader, Segmented, Switch, Textarea } from '@/components/ui';
+import { Button, Card, confirm, IconButton, Input, Label, PageHeader, Segmented, Switch, Textarea } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
 import { type ClockStyle, orderedWidgets, useHomeLayoutStore, WIDGET_INFO } from '@/features/home/layout';
 import { useHomeStore } from '@/features/home/store';
 import { useKanbanStore } from '@/features/kanban/store';
 import { useNotesStore } from '@/features/notes/store';
 import { AccentPicker } from '@/features/settings/AccentPicker';
+import { AvatarEditor } from '@/features/settings/AvatarEditor';
+import { DataSafetyCard } from '@/features/settings/DataSafety';
 import { FontPicker } from '@/features/settings/FontPicker';
 import { HomePresetPicker } from '@/features/settings/HomePresetPicker';
+import { UsernameHint } from '@/features/settings/UsernameHint';
 import { WallpaperPicker } from '@/features/settings/WallpaperPicker';
 import { useTimerStore } from '@/features/timer/store';
+import { HelpRows } from '@/features/tour/HelpRows';
 import { IMAGE_ASSET_ID } from '@/lib/appearance/wallpaper';
 import { deleteAsset } from '@/lib/assets';
+import { createSnapshot, exportBackupFile, startImportFromFile } from '@/lib/backup';
+import { clearSnapshots } from '@/lib/backup/db';
 import { cn } from '@/lib/cn';
-import { downloadText } from '@/lib/download';
 import { appVersion } from '@/lib/ext';
 import { fadeUp, stagger } from '@/lib/motion';
+import { useUsernameAvailability } from '@/lib/supabase/username';
 import { notify } from '@/lib/toast';
-import { exportBackup, importBackup, loadSampleWorkspace, parseBackup, resetAllData } from '@/store/demoServer';
+import { loadSampleWorkspace, resetAllData } from '@/store/demoServer';
 import { useAppearanceStore } from '@/store/useAppearanceStore';
 import { type ClockFormat, type MotionPreference, useSettingsStore } from '@/store/useSettingsStore';
 import { type ThemeMode, useThemeStore } from '@/store/useThemeStore';
@@ -121,9 +127,13 @@ function ProfileSection() {
     bio: me.bio ?? '',
   };
   const dirty = (Object.keys(form) as Array<keyof typeof form>).some((k) => form[k] !== baseline[k]);
-  const usernameError = form.username !== baseline.username ? validateUsername(form.username) : null;
+  // Usernames are unique: ask the database while you type (only when it's a valid, changed name).
+  const usernameStatus = useUsernameAvailability(normalizeUsername(form.username), baseline.username);
+  const usernameError =
+    (form.username !== baseline.username ? validateUsername(form.username) : null) ??
+    (usernameStatus === 'taken' ? 'That username is taken — try another' : null);
   const emailError = form.email && !/^\S+@\S+\.\S+$/.test(form.email.trim()) ? 'That doesn’t look like an email address' : null;
-  const canSave = dirty && !usernameError && !emailError;
+  const canSave = dirty && !usernameError && !emailError && usernameStatus !== 'checking';
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const shownName = form.displayName.trim() || 'You';
 
@@ -144,13 +154,8 @@ function ProfileSection() {
   return (
     <Section id="profile" icon={UserRound} title="Profile" description="Shown in chats and to friends. The username is how people find you.">
       <div className="space-y-4 py-0">
-        <div className="flex items-center gap-3">
-          <Avatar name={shownName} size="xl" />
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold tracking-tight">{shownName}</p>
-            <p className="truncate text-[13px] text-muted-foreground">@{normalizeUsername(form.username) || 'you'}</p>
-          </div>
-        </div>
+        <AvatarEditor name={shownName} />
+        <p className="-mt-2 truncate text-[13px] text-muted-foreground">@{normalizeUsername(form.username) || 'you'}</p>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -169,9 +174,7 @@ function ProfileSection() {
               aria-invalid={usernameError ? true : undefined}
               aria-describedby="set-username-err"
             />
-            <p id="set-username-err" className="mt-1 min-h-4 text-xs text-destructive-text" role="alert">
-              {usernameError}
-            </p>
+            <UsernameHint id="set-username-err" error={usernameError} status={usernameStatus} />
           </div>
           <div>
             <Label htmlFor="set-role">Role</Label>
@@ -467,30 +470,10 @@ function DataSection() {
     ['Friends', friends],
   ] as const;
 
-  const exportData = () => {
-    const stamp = new Date().toISOString().slice(0, 10);
-    downloadText(`pact-backup-${stamp}.json`, JSON.stringify(exportBackup(), null, 2));
-    notify.success('Backup downloaded', 'Chat attachments (images and video) aren’t included.');
-  };
+  const exportData = () => void exportBackupFile();
 
-  const importFile = async (file: File) => {
-    const parsed = parseBackup(await file.text());
-    if (!parsed.ok) {
-      notify.error('Couldn’t import that file', parsed.error);
-      return;
-    }
-    const when = Number.isNaN(Date.parse(parsed.backup.exportedAt)) ? '' : ` from ${new Date(parsed.backup.exportedAt).toLocaleString()}`;
-    const ok = await confirm({
-      title: 'Replace your data with this backup?',
-      description: `This overwrites the notes, boards, chats and settings on this device with the backup${when}. It can’t be undone — export a backup of your current data first if you might want it.`,
-      confirmLabel: 'Replace my data',
-      destructive: true,
-    });
-    if (!ok) return;
-    importBackup(parsed.backup);
-    notify.success('Backup restored', 'Reloading…');
-    window.setTimeout(() => location.reload(), 700);
-  };
+  // Opens the preview dialog (in Data safety below); nothing is applied until it is confirmed there.
+  const importFile = (file: File) => void startImportFromFile(file);
 
   const loadSample = async () => {
     const hasData = notes + tasks + messages + friends > 0;
@@ -503,6 +486,7 @@ function DataSection() {
       destructive: hasData,
     });
     if (!ok) return;
+    if (hasData) await createSnapshot({ kind: 'safety', label: 'Before loading the sample workspace' }).catch(() => null);
     loadSampleWorkspace();
     notify.success('Sample workspace loaded');
   };
@@ -511,13 +495,14 @@ function DataSection() {
     const ok = await confirm({
       title: 'Erase everything on this device?',
       description:
-        'Notes, boards, chats, attachments, timer history, settings and your profile will be deleted from this device. Notes in your account aren’t deleted — they sync back the next time you’re signed in. This can’t be undone.',
+        'Notes, boards, chats, attachments, timer history, settings, your profile and every saved snapshot will be deleted from this device. Notes in your account aren’t deleted — they sync back the next time you’re signed in. This can’t be undone.',
       confirmLabel: 'Erase everything',
       destructive: true,
     });
     if (!ok) return;
     setBusy(true);
     await resetAllData();
+    await clearSnapshots().catch(() => {});
     location.reload();
   };
 
@@ -590,6 +575,7 @@ function AboutSection() {
           </Button>
         </div>
       </Row>
+      <HelpRows />
       <Row label="Version">
         <span className="font-mono text-xs text-muted-foreground">pact {appVersion()}</span>
       </Row>
@@ -659,6 +645,7 @@ export function SettingsView() {
           <AppearanceSection />
           <HomeSection />
           <DataSection />
+          <DataSafetyCard />
           <AboutSection />
         </div>
       </div>

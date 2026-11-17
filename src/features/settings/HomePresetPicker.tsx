@@ -26,7 +26,7 @@ export function LayoutPreview({ layout }: { layout: HomeLayout }) {
       )}
       {widgets.length > 0 && (
         <div className="flex gap-1">
-          {widgets.slice(0, 3).map((w) => (
+          {widgets.slice(0, 4).map((w) => (
             <span key={w} className="h-4 w-6 rounded-sm border border-brand/40 bg-brand-soft" />
           ))}
         </div>

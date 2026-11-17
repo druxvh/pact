@@ -7,6 +7,7 @@
  */
 import type { AppearanceState } from '@/store/useAppearanceStore';
 import { accentCss } from './accent';
+import { currentFaviconHref, STOCK_ICON, setFavicon } from './favicon';
 import { ensureFont, fontCss } from './fontLoader';
 import { fontById, fontVarsCss } from './fonts';
 import { type Dim, type Wallpaper, wallpaperBackground } from './wallpaper';
@@ -44,9 +45,9 @@ function styleEl(): HTMLStyleElement {
 
 let lastFontCss = '';
 
-function writeBoot(css: string, mode: string) {
+function writeBoot(css: string, mode: string, icon: string) {
   try {
-    localStorage.setItem(BOOT_KEY, JSON.stringify({ css, mode, fonts: lastFontCss }));
+    localStorage.setItem(BOOT_KEY, JSON.stringify({ css, mode, fonts: lastFontCss, icon: icon === STOCK_ICON ? undefined : icon }));
   } catch {
     /* storage full or blocked — the app still works, just with a first-paint flash */
   }
@@ -58,7 +59,9 @@ export function applyAppearance(s: Snapshot): void {
   styleEl().textContent = css;
   if (mode) document.documentElement.dataset.wallpaper = mode;
   else delete document.documentElement.dataset.wallpaper;
-  writeBoot(css, mode);
+  const icon = currentFaviconHref(s.accent);
+  setFavicon(icon);
+  writeBoot(css, mode, icon);
 
   // Fonts load lazily; once their @font-face CSS is known, cache it for the next boot too.
   const wanted = [s.font, s.monoFont].map((id) => fontById(id)).filter((f) => f && !f.builtIn);
@@ -70,7 +73,7 @@ export function applyAppearance(s: Snapshot): void {
     }),
   ).then((faces) => {
     lastFontCss = faces.join('');
-    writeBoot(css, mode);
+    writeBoot(css, mode, icon);
   });
 }
 

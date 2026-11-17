@@ -1,12 +1,14 @@
-import { ArrowLeft, Hash, MessageCircleMore, Users } from 'lucide-react';
+import { ArrowLeft, Hash, MessageCircleMore, Timer, Users } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Button, EmptyState, IconButton, Skeleton } from '@/components/ui';
+import { Badge, Button, EmptyState, IconButton, Skeleton } from '@/components/ui';
 import { Composer } from './Composer';
 import { DayDivider, MessageItem, sameDay } from './MessageItem';
 import { can } from './permissions';
+import { slowmodeLabel, slowmodeShort } from './safety';
 import { TypingLine } from './TypingLine';
 import type { Community } from './types';
 import { getCommunityApi, useCommunityStore } from './useCommunityStore';
+import { useMyTimeout } from './useSafety';
 
 const NEAR_BOTTOM = 120;
 
@@ -31,6 +33,7 @@ export function MessagePane({
   const loadOlder = useCommunityStore((s) => s.loadOlder);
   const setReading = useCommunityStore((s) => s.setReading);
   const me = getCommunityApi().me;
+  const timedOut = useMyTimeout(community.id) !== null;
 
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -109,6 +112,12 @@ export function MessagePane({
         )}
         <Hash className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <h2 className="shrink-0 text-sm font-semibold">{channel?.name ?? '…'}</h2>
+        {channel && channel.slowmodeSeconds > 0 && (
+          <Badge tone="neutral" title={`Slowmode: one message every ${slowmodeLabel(channel.slowmodeSeconds)} per member`}>
+            <Timer aria-hidden="true" /> <span aria-hidden="true">{slowmodeShort(channel.slowmodeSeconds)}</span>
+            <span className="sr-only">Slowmode, one message every {slowmodeLabel(channel.slowmodeSeconds)}</span>
+          </Badge>
+        )}
         {channel?.topic && <p className="hidden min-w-0 truncate border-l pl-2 text-[13px] text-muted-foreground sm:block">{channel.topic}</p>}
         <IconButton
           label={membersOpen ? 'Hide members' : 'Show members'}
@@ -167,6 +176,7 @@ export function MessagePane({
                     reactions={reactions[m.id] ?? []}
                     me={me}
                     myRole={community.role}
+                    timedOut={timedOut}
                     onJumpTo={jumpTo}
                   />
                 </div>
@@ -177,7 +187,7 @@ export function MessagePane({
       </div>
 
       {channel && <TypingLine channelId={channel.id} />}
-      {can(community.role, 'post') && channel && <Composer key={channel.id} communityId={community.id} channelName={channel.name} />}
+      {can(community.role, 'post') && channel && <Composer key={channel.id} communityId={community.id} channel={channel} role={community.role} />}
     </section>
   );
 }

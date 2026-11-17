@@ -58,9 +58,11 @@ export function PagePreview({
   useEffect(() => {
     if (!width || !canvas.current) return;
     let cancelled = false;
-    renderPage(doc, index, canvas.current, width).catch(() => !cancelled && setFailed(true));
+    const ac = new AbortController();
+    renderPage(doc, index, canvas.current, width, ac.signal).catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
+      ac.abort();
     };
   }, [doc, index, width]);
 

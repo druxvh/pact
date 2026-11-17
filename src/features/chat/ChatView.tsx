@@ -7,6 +7,8 @@ import { NewGroupDialog } from '@/features/chat/NewGroupDialog';
 import { selectTotalUnread, useChatStore } from '@/features/chat/store';
 import { Thread } from '@/features/chat/Thread';
 import { CommunitiesView, inviteCodeFromSub } from '@/features/community/CommunitiesView';
+import { communityLinkFromSub } from '@/features/community/notifications';
+import { useCommunityUnreadTotal } from '@/features/community/useCommunityStore';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { useNavStore } from '@/store/useNavStore';
 import { ME_ID, useUserStore } from '@/store/useUserStore';
@@ -112,10 +114,11 @@ export function ChatView() {
   const sub = useNavStore((s) => s.sub);
   const conversations = useChatStore((s) => s.conversations);
   const unread = useChatStore(selectTotalUnread);
+  const communityUnread = useCommunityUnreadTotal();
 
   // Notification and invite links choose their own tab.
   useEffect(() => {
-    if (inviteCodeFromSub(sub)) setTab('communities');
+    if (inviteCodeFromSub(sub) || communityLinkFromSub(sub)) setTab('communities');
     else if (sub && conversations.some((c) => c.id === sub)) setTab('dms');
   }, [sub, conversations]);
 
@@ -150,6 +153,7 @@ export function ChatView() {
             {t.icon}
             {t.label}
             {t.id === 'dms' && unread > 0 && <Badge tone="brand">{unread}</Badge>}
+            {t.id === 'communities' && communityUnread > 0 && <Badge tone="brand">{communityUnread > 99 ? '99+' : communityUnread}</Badge>}
           </button>
         ))}
       </div>

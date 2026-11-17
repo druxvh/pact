@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { Badge, Card, EmptyState, IconButton, InputGroup, PageHeader, Segmented, Select } from '@/components/ui';
 import { useKanbanStore } from '@/features/kanban/store';
 import { AnimatedDigits } from '@/features/timer/AnimatedDigits';
+import { PresetBar } from '@/features/timer/PresetBar';
+import { PresetIcon } from '@/features/timer/PresetIcon';
 import { lastDays, streak, todayStats, totalFocusMinutes } from '@/features/timer/stats';
-import { PHASE_LABEL, PHASES, type Phase, useTimerStore } from '@/features/timer/store';
+import { activePreset, PHASE_LABEL, PHASES, type Phase, useTimerStore } from '@/features/timer/store';
 import { TimerRing } from '@/features/timer/TimerRing';
 import { TimerSettings } from '@/features/timer/TimerSettings';
 import { useCountdown } from '@/features/timer/useCountdown';
@@ -79,6 +81,8 @@ export function TimerView() {
   const linkedTaskId = useTimerStore((s) => s.linkedTaskId);
   const setLinkedTask = useTimerStore((s) => s.setLinkedTask);
   const sessions = useTimerStore((s) => s.sessions);
+  const presets = useTimerStore((s) => s.presets);
+  const preset = useTimerStore(activePreset);
   const lastCompleted = useTimerStore((s) => s.lastCompleted);
   const tasks = useKanbanStore((s) => s.tasks);
   const boards = useKanbanStore((s) => s.boards);
@@ -139,20 +143,27 @@ export function TimerView() {
             onValueChange={setPhase}
             options={PHASES.map((p) => ({ value: p, label: PHASE_LABEL[p] }))}
           />
+          <PresetBar disabled={running} />
 
           <div className="relative">
             <TimerRing progress={progress} running={running} tone={isBreak ? 'success' : 'brand'}>
               <div className="flex flex-col items-center gap-3">
                 <AnimatedDigits value={formatClock(seconds)} running={running} className="text-[clamp(56px,13vw,76px)]" />
                 <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                  <span
-                    className={cn(
-                      'size-1.5 rounded-full',
-                      running ? (isBreak ? 'bg-success' : 'bg-brand') : 'bg-subtle-foreground',
-                      running && 'animate-pulse',
-                    )}
-                  />
-                  {running ? PHASE_LABEL[phase] : status === 'paused' ? 'Paused' : 'Ready'}
+                  {preset && !isBreak ? (
+                    <PresetIcon icon={preset.icon} className={cn('size-3.5', running && 'text-brand-text')} />
+                  ) : (
+                    <span
+                      className={cn(
+                        'size-1.5 rounded-full',
+                        running ? (isBreak ? 'bg-success' : 'bg-brand') : 'bg-subtle-foreground',
+                        running && 'animate-pulse',
+                      )}
+                    />
+                  )}
+                  <span className="max-w-[10rem] truncate">
+                    {running ? (preset && !isBreak ? preset.name : PHASE_LABEL[phase]) : status === 'paused' ? 'Paused' : 'Ready'}
+                  </span>
                 </p>
               </div>
             </TimerRing>
@@ -274,16 +285,19 @@ export function TimerView() {
               <EmptyState icon={Timer} title="No sessions yet" description="Finish a focus session and it shows up here." className="border-0 p-4" />
             ) : (
               <ul className="-mx-1 space-y-0.5">
-                {recent.map((s) => (
-                  <li key={s.id} className="flex items-center gap-3 rounded-lg px-1 py-1.5">
-                    <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-success-soft text-success-text">
-                      <CheckCircle2 className="size-4" />
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[13px]">{s.intent ?? 'Focus session'}</span>
-                    <span className="tabular shrink-0 text-xs text-muted-foreground">{s.minutes}m</span>
-                    <span className="w-14 shrink-0 text-right text-[11px] text-subtle-foreground">{relativeTime(s.completedAt)}</span>
-                  </li>
-                ))}
+                {recent.map((s) => {
+                  const used = s.presetId ? presets.find((p) => p.id === s.presetId) : undefined;
+                  return (
+                    <li key={s.id} className="flex items-center gap-3 rounded-lg px-1 py-1.5">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-success-soft text-success-text">
+                        {used ? <PresetIcon icon={used.icon} className="size-4" /> : <CheckCircle2 className="size-4" />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[13px]">{s.intent ?? used?.name ?? 'Focus session'}</span>
+                      <span className="tabular shrink-0 text-xs text-muted-foreground">{s.minutes}m</span>
+                      <span className="w-14 shrink-0 text-right text-[11px] text-subtle-foreground">{relativeTime(s.completedAt)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {linked && (

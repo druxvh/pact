@@ -5,7 +5,7 @@ import { Clock } from '@/features/home/Clock';
 import { useHomeLayoutStore } from '@/features/home/layout';
 import { OmniSearch } from '@/features/home/OmniSearch';
 import { ShortcutGrid, useHomeLinks } from '@/features/home/ShortcutGrid';
-import { HomeWidgets } from '@/features/home/widgets/HomeWidgets';
+import { HomeWidgets, useVisibleWidgets } from '@/features/home/widgets/HomeWidgets';
 import { cn } from '@/lib/cn';
 import { fadeUp, stagger } from '@/lib/motion';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
@@ -18,7 +18,7 @@ export function HomeView() {
   const showGreeting = useSettingsStore((s) => s.showGreeting);
   const go = useNavStore((s) => s.go);
   const signedIn = useAuthStore(selectSignedIn);
-  const widgetCount = signedIn ? layout.widgets.length : 0;
+  const widgetCount = useVisibleWidgets().length;
   // Guests can't reach Settings, and search + shortcuts are what Home offers them — never leave them with an empty page.
   const showSearch = layout.showSearch || !signedIn;
   const showShortcuts = layout.showShortcuts || !signedIn;

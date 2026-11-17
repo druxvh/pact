@@ -112,7 +112,7 @@ export function GifPicker({ onPick }: { onPick: (gif: Gif) => void }) {
           </>
         )}
       </div>
-      <p className="text-center text-[10px] uppercase tracking-wider text-subtle-foreground">{query ? 'Results' : 'Trending'} · Powered by GIPHY</p>
+      <p className="text-center text-[10px] uppercase tracking-wider text-subtle-foreground">{query ? 'Results' : 'Trending'} · Powered by KLIPY</p>
     </div>
   );
 }

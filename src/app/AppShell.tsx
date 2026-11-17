@@ -10,13 +10,19 @@ import { SignInDialog } from '@/app/SignIn';
 import { TopBar } from '@/app/TopBar';
 import { WallpaperLayer } from '@/app/WallpaperLayer';
 import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/ui';
+import { CaptureDialog } from '@/features/capture/CaptureDialog';
 import { selectTotalUnread, useChatStore } from '@/features/chat/store';
+import { useTitleBadge } from '@/features/community/titleBadge';
+import { useCommunityBackground, useCommunityUnreadTotal } from '@/features/community/useCommunityStore';
 import { useTimerStore } from '@/features/timer/store';
 import { TimerEngine } from '@/features/timer/TimerEngine';
+import { useTourStore } from '@/features/tour/store';
+import { Tour } from '@/features/tour/Tour';
 import { cn } from '@/lib/cn';
 import { useHotkeys } from '@/lib/hotkeys';
 import { page } from '@/lib/motion';
 import { reconcileDemo } from '@/store/demoServer';
+import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { useNavStore } from '@/store/useNavStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -27,8 +33,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const motionPref = useSettingsStore((s) => s.motion);
   const togglePalette = useUiStore((s) => s.togglePalette);
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
-  const overlayOpen = useUiStore((s) => s.paletteOpen || s.shortcutsOpen);
-  const chatUnread = useChatStore(selectTotalUnread);
+  const setCaptureOpen = useUiStore((s) => s.setCaptureOpen);
+  const tourActive = useTourStore((s) => s.active);
+  // While the first-run tour (or any of these) is up, the page's own hotkeys stay quiet.
+  const overlayOpen = useUiStore((s) => s.paletteOpen || s.shortcutsOpen || s.captureOpen) || tourActive;
+  const signedIn = useAuthStore(selectSignedIn);
+  // Chat badge = direct-message unread + community unread (muted communities excluded). The community feed runs for the
+  // whole signed-in app, not just while the Chat tab is open.
+  useCommunityBackground();
+  const chatUnread = useChatStore(selectTotalUnread) + useCommunityUnreadTotal();
+  // `(3) …` in the tab title while the tab is hidden or you're on another section. It decorates whatever title is set
+  // (this file's, or TimerEngine's countdown) instead of replacing it.
+  useTitleBadge(signedIn ? chatUnread : 0, section !== 'chat');
   const badges = chatUnread > 0 ? { chat: chatUnread } : {};
   const mainRef = useRef<HTMLElement>(null);
   const meta = SECTION_BY_ID[section];
@@ -51,7 +67,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [section]);
 
   useHotkeys([
-    { keys: 'mod+k', allowInInput: true, handler: togglePalette },
+    { keys: 'mod+k', allowInInput: true, enabled: !tourActive, handler: togglePalette },
+    { keys: 'c', enabled: !overlayOpen, handler: () => setCaptureOpen(true) },
     { keys: '?', enabled: !overlayOpen, handler: () => setShortcutsOpen(true) },
     ...SECTIONS.map((s) => ({
       keys: `g ${s.hotkey}`,
@@ -97,7 +114,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <CommandPalette />
         <ShortcutsDialog />
         <SignInDialog />
+        <CaptureDialog />
         <Onboarding />
+        <Tour />
       </TooltipProvider>
     </MotionConfig>
   );

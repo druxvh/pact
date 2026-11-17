@@ -50,6 +50,12 @@ describe('SSRF guard: addresses', () => {
       '[::1]',
       '64:ff9b::1',
       '2001:db8::1',
+      '::7f00:1', // IPv4-compatible loopback
+      '::ffff:0:7f00:1',
+      'fec0::1', // deprecated site-local
+      '2002:7f00:1::', // 6to4 wrapping 127.0.0.1
+      '2001::1', // Teredo
+      '100::1', // discard-only
     ]) {
       expect(isPrivateIPv6(ip), ip).toBe(true);
     }
@@ -129,5 +135,28 @@ describe('reading a page', () => {
   it('decodes entities safely (no surrogate halves, no huge code points)', () => {
     expect(decodeEntities('a&#55357;b&#99999999;c&amp;&unknown;')).toBe('abc&&unknown;');
     expect([...metaTags('<meta name="a" content="1"><meta name="A" content="2">').entries()]).toEqual([['a', '1']]);
+  });
+});
+
+describe('parsePage: hostile pages cannot pin the CPU', () => {
+  const timed = (html: string) => {
+    const t = performance.now();
+    const info = parsePage(html, 'https://example.com/');
+    return { ms: performance.now() - t, info };
+  };
+
+  it('an unterminated <meta repeated 400 KB worth finishes quickly (it took over a minute before)', () => {
+    const { ms } = timed('<meta '.repeat(70_000));
+    expect(ms).toBeLessThan(1500);
+  });
+
+  it('tens of thousands of unclosed <title> tags finish quickly', () => {
+    const { ms } = timed('<title>'.repeat(60_000));
+    expect(ms).toBeLessThan(1500);
+  });
+
+  it('still reads a normal page, including after a long inline script, and ignores anything past </head>', () => {
+    const html = `<html><head><script>${'x'.repeat(50_000)}</script><meta property="og:title" content="Real title"><title>fallback</title></head><body><meta property="og:title" content="from the body"></body></html>`;
+    expect(parsePage(html, 'https://example.com/').title).toBe('Real title');
   });
 });

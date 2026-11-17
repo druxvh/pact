@@ -1,5 +1,6 @@
 import { FileUp } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/cn';
 
 /** A big drop target that is also a real button (keyboard and screen-reader friendly). */
@@ -13,13 +14,32 @@ export function FileDrop({
 }: {
   accept: string;
   multiple?: boolean;
-  onFiles: (files: File[]) => void;
+  /** The drop target shows "Reading…" until this settles (checking a big PDF takes a moment). */
+  onFiles: (files: File[]) => Promise<unknown>;
   title: string;
   hint?: string;
   compact?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
+  const [reading, setReading] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  const receive = async (files: File[]) => {
+    setReading(true);
+    try {
+      await onFiles(files);
+    } finally {
+      if (alive.current) setReading(false);
+    }
+  };
+
   return (
     <>
       <input
@@ -33,11 +53,13 @@ export function FileDrop({
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           e.target.value = '';
-          if (files.length) onFiles(files);
+          if (files.length) void receive(files);
         }}
       />
       <button
         type="button"
+        disabled={reading}
+        aria-busy={reading || undefined}
         onClick={() => ref.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
@@ -48,17 +70,22 @@ export function FileDrop({
           e.preventDefault();
           setOver(false);
           const files = Array.from(e.dataTransfer.files);
-          if (files.length) onFiles(multiple ? files : files.slice(0, 1));
+          if (files.length) void receive(multiple ? files : files.slice(0, 1));
         }}
         className={cn(
           'flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed text-center transition-colors',
           compact ? 'px-4 py-4' : 'px-6 py-12',
           over ? 'border-brand bg-brand-soft' : 'hover:border-foreground/30 hover:bg-accent/40',
+          reading && 'cursor-progress opacity-70',
         )}
       >
-        <FileUp className={cn('text-brand-text', compact ? 'size-5' : 'size-7')} aria-hidden="true" />
-        <span className="text-sm font-medium">{title}</span>
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+        {reading ? (
+          <Spinner className={cn('text-brand-text', compact ? 'size-5' : 'size-7')} />
+        ) : (
+          <FileUp className={cn('text-brand-text', compact ? 'size-5' : 'size-7')} aria-hidden="true" />
+        )}
+        <span className="text-sm font-medium">{reading ? 'Reading…' : title}</span>
+        {hint && !reading && <span className="text-xs text-muted-foreground">{hint}</span>}
       </button>
     </>
   );

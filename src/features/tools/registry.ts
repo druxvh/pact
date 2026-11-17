@@ -14,6 +14,9 @@ import {
   PenLine,
   QrCode,
   Ruler,
+  Scissors,
+  Shrink,
+  Stamp,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 
@@ -28,9 +31,12 @@ export type ToolId =
   | 'password'
   | 'random'
   | 'pdf-merge'
+  | 'pdf-split'
   | 'pdf-pages'
   | 'pdf-crop'
   | 'pdf-sign'
+  | 'pdf-watermark'
+  | 'pdf-compress'
   | 'images-pdf';
 
 export type ToolDef = {
@@ -126,6 +132,14 @@ export const TOOLS: readonly ToolDef[] = [
     load: () => import('@/features/tools/tools/PdfMergeTool'),
   },
   {
+    id: 'pdf-split',
+    title: 'Split PDF',
+    description: 'Cut one PDF into several by page range, every N pages or page by page',
+    icon: Scissors,
+    keywords: 'pdf split divide cut separate extract pages range chapters zip burst',
+    load: () => import('@/features/tools/tools/PdfSplitTool'),
+  },
+  {
     id: 'pdf-pages',
     title: 'Organize PDF pages',
     description: 'Rearrange, rotate, delete or extract pages',
@@ -148,6 +162,22 @@ export const TOOLS: readonly ToolDef[] = [
     icon: PenLine,
     keywords: 'pdf sign signature esign fill form initial',
     load: () => import('@/features/tools/tools/PdfSignTool'),
+  },
+  {
+    id: 'pdf-watermark',
+    title: 'Watermark PDF',
+    description: 'Stamp text like “Confidential” or “Draft” on every page',
+    icon: Stamp,
+    keywords: 'pdf watermark stamp text confidential draft overlay label diagonal',
+    load: () => import('@/features/tools/tools/PdfWatermarkTool'),
+  },
+  {
+    id: 'pdf-compress',
+    title: 'Compress PDF',
+    description: 'Make a PDF smaller — lossless clean-up, or flatten pages to pictures',
+    icon: Shrink,
+    keywords: 'pdf compress shrink reduce size smaller optimize email upload mb file size',
+    load: () => import('@/features/tools/tools/PdfCompressTool'),
   },
   {
     id: 'images-pdf',

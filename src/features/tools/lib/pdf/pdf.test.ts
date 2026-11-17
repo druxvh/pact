@@ -2,9 +2,13 @@ import { degrees, PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 import { inkBounds, whiteToAlpha } from '../../pdf/signature';
 import { jpegOrientation } from './exif';
+import { annotationSummary, lastImageBox, makeLinkedPdf, makeSharedPdf, pageContent } from './fixtures';
 import {
   clampRect,
   FULL_PAGE,
+  fitAspect,
+  fractionAspect,
+  heightForWidth,
   isFullPage,
   marginsFromRect,
   normalizeRotation,
@@ -300,5 +304,96 @@ describe('signature pixels', () => {
     expect(px[7]).toBe(255); // dark ink stays
     expect(px[11]).toBeGreaterThan(0); // light grey: partly transparent
     expect(px[11]).toBeLessThan(255);
+  });
+});
+
+describe('merge and extract do not inflate the file', () => {
+  it('copies a resource shared by many pages once per source, not once per page', async () => {
+    const src = await makeSharedPdf(20); // 20 pages, one 200 KB image used by all of them
+    const merged = await mergePdfs([src, src]);
+    // Two sources → two copies of the image are legitimate. The per-page copier wrote 40 (≈ 8 MB).
+    expect(merged.length).toBeLessThan(src.length * 2 * 1.15);
+    expect((await PDFDocument.load(merged)).getPageCount()).toBe(40);
+  });
+  it('extracting some pages keeps one copy of what they share', async () => {
+    const src = await makeSharedPdf(20);
+    const out = await assemble(
+      [src],
+      [0, 5, 6, 7, 12].map((page) => ({ source: 0, page, rotate: 0 })),
+    );
+    expect(out.length).toBeLessThan(src.length * 1.1);
+  });
+  it('a page used twice shares its resources with itself', async () => {
+    const src = await makeSharedPdf(2);
+    const out = await assemble(
+      [src],
+      [0, 0, 0].map((page) => ({ source: 0, page, rotate: 0 })),
+    );
+    expect(out.length).toBeLessThan(src.length * 1.15);
+    expect((await PDFDocument.load(out)).getPageCount()).toBe(3);
+  });
+  it('only reads the files that contribute pages', async () => {
+    const good = await makePdf(2);
+    const out = await assemble([good, new Uint8Array([1, 2, 3])], [{ source: 0, page: 1, rotate: 0 }]); // source 1 isn't a PDF, but isn't used
+    expect(await widths(out)).toEqual([110]);
+  });
+  it('drops links to other pages instead of dragging those pages along, and keeps web links', async () => {
+    const src = await makeLinkedPdf(10); // page 1 links to page 10; every page has its own 150 KB image
+    expect(await annotationSummary(src, 0)).toEqual({ total: 2, internal: 1, uris: 1 });
+    const one = await assemble([src], [{ source: 0, page: 0, rotate: 0 }]);
+    expect(one.length).toBeLessThan(180_000); // one page's image — not two (page 10 would have come along)
+    expect(await annotationSummary(one, 0)).toEqual({ total: 1, internal: 0, uris: 1 });
+    const merged = await mergePdfs([src, src]);
+    expect(merged.length).toBeLessThan(src.length * 2 * 1.1);
+  });
+});
+
+describe('signature geometry: preview and stamped output agree', () => {
+  it('the shape of a locked signature box multiplies by the page ratio (it used to divide)', () => {
+    // A signature 3× as wide as tall on a page twice as tall as wide: its box is 6:1 in page fractions.
+    expect(fractionAspect(3, 2)).toBe(6);
+    expect(heightForWidth(0.3, 3, 2)).toBeCloseTo(0.05);
+    // …and back: a 0.3 × 0.05 box on that page is 0.3·W by 0.05·2W = 0.3W × 0.1W → 3:1 in pixels.
+    expect((0.3 * 1) / (0.05 * 2)).toBeCloseTo(3);
+  });
+  it('placing at the computed height gives the picture its own proportions on every rotation', () => {
+    const box = { x: 0, y: 0, width: 200, height: 400 };
+    for (const rotation of [0, 90, 180, 270] as const) {
+      const vis = visualSize(box, rotation);
+      const height = heightForWidth(0.4, 2.5, vis.height / vis.width);
+      const at = placeUpright(box, rotation, { left: 0.1, top: 0.2, width: 0.4, height });
+      expect(at.width / at.height).toBeCloseTo(2.5);
+    }
+  });
+  it('fitAspect keeps a correctly shaped rectangle, reshapes others, and keeps them on the page', () => {
+    const ok = { left: 0.2, top: 0.3, width: 0.4, height: 0.4 / 6 };
+    const same = fitAspect(ok, 6);
+    expect(same.left).toBeCloseTo(ok.left);
+    expect(same.top).toBeCloseTo(ok.top);
+    expect(same.width).toBeCloseTo(ok.width);
+    expect(same.height).toBeCloseTo(ok.height);
+    const reshaped = fitAspect({ left: 0.1, top: 0.95, width: 0.5, height: 0.5 }, 2);
+    expect(reshaped.width / reshaped.height).toBeCloseTo(2);
+    expect(reshaped.top + reshaped.height).toBeLessThanOrEqual(1 + 1e-9);
+    const tall = fitAspect({ left: 0, top: 0, width: 1, height: 0.1 }, 0.5); // would be 2 tall: shrink to fit
+    expect(tall.height).toBe(1);
+    expect(tall.width).toBeCloseTo(0.5);
+  });
+  it('stamps with the picture’s own shape even when the rectangle came from a page of other proportions', async () => {
+    // Two pages: 100×200 (ratio 2) and 300×100 (ratio 1/3). The 1×1 PNG is square, so the stamp must be square on both.
+    const doc = await PDFDocument.create();
+    doc.addPage([100, 200]);
+    doc.addPage([300, 100]);
+    const src = await doc.save();
+    const rect = { left: 0.1, top: 0.1, width: 0.4, height: 0.2 }; // square-ish on a 1:2 page only
+    const out = await signPdf(src, [
+      { page: 0, rect, png: PNG },
+      { page: 1, rect, png: PNG },
+    ]);
+    for (const index of [0, 1]) {
+      const stamp = lastImageBox(await pageContent(out, index));
+      expect(stamp.width).toBeGreaterThan(1);
+      expect(stamp.width / stamp.height).toBeCloseTo(1, 5);
+    }
   });
 });

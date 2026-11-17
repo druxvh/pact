@@ -5,6 +5,7 @@ import '@/store/useThemeStore';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { startNotesSync } from '@/features/notes/sync/engine';
 import { startAppearance } from '@/lib/appearance/apply';
+import { startAutoSnapshots } from '@/lib/backup';
 import { installSpotlight } from '@/lib/spotlight';
 import { startAuth } from '@/lib/supabase/auth';
 import { startProfileSync } from '@/lib/supabase/profile';
@@ -15,6 +16,7 @@ void startAppearance();
 startProfileSync();
 startNotesSync();
 void startAuth();
+startAutoSnapshots();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root not found');

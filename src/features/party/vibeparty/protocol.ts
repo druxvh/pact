@@ -1,21 +1,26 @@
 /**
- * VibeParty protocol (v2).
+ * VibeParty protocol (v3).
  *
- * Two hops, each with its own message union:
+ * Three hops, each with its own message union:
  *
  *   content script ⇄ background   ContentToBackground / BackgroundToContent   (extension messaging)
- *   background     ⇄ relay        ClientMessage / ServerMessage                (one WebSocket per browser)
+ *   background     ⇄ party host   HostCommand / HostEvent                     (extension messaging; see host.ts)
+ *   party host     ⇄ the room     ClientMessage / ServerMessage                (a private Supabase Realtime channel)
+ *
+ * The room hop is peer-to-peer: one client per room is the *hub* — it runs the room's rules (room.ts) and answers the
+ * others — and is elected through Realtime Presence (realtime-client.ts). ClientMessage / ServerMessage are the same
+ * vocabulary the old standalone relay spoke, so the controller never knew the difference.
  *
  * Clock rule — the old design broke this and drifted: `mediaTime` always means "as of the moment this
  * message was created" (the sender extrapolates first). No timestamp ever crosses a hop for sync purposes;
  * a receiver anchors the snapshot to ITS OWN clock (minus the estimated one-way latency), so two machines
  * with different system clocks still agree on where the video is.
  *
- * This module is imported by the extension AND by the reference relay server (server/relay.ts, run directly
- * by Node/Bun), so it must stay dependency-free and use explicit `.ts` import specifiers.
+ * This module is dependency-free and uses explicit `.ts` import specifiers, so it can be imported from any context
+ * (service worker, offscreen document, content script, node tests).
  */
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export const LIMITS = {
   name: 24,
@@ -28,6 +33,23 @@ export const LIMITS = {
   votersPerItem: 50,
   roomCode: 32,
 } as const;
+
+/** Wire-level caps. Realtime itself allows far larger payloads; ours are tight so one member can't make everyone parse megabytes. */
+export const WIRE = {
+  /** Realtime broadcast events: member → hub, and hub → members. */
+  clientEvent: 'c',
+  serverEvent: 's',
+  /** A single client message (media, chat, vote…). */
+  clientBytes: 16 * 1024,
+  /** A single hub message. Only `state` (chat history + queue) gets anywhere near this. */
+  serverBytes: 192 * 1024,
+  /** What the hub aims for when it builds a `state` for a joiner (oldest chat is dropped first). */
+  stateBytes: 128 * 1024,
+  /** Presence payload: a handful of {id, name} pairs. */
+  presenceBytes: 8 * 1024,
+} as const;
+
+export const topicFor = (room: string) => `party:${room}`;
 
 // ── shared data shapes ───────────────────────────────────────────────────────
 
@@ -83,11 +105,26 @@ export type RoomState = {
 };
 
 /**
- *  local        — no relay configured: a party syncs the YouTube tabs of THIS browser only.
- *  live         — connected to a relay: friends on other computers can join.
- *  reconnecting — a relay is configured but unreachable right now (changes stay local until it's back).
+ *  local        — no live link: a party syncs the YouTube tabs of THIS browser only (see `LinkReason`).
+ *  connecting   — opening the room's channel for the first time.
+ *  live         — connected: friends on other computers who join the same code are in the same room.
+ *  reconnecting — the channel dropped; changes stay on this browser until it is back (retried with backoff).
+ *  error        — the room can't be reached and retrying won't fix it by itself (see `LinkReason` / `message`).
  */
-export type ConnectionMode = 'local' | 'live' | 'reconnecting';
+export type ConnectionMode = 'local' | 'connecting' | 'live' | 'reconnecting' | 'error';
+
+/** Why a party is `local` or in `error`. */
+export type LinkReason =
+  /** This build has no Supabase project configured. */
+  | 'unconfigured'
+  /** Not signed in to pact: live parties need an account. */
+  | 'signed-out'
+  /** The server refused the channel (not signed in properly, or the project's Realtime policies aren't applied). */
+  | 'denied'
+  /** Something else went wrong and we gave up retrying quickly (the host keeps trying slowly). */
+  | 'failed';
+
+export type LinkStatus = { mode: ConnectionMode; reason?: LinkReason; message?: string };
 
 // ── content script ⇄ background ──────────────────────────────────────────────
 
@@ -105,32 +142,64 @@ export type ContentToBackground =
   | { type: 'vibeparty:queue:vote'; id: string }
   | { type: 'vibeparty:queue:remove'; id: string }
   /** Keep-alive; also re-joins if the background lost its state. */
-  | { type: 'vibeparty:ping'; room: string; name: string };
+  | { type: 'vibeparty:ping'; room: string; name: string }
+  /** "Try the connection again now" (the panel's Retry button). */
+  | { type: 'vibeparty:retry' }
+  /** Open pact's own page (to sign in) — content scripts can't open extension pages themselves. */
+  | { type: 'vibeparty:open-pact' };
 
 export type BackgroundToContent =
-  | { type: 'vibeparty:joined'; state: RoomState; selfId: string; mode: ConnectionMode }
+  | ({ type: 'vibeparty:joined'; state: RoomState; selfId: string } & LinkStatus)
   | { type: 'vibeparty:left' }
   | { type: 'vibeparty:media'; from: string | null; media: MediaSnapshot }
   | { type: 'vibeparty:chat'; message: ChatMessage }
   | { type: 'vibeparty:reaction'; reaction: ReactionEvent }
   | { type: 'vibeparty:queue'; items: QueueItem[] }
   | { type: 'vibeparty:presence'; peers: PeerInfo[] }
-  | { type: 'vibeparty:status'; mode: ConnectionMode; room: string | null }
+  | ({ type: 'vibeparty:status'; room: string | null } & LinkStatus)
   | { type: 'vibeparty:error'; message: string }
   /** Background → tab: "is your content script alive?" (used before deciding to reload a YouTube tab). */
   | { type: 'vibeparty:probe' };
 
 // ── pact page ⇄ background ───────────────────────────────────────────────────
 
-export type AppToBackground = { type: 'vibeparty:app-status' } | { type: 'vibeparty:open'; room: string; name: string };
+export type AppToBackground = { type: 'vibeparty:app-status' } | { type: 'vibeparty:open'; room: string; name: string } | { type: 'vibeparty:retry' };
 
-export type AppRoomStatus = { room: string; peers: number; queue: number; playing: boolean };
+export type AppRoomStatus = { room: string; peers: number; queue: number; playing: boolean } & LinkStatus;
 
-export type AppStatus = { mode: ConnectionMode; rooms: AppRoomStatus[] };
+export type AppStatus = {
+  /** False when no host is running (no party has been started): `online` / `reason` are then unknown — pact's page knows its own sign-in state. */
+  hostRunning: boolean;
+  /** Nobody is in a party and no tab is on its way to one (the service worker only closes an idle host). */
+  idle: boolean;
+  /** Can a party reach friends right now (backend configured and signed in)? When false, `reason` says why. */
+  online: boolean;
+  reason?: LinkReason;
+  rooms: AppRoomStatus[];
+};
 
 export type OpenResult = { ok: true; reusedTab: boolean } | { ok: false; error: string };
 
-// ── background ⇄ relay (WebSocket) ───────────────────────────────────────────
+// ── background ⇄ party host ──────────────────────────────────────────────────
+// The party host is the long-lived extension page that owns the controller and the Realtime connection (an offscreen
+// document in Chromium, the background page itself in Firefox). The service worker only forwards: it has the `tabs` API,
+// the host has `localStorage` (where the Supabase session lives) and doesn't get killed when idle.
+
+export type HostCommand =
+  | { type: 'vibeparty-host:content'; tabId: number; message: unknown }
+  | { type: 'vibeparty-host:tab-closed'; tabId: number }
+  | { type: 'vibeparty-host:join-tab'; tabId: number; room: string; name: string }
+  | { type: 'vibeparty-host:expect-tab'; tabId: number; room: string; name: string }
+  | { type: 'vibeparty-host:status' }
+  | { type: 'vibeparty-host:retry' }
+  | { type: 'vibeparty-host:ping' };
+
+export type HostEvent =
+  | { type: 'vibeparty-host:deliver'; tabId: number; msg: BackgroundToContent }
+  /** The host has had nothing to do for a while: the service worker may close it (it comes back when a party starts). */
+  | { type: 'vibeparty-host:idle' };
+
+// ── party host ⇄ the room (Realtime broadcast + presence) ────────────────────
 
 export type ClientMessage =
   | { t: 'join'; room: string; peerId: string; name: string }
@@ -153,10 +222,22 @@ export type ServerMessage =
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: string; message: string };
 
-// ── storage keys (chrome.storage.local) ──────────────────────────────────────
+/** What each member puts in Presence: its local peers (one per YouTube tab) and whether it currently claims the hub role. */
+export type PresenceMeta = {
+  v: 1 /** Monotonic per client — the newest wins when a reconnect leaves a stale entry behind. */;
+  seq: number;
+  hub: boolean;
+  peers: PeerInfo[];
+};
 
-/** Display name shared by the pact page and the YouTube overlay (the overlay can't read pact's localStorage). */
+// ── storage keys ─────────────────────────────────────────────────────────────
+
+/** Display name shared by the pact page and the YouTube overlay (the overlay can't read pact's localStorage). chrome.storage.local. */
 export const VIBEPARTY_NAME_KEY = 'vibeparty:name';
+/** The host's stable identity (localStorage of the extension origin): lets a reconnecting browser reclaim its place in a room. */
+export const VIBEPARTY_CLIENT_KEY = 'pact-party-client';
+/** The host's persisted controller state (localStorage of the extension origin): tabs keep their peer ids if the host restarts. */
+export const VIBEPARTY_HOST_STATE_KEY = 'pact-party-host';
 /** Overlay preferences: { collapsed: boolean; autoFollow: boolean }. */
 export const VIBEPARTY_PREFS_KEY = 'vibeparty:prefs';
 

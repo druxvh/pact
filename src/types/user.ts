@@ -6,6 +6,8 @@ export type Person = {
   bio?: string;
   email?: string;
   avatarUrl?: string;
+  /** Storage path of the profile picture (the source of `avatarUrl`). */
+  avatarPath?: string;
   isOnline: boolean;
 };
 

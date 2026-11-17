@@ -1,0 +1,10 @@
+/* A document, not an app: let it scroll like a page (the new tab's base rules pin the body and scroll an inner pane). */
+html,
+body,
+#root {
+  height: auto;
+}
+body {
+  overflow: auto;
+  overscroll-behavior: auto;
+}

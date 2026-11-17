@@ -64,8 +64,12 @@ function registerOmnibox(): void {
   });
 }
 
-export default defineBackground(() => {
-  registerTimerBackground();
-  registerOmnibox();
-  initVibePartyBackground();
+export default defineBackground({
+  // Firefox (MV2) only: the VibeParty host runs in this page, so it must not be suspended (ignored by Chromium's service worker).
+  persistent: true,
+  main() {
+    registerTimerBackground();
+    registerOmnibox();
+    initVibePartyBackground();
+  },
 });

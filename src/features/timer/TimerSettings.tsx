@@ -4,7 +4,7 @@ import { notify } from '@/lib/toast';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 const RANGE: Record<Phase, { min: number; max: number }> = {
-  focus: { min: 5, max: 90 },
+  focus: { min: 1, max: 120 },
   short: { min: 1, max: 30 },
   long: { min: 5, max: 60 },
 };

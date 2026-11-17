@@ -13,17 +13,24 @@
  * shadow-DOM event retargeting those handlers can't tell our inputs are inputs, so keystrokes typed here would
  * pause and seek the video. We stop key events at the shadow root instead.
  */
-import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from '../roomCode.ts';
+import { generateRoomCode } from '../roomCode.ts';
+import { inviteText, lenientRoomCode } from './invite.ts';
 import overlayCss from './overlay.css?inline';
-import { type ChatMessage, type ConnectionMode, LIMITS, type PeerInfo, type QueueItem, type ReactionEvent, thumbnailUrlFor } from './protocol.ts';
+import { type ChatMessage, LIMITS, type LinkStatus, type PeerInfo, type QueueItem, type ReactionEvent, thumbnailUrlFor } from './protocol.ts';
 
 export type OverlayPrefs = { collapsed: boolean; autoFollow: boolean };
 
-export type Notice = { kind: 'ad' } | { kind: 'blocked' } | { kind: 'mismatch'; videoId: string };
+export type Notice = { kind: 'ad' } | { kind: 'blocked' } | { kind: 'mismatch'; videoId: string } | { kind: 'invite'; room: string };
 
 export type OverlayCallbacks = {
   onJoin(room: string, name: string): void;
+  /** "Watch together" on the current video: the host creates the room. */
+  onStart(name: string): void;
   onLeave(): void;
+  /** The panel's Retry button (the connection is down and not recovering by itself). */
+  onRetry(): void;
+  /** Open pact itself (to sign in) — content scripts can't open extension pages. */
+  onOpenPact(): void;
   onChat(text: string): void;
   onReaction(emoji: string, messageId: string | null): void;
   /** Resolves with an error message to show, or null on success. */
@@ -79,6 +86,9 @@ const ICONS = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
   alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
   tv: '<rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  retry: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  signin: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/>',
   sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
 } as const;
 
@@ -125,6 +135,9 @@ export class VibePartyOverlay {
   private roomInput!: HTMLInputElement;
   private nameInput!: HTMLInputElement;
   private joinError!: HTMLElement;
+  private startBtn!: HTMLButtonElement;
+  private inviteBanner!: HTMLElement;
+  private inviteText!: HTMLElement;
 
   // party view
   private roomChip!: HTMLElement;
@@ -133,6 +146,7 @@ export class VibePartyOverlay {
   private modeText!: HTMLElement;
   private people!: HTMLElement;
   private notice!: HTMLElement;
+  private linkNotice!: HTMLElement;
   private tabs: Array<{ id: 'chat' | 'queue'; tab: HTMLButtonElement; panel: HTMLElement }> = [];
   private tabIndicator!: HTMLElement;
   private chatDot!: HTMLElement;
@@ -151,6 +165,9 @@ export class VibePartyOverlay {
 
   private selfId = '';
   private room: string | null = null;
+  /** Not in a party: is the start / join panel open? (It isn't unless the person asked — pages without a party stay clean.) */
+  private joinOpen = false;
+  private inviteRoom: string | null = null;
   private selected: 'chat' | 'queue' = 'chat';
   private prefs: OverlayPrefs = { collapsed: false, autoFollow: false };
   private unread = 0;
@@ -209,29 +226,81 @@ export class VibePartyOverlay {
     const joined = room !== null;
     const changed = room !== this.room;
     this.room = room;
-    this.root.dataset.view = joined ? 'party' : 'join';
     this.roomChip.textContent = room ?? '';
     this.roomChip.title = room ?? '';
     if (!joined) {
       this.clearNotice();
       this.unread = 0;
       this.renderBadges();
-    } else if (changed) {
-      this.selectTab('chat');
+    } else {
+      this.joinOpen = false;
+      this.inviteRoom = null;
+      this.renderInvite();
+      if (changed) this.selectTab('chat');
     }
+    this.renderView();
     requestAnimationFrame(() => this.positionIndicator());
   }
 
-  setMode(mode: ConnectionMode): void {
+  /** Show the start / join panel (the "Watch together" button does this). */
+  openJoin(): void {
+    if (this.room !== null) return;
+    this.joinOpen = true;
+    this.renderView();
+    requestAnimationFrame(() => (this.startBtn.disabled ? this.roomInput : this.startBtn).focus());
+  }
+
+  /** Hide the start / join panel again. */
+  closeJoin(): void {
+    this.joinOpen = false;
+    this.inviteRoom = null;
+    this.renderInvite();
+    this.renderView();
+  }
+
+  /** Make the party panel visible (not minimized) — e.g. right after a party started. */
+  reveal(): void {
+    if (this.room === null || !this.prefs.collapsed) return;
+    this.setCollapsed(false);
+  }
+
+  /** Someone sent us a link to a party: offer it (never join on our own). Pass null to withdraw the offer. */
+  setInvite(room: string | null): void {
+    if (room !== null && room === this.room) return; // already there
+    if (this.room !== null) {
+      // In another party already: ask before leaving it.
+      if (room !== null) this.setNotice({ kind: 'invite', room });
+      else this.clearNotice('invite');
+      return;
+    }
+    this.inviteRoom = room;
+    if (room !== null) {
+      this.joinOpen = true;
+      this.roomInput.value = room;
+    }
+    this.renderInvite();
+    this.renderView();
+  }
+
+  /** Whether "Start a party" has a video to start it on. */
+  setStartable(startable: boolean): void {
+    this.startBtn.disabled = !startable;
+    this.startBtn.title = startable ? '' : 'Open a video first';
+  }
+
+  /** The room's connection: the header chip, and a plain-words notice when friends can't reach this party right now. */
+  setLink(link: LinkStatus): void {
+    const { mode, reason } = link;
     this.modeChip.dataset.mode = mode;
-    const text = { local: 'This browser', live: 'Live', reconnecting: 'Reconnecting…' }[mode];
-    this.modeText.textContent = text;
+    this.modeText.textContent = { local: 'This browser', connecting: 'Connecting…', live: 'Live', reconnecting: 'Reconnecting…', error: 'Offline' }[mode];
     this.modeChip.title = {
-      local:
-        'Local party: syncs the YouTube tabs in this browser. Watching with friends on other computers needs a pact relay (see the VibeParty page in pact).',
+      local: 'Only YouTube tabs in this browser are in this party.',
+      connecting: 'Connecting to the party…',
       live: 'Connected — friends on other computers can join with the same code.',
-      reconnecting: 'The relay is unreachable. Your changes stay on this browser until it’s back.',
+      reconnecting: 'The connection dropped. Your changes stay on this browser until it’s back.',
+      error: link.message ?? 'Can’t reach the party right now.',
     }[mode];
+    this.renderLinkNotice(link, reason);
   }
 
   setPresence(peers: PeerInfo[]): void {
@@ -285,6 +354,21 @@ export class VibePartyOverlay {
       body.append(icon('tv'), h('span', {}, 'Ad playing — you’ll rejoin the sync when it ends.'));
     } else if (notice.kind === 'blocked') {
       body.append(icon('alert'), h('span', {}, 'Your browser blocked autoplay. Press play once to join the sync.'));
+    } else if (notice.kind === 'invite') {
+      body.append(
+        icon('sparkles'),
+        h('span', {}, 'You opened an invite to a different party.'),
+        h(
+          'div',
+          { class: 'vp-notice-actions' },
+          h(
+            'button',
+            { class: 'vp-btn vp-btn--primary vp-btn--sm', type: 'button', onclick: () => this.cb.onJoin(notice.room, this.nameInput.value.trim() || 'guest') },
+            'Switch party',
+          ),
+          h('button', { class: 'vp-btn vp-btn--ghost vp-btn--sm', type: 'button', onclick: () => this.clearNotice('invite') }, 'Stay here'),
+        ),
+      );
     } else {
       body.append(
         icon('sparkles'),
@@ -337,7 +421,16 @@ export class VibePartyOverlay {
     );
 
     this.toast = h('div', { class: 'vp-toast', hidden: true, role: 'status' });
-    this.panel = h('div', { class: 'vp-panel' }, this.buildHeader(), this.buildNotice(), this.buildJoin(), this.buildParty(), this.toast);
+    this.panel = h(
+      'div',
+      { class: 'vp-panel' },
+      this.buildHeader(),
+      this.buildLinkNotice(),
+      this.buildNotice(),
+      this.buildJoin(),
+      this.buildParty(),
+      this.toast,
+    );
 
     this.root = h('aside', { class: 'vp', 'aria-label': 'VibeParty', 'data-view': 'join', 'data-collapsed': 'false' }, this.fab, this.panel);
     return this.root;
@@ -347,8 +440,14 @@ export class VibePartyOverlay {
     this.roomChip = h('span', { class: 'vp-room' });
     this.copyBtn = h(
       'button',
-      { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Copy room code', title: 'Copy room code', onclick: () => void this.copyCode() },
-      icon('copy'),
+      {
+        class: 'vp-icon-btn',
+        type: 'button',
+        'aria-label': 'Copy invite link',
+        title: 'Copy an invite (a link friends can open, plus the room code)',
+        onclick: () => void this.copyInvite(),
+      },
+      icon('link'),
     );
     this.modeText = h('span', {});
     this.modeChip = h('span', { class: 'vp-mode', 'data-mode': 'local' }, h('span', { class: 'vp-pulse' }), this.modeText);
@@ -363,6 +462,12 @@ export class VibePartyOverlay {
       { class: 'vp-icon-btn', type: 'button', 'aria-label': 'Minimize VibeParty', title: 'Minimize', onclick: () => this.setCollapsed(true) },
       icon('minus'),
     );
+    // In the start / join view there is nothing to minimize to: this just closes the panel.
+    const close = h(
+      'button',
+      { class: 'vp-icon-btn vp-header-join', type: 'button', 'aria-label': 'Close', title: 'Close', onclick: () => this.closeJoin() },
+      icon('x'),
+    );
 
     return h(
       'header',
@@ -371,8 +476,47 @@ export class VibePartyOverlay {
       h('div', { class: 'vp-header-party' }, this.roomChip, this.copyBtn, this.modeChip),
       h('div', { class: 'vp-spacer' }),
       h('div', { class: 'vp-header-party' }, leave),
-      minimize,
+      h('div', { class: 'vp-header-party' }, minimize),
+      close,
     );
+  }
+
+  /** "Friends can't reach this party" / "connection lost" — in words, with the one action that helps. */
+  private buildLinkNotice(): HTMLElement {
+    this.linkNotice = h('div', { class: 'vp-notice vp-link-notice', hidden: true, role: 'status' });
+    return this.linkNotice;
+  }
+
+  private renderLinkNotice(link: LinkStatus, reason: LinkStatus['reason']): void {
+    const body = h('div', { class: 'vp-notice-body' });
+    const actions = h('div', { class: 'vp-notice-actions' });
+    let text: string | null = null;
+    if (link.mode === 'local' && reason === 'signed-out') {
+      text = 'Only this browser is in the party. Sign in to pact to invite friends on other computers.';
+      actions.append(
+        h('button', { class: 'vp-btn vp-btn--primary vp-btn--sm', type: 'button', onclick: () => this.cb.onOpenPact() }, icon('signin'), 'Sign in to pact'),
+      );
+    } else if (link.mode === 'local') {
+      text = 'Only this browser is in the party — this build of pact has no account service to reach friends with.';
+    } else if (link.mode === 'reconnecting') {
+      text = 'Connection lost. Your changes stay on this browser until it’s back — retrying…';
+    } else if (link.mode === 'error') {
+      text = link.message ?? 'Can’t reach the party right now.';
+      actions.append(h('button', { class: 'vp-btn vp-btn--sm', type: 'button', onclick: () => this.cb.onRetry() }, icon('retry'), 'Try again'));
+      if (reason === 'denied') {
+        actions.append(h('button', { class: 'vp-btn vp-btn--ghost vp-btn--sm', type: 'button', onclick: () => this.cb.onOpenPact() }, 'Open pact'));
+      }
+    }
+    if (text === null) {
+      this.linkNotice.hidden = true;
+      this.linkNotice.replaceChildren();
+      return;
+    }
+    body.append(icon(link.mode === 'error' ? 'alert' : 'tv'), h('span', {}, text));
+    if (actions.childElementCount > 0) body.append(actions);
+    this.linkNotice.dataset.kind = link.mode;
+    this.linkNotice.replaceChildren(body);
+    this.linkNotice.hidden = false;
   }
 
   private buildNotice(): HTMLElement {
@@ -386,7 +530,7 @@ export class VibePartyOverlay {
       id: 'vp-room',
       type: 'text',
       placeholder: 'amber-lofi-k7q2x9dm',
-      maxlength: LIMITS.roomCode,
+      maxlength: 256, // room for a pasted invite link; it is reduced to the code on the way in
       autocomplete: 'off',
       spellcheck: 'false',
       oninput: () => {
@@ -404,15 +548,16 @@ export class VibePartyOverlay {
     });
     this.joinError = h('p', { class: 'vp-error', role: 'alert' });
 
+    const name = () => this.nameInput.value.trim() || 'guest';
     const submit = () => {
-      const code = normalizeRoomCode(this.roomInput.value);
-      if (!isValidRoomCode(code)) {
+      const code = lenientRoomCode(this.roomInput.value);
+      if (!code) {
         this.roomInput.setAttribute('aria-invalid', 'true');
         this.joinError.textContent = 'Room codes are 4–32 letters, numbers and dashes.';
         this.roomInput.focus();
         return;
       }
-      this.cb.onJoin(code, this.nameInput.value.trim() || 'guest');
+      this.cb.onJoin(code, name());
     };
     const onEnter = (e: Event) => {
       const ke = e as KeyboardEvent;
@@ -420,6 +565,22 @@ export class VibePartyOverlay {
     };
     this.roomInput.addEventListener('keydown', onEnter);
     this.nameInput.addEventListener('keydown', onEnter);
+
+    this.startBtn = h(
+      'button',
+      { class: 'vp-btn vp-btn--primary vp-btn--block vp-start', type: 'button', onclick: () => this.cb.onStart(name()) },
+      icon('disc'),
+      'Start a party for this video',
+    );
+
+    this.inviteText = h('span', {});
+    this.inviteBanner = h(
+      'div',
+      { class: 'vp-invite', hidden: true, role: 'status' },
+      icon('sparkles'),
+      this.inviteText,
+      h('button', { class: 'vp-btn vp-btn--primary vp-btn--sm', type: 'button', onclick: submit }, 'Join party'),
+    );
 
     const create = h(
       'button',
@@ -439,19 +600,23 @@ export class VibePartyOverlay {
 
     return h(
       'section',
-      { class: 'vp-join', 'aria-label': 'Join a party' },
+      { class: 'vp-join', 'aria-label': 'Start or join a party' },
       h(
         'div',
         { class: 'vp-hero' },
         h('span', { class: 'vp-hero-icon' }, icon('disc')),
-        h('div', {}, h('h2', { class: 'vp-h' }, 'Watch together'), h('p', { class: 'vp-sub' }, 'Same code = synced playback, chat and a shared queue.')),
+        h('div', {}, h('h2', { class: 'vp-h' }, 'Watch together'), h('p', { class: 'vp-sub' }, 'Synced playback, chat and a shared queue.')),
       ),
-      h('label', { class: 'vp-label', for: 'vp-room' }, 'Room code'),
+      this.inviteBanner,
+      this.startBtn,
+      h('p', { class: 'vp-hint' }, 'You get a link to send. Friends need pact and an account to join from their own computer.'),
+      h('div', { class: 'vp-or', role: 'presentation' }, h('span', {}, 'or join one')),
+      h('label', { class: 'vp-label vp-label--first', for: 'vp-room' }, 'Room code or invite link'),
       h('div', { class: 'vp-row' }, this.roomInput, create),
       h('label', { class: 'vp-label', for: 'vp-name' }, 'Your name'),
       this.nameInput,
       this.joinError,
-      h('button', { class: 'vp-btn vp-btn--primary vp-btn--block', type: 'button', onclick: submit }, 'Join party'),
+      h('button', { class: 'vp-btn vp-btn--block vp-submit', type: 'button', onclick: submit }, 'Join party'),
     );
   }
 
@@ -622,9 +787,11 @@ export class VibePartyOverlay {
   // ── behaviour ──────────────────────────────────────────────────────────────
 
   private applyPrefs(): void {
-    this.root.dataset.collapsed = String(this.prefs.collapsed);
-    this.fab.setAttribute('aria-expanded', String(!this.prefs.collapsed));
-    this.panel.inert = this.prefs.collapsed;
+    // Minimizing is a way of getting a party out of the way; the start / join panel is simply closed instead.
+    const collapsed = this.prefs.collapsed && this.view === 'party';
+    this.root.dataset.collapsed = String(collapsed);
+    this.fab.setAttribute('aria-expanded', String(!collapsed));
+    this.panel.inert = collapsed;
     this.followSwitch.setAttribute('aria-checked', String(this.prefs.autoFollow));
     if (!this.prefs.collapsed) requestAnimationFrame(() => this.positionIndicator());
   }
@@ -671,20 +838,45 @@ export class VibePartyOverlay {
     this.chatDot.hidden = !(show && !this.prefs.collapsed && this.selected !== 'chat');
   }
 
-  private async copyCode(): Promise<void> {
-    if (!this.room) return;
+  /**
+   * Put an invite on the clipboard: the friendly line (with the code) and a link that opens this video with the party
+   * offered. Returns whether it worked — callers may be inside a click handler, which is what the clipboard needs.
+   */
+  async copyInvite(room: string | null = this.room): Promise<boolean> {
+    if (!room) return false;
     try {
-      await navigator.clipboard.writeText(this.room);
+      await navigator.clipboard.writeText(inviteText(room, this.currentVideoId));
       this.copyBtn.replaceChildren(icon('check'));
       this.copyBtn.dataset.done = 'true';
-      this.flash('info', 'Room code copied');
+      this.flash('info', 'Invite copied — send it to a friend');
       setTimeout(() => {
-        this.copyBtn.replaceChildren(icon('copy'));
+        this.copyBtn.replaceChildren(icon('link'));
         delete this.copyBtn.dataset.done;
       }, 1600);
+      return true;
     } catch {
-      this.flash('error', 'Couldn’t copy — select the code and copy it by hand.');
+      this.flash('error', `Couldn’t copy — the room code is ${room}`);
+      return false;
     }
+  }
+
+  // ── what is visible ────────────────────────────────────────────────────────
+
+  private get view(): 'idle' | 'join' | 'party' {
+    return this.room !== null ? 'party' : this.joinOpen ? 'join' : 'idle';
+  }
+
+  private renderView(): void {
+    const view = this.view;
+    this.root.dataset.view = view;
+    if (this.host) this.host.style.display = view === 'idle' ? 'none' : 'block';
+    this.applyPrefs();
+  }
+
+  private renderInvite(): void {
+    const room = this.inviteRoom;
+    this.inviteBanner.hidden = room === null;
+    this.inviteText.textContent = room === null ? '' : `You’re invited to a party (${room}).`;
   }
 
   // ── chat ───────────────────────────────────────────────────────────────────

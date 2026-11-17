@@ -1,6 +1,7 @@
 import type {
   ActivityEvent,
   Attachment,
+  Ban,
   Channel,
   Community,
   CommunityEvent,
@@ -44,12 +45,28 @@ export interface CommunityApi {
   listChannels(communityId: string): Promise<Channel[]>;
   createChannel(communityId: string, name: string, topic: string): Promise<Channel>;
   deleteChannel(channelId: string): Promise<void>;
+  /** Moderators and the admin. `seconds` is 0 (off) to 21600; moderators are never slowed themselves. */
+  setSlowmode(channelId: string, seconds: number): Promise<Channel>;
 
   listMembers(communityId: string): Promise<Member[]>;
   getProfiles(ids: string[]): Promise<Profile[]>;
   setRole(communityId: string, userId: string, role: Exclude<Role, 'admin'>): Promise<void>;
   kickMember(communityId: string, userId: string): Promise<void>;
   banMember(communityId: string, userId: string, reason: string): Promise<void>;
+  /** Moderators and the admin. Newest first. */
+  listBans(communityId: string): Promise<Ban[]>;
+  /** The admin lifts any ban; a moderator only the ones they issued. */
+  unbanMember(communityId: string, userId: string): Promise<void>;
+  /**
+   * Time a member out for `seconds` (1 s – 28 days), or lift it with 0. They can still read, but not post or react.
+   * The admin may time out moderators and members, a moderator only members; never the admin or yourself.
+   * Returns when it ends (null when lifted).
+   */
+  timeoutMember(communityId: string, userId: string, seconds: number): Promise<string | null>;
+  /** The admin only: `userId` (a current member) becomes the admin and you become a moderator. */
+  transferAdmin(communityId: string, userId: string): Promise<void>;
+  /** Who wrote a message (null if you can't see it) — to tell whether a new message is a reply to you. */
+  getMessageAuthor(messageId: string): Promise<string | null>;
 
   /** Newest first. `before` is the oldest message you already have: the page continues strictly before it, by (time, id). */
   listMessages(channelId: string, opts: { before?: { createdAt: string; id: string }; limit: number }): Promise<CommunityMessage[]>;
