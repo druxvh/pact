@@ -18,6 +18,7 @@ import {
 } from '@/components/ui';
 import { relativeTime } from '@/lib/format';
 import { notify } from '@/lib/toast';
+import { MemberHover } from './MemberHover';
 import { describeError } from './mapping';
 import { can, canUnban } from './permissions';
 import { SLOWMODE_OPTIONS, slowmodeLabel, TIMEOUT_OPTIONS } from './safety';
@@ -185,19 +186,23 @@ function BansList({ community }: { community: Community }) {
         const name = nameOf(who);
         return (
           <li key={b.userId} className="flex items-center gap-3 rounded-lg border bg-card p-2.5">
-            <Avatar name={name} src={who?.avatarUrl} size="lg" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {name}
-                {who && <span className="ml-1.5 text-xs font-normal text-subtle-foreground">@{who.username}</span>}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">{b.reason ? `“${b.reason}”` : 'No reason given'}</p>
-              <p className="truncate text-[11px] text-subtle-foreground">
-                {b.bannedBy ? (b.bannedBy === me ? 'You' : by ? nameOf(by) : 'A former moderator') : 'A former moderator'} · {relativeTime(b.createdAt)}
-              </p>
-            </div>
+            <MemberHover profile={who} focusable side="bottom">
+              <div className="flex min-w-0 items-center gap-3 rounded-sm">
+                <Avatar name={name} src={who?.avatarUrl} size="lg" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {name}
+                    {who && <span className="ml-1.5 text-xs font-normal text-subtle-foreground">@{who.username}</span>}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">{b.reason ? `“${b.reason}”` : 'No reason given'}</p>
+                  <p className="truncate text-[11px] text-subtle-foreground">
+                    {b.bannedBy ? (b.bannedBy === me ? 'You' : by ? nameOf(by) : 'A former moderator') : 'A former moderator'} · {relativeTime(b.createdAt)}
+                  </p>
+                </div>
+              </div>
+            </MemberHover>
             {canUnban(community.role, b, me) && (
-              <Button variant="outline" size="sm" onClick={() => void unban(b)}>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={() => void unban(b)}>
                 Unban
               </Button>
             )}

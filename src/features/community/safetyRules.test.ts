@@ -290,4 +290,30 @@ describe('safety rules (slowmode, timeouts, bans list, admin transfer)', () => {
       expect(A.getState().profiles[carol]?.avatarUrl).toBeUndefined();
     });
   });
+
+  describe('profile cards', () => {
+    it('bio and links come through getProfiles like the database path: valid links only, and no keys when there are none', async () => {
+      const zed = server.addUser('zed', 'Zed Z', undefined, {
+        designation: 'Engineer',
+        bio: 'Infra.',
+        links: [
+          { kind: 'github', url: 'https://github.com/zed' },
+          { kind: 'github', url: 'https://evil.example/zed' },
+          { kind: 'website', url: 'javascript:alert(1)' },
+        ],
+      });
+      const inv = await api(alice).createInvite(cid, { maxUses: null, expiresInHours: null });
+      await api(zed).joinCommunity(inv.code);
+      await A.getState().refreshMembers();
+      await say(zed, 'hi');
+      await flush();
+      expect(A.getState().profiles[zed]).toMatchObject({ designation: 'Engineer', bio: 'Infra.', links: [{ kind: 'github', url: 'https://github.com/zed' }] });
+      expect('links' in (A.getState().profiles[carol] ?? {})).toBe(false);
+      expect('bio' in (A.getState().profiles[carol] ?? {})).toBe(false);
+      const junk = server.addUser('junk', 'Junk J', undefined, { links: 'not-an-array' });
+      const [loaded] = await api(alice).getProfiles([junk]);
+      expect(loaded).toBeDefined();
+      expect('links' in (loaded as object)).toBe(false);
+    });
+  });
 });

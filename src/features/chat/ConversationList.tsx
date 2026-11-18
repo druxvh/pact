@@ -2,6 +2,7 @@ import { MessageCirclePlus, Search, UserPlus, Users, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo } from 'react';
 import { Avatar, Badge, IconButton, InputGroup } from '@/components/ui';
+import { PersonHover } from '@/features/chat/PersonHover';
 import { lastMessageOf, unreadCount, useChatStore } from '@/features/chat/store';
 import type { Conversation, Message } from '@/features/chat/types';
 import { cn } from '@/lib/cn';
@@ -125,11 +126,21 @@ export function ConversationList({
                       <Users className="size-5" />
                     </span>
                   ) : (
-                    <Avatar name={title} src={peer?.avatarUrl} size="lg" status={peer?.isOnline ? 'online' : 'offline'} />
+                    <PersonHover person={peer}>
+                      <span className="inline-flex">
+                        <Avatar name={title} src={peer?.avatarUrl} size="lg" status={peer?.isOnline ? 'online' : 'offline'} />
+                      </span>
+                    </PersonHover>
                   )}
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
-                      <span className={cn('truncate text-[13.5px]', unread ? 'font-semibold' : 'font-medium')}>{title}</span>
+                      {c.kind === 'dm' ? (
+                        <PersonHover person={peer} side="bottom">
+                          <span className={cn('truncate text-[13.5px]', unread ? 'font-semibold' : 'font-medium')}>{title}</span>
+                        </PersonHover>
+                      ) : (
+                        <span className={cn('truncate text-[13.5px]', unread ? 'font-semibold' : 'font-medium')}>{title}</span>
+                      )}
                       <span className={cn('shrink-0 text-[11px]', unread ? 'font-medium text-brand-text' : 'text-subtle-foreground')}>
                         {last ? relativeTime(last.createdAt) : ''}
                       </span>

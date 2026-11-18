@@ -17,6 +17,7 @@ import {
 } from '@/components/ui';
 import { Composer } from '@/features/chat/Composer';
 import { MessageBubble } from '@/features/chat/MessageBubble';
+import { PersonHover } from '@/features/chat/PersonHover';
 import { buildRows } from '@/features/chat/rows';
 import { useChatStore } from '@/features/chat/store';
 import type { Conversation, Message } from '@/features/chat/types';
@@ -199,10 +200,22 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
             <Users className="size-[18px]" />
           </span>
         ) : (
-          <Avatar name={title} src={peer?.avatarUrl} size="lg" status={peer?.isOnline ? 'online' : 'offline'} />
+          <PersonHover person={peer} side="bottom">
+            <span className="inline-flex">
+              <Avatar name={title} src={peer?.avatarUrl} size="lg" status={peer?.isOnline ? 'online' : 'offline'} />
+            </span>
+          </PersonHover>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold leading-tight tracking-tight">{title}</h2>
+          <h2 className="truncate text-sm font-semibold leading-tight tracking-tight">
+            {isGroup ? (
+              title
+            ) : (
+              <PersonHover person={peer} focusable side="bottom">
+                <span className="rounded-sm focus-visible:outline-offset-[-1px]">{title}</span>
+              </PersonHover>
+            )}
+          </h2>
           <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
 
@@ -214,13 +227,15 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
             <PopoverContent align="end" className="w-64 p-2">
               <p className="px-2 pb-1 pt-1 text-xs font-medium text-muted-foreground">{others.length + 1} members</p>
               {[me, ...others].map((p) => (
-                <div key={p.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-                  <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-medium">{p.id === ME_ID ? 'You' : p.displayName}</p>
-                    <p className="truncate text-xs text-muted-foreground">@{p.username}</p>
+                <PersonHover key={p.id} person={p} focusable side="left">
+                  <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
+                    <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-medium">{p.id === ME_ID ? 'You' : p.displayName}</p>
+                      <p className="truncate text-xs text-muted-foreground">@{p.username}</p>
+                    </div>
                   </div>
-                </div>
+                </PersonHover>
               ))}
             </PopoverContent>
           </Popover>

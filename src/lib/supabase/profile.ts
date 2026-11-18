@@ -5,25 +5,36 @@
  * `useUserStore` so every screen that shows "me" keeps working unchanged.
  */
 import { create } from 'zustand';
+import { type SocialLink, sanitizeLinks } from '@/lib/socialLinks';
 import { AVATAR_BUCKET, avatarUrl } from '@/lib/supabase/avatar';
 import { supabase } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 
-/** Public profile fields (other community members can read these) plus the private email, which lives in its own table. */
+/**
+ * Public profile fields (other community members can read these). The email is not one of them and is not editable: it is
+ * whatever the sign-in provided (`auth.users`, mirrored read-only into `profile_private`), and the username is chosen once,
+ * in the welcome form, and then fixed — the database refuses to change either.
+ */
 type ProfileRow = {
   username: string;
   display_name: string;
   designation: string;
   bio: string;
   onboarded: boolean;
-  contact_email: string | null;
   avatar_path: string | null;
+  links: SocialLink[];
 };
 
-const COLUMNS = 'username, display_name, designation, bio, onboarded, avatar_path';
-type PublicColumns = Omit<ProfileRow, 'contact_email'>;
+const BASE_COLUMNS = 'username, display_name, designation, bio, onboarded, avatar_path';
+const COLUMNS = `${BASE_COLUMNS}, links`;
+type PublicColumns = Omit<ProfileRow, 'links'> & { links?: unknown };
+
+/** False once the server has told us it has no `links` column yet (the migration isn't applied): profiles still work without them. */
+let linksSupported = true;
+const isMissingColumn = (e: { code?: string; message?: string } | null) =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204' || /column .* does not exist|could not find the .* column/i.test(e.message ?? ''));
 
 /** `ready` flips true once the remote profile has been merged — the welcome flow waits for it. */
 export const useProfileSync = create<{ ready: boolean }>(() => ({ ready: false }));
@@ -39,15 +50,16 @@ const snapshot = (): ProfileRow => {
     display_name: u.displayName === 'You' ? '' : u.displayName,
     designation: u.designation ?? '',
     bio: u.bio ?? '',
-    contact_email: u.email?.trim() ? u.email.trim() : null,
     avatar_path: u.avatarPath ?? null,
+    links: u.links ?? [],
     onboarded,
   };
 };
 
-const same = (a: ProfileRow | null, b: ProfileRow) => a !== null && (Object.keys(b) as Array<keyof ProfileRow>).every((k) => a[k] === b[k]);
+const same = (a: ProfileRow | null, b: ProfileRow) =>
+  a !== null && (Object.keys(b) as Array<keyof ProfileRow>).every((k) => (k === 'links' ? JSON.stringify(a.links) === JSON.stringify(b.links) : a[k] === b[k]));
 
-function applyRemote(row: ProfileRow, providerName: string | null) {
+function applyRemote(row: ProfileRow, providerName: string | null, email: string | null) {
   applying = true;
   try {
     useUserStore.setState((s) => ({
@@ -57,11 +69,13 @@ function applyRemote(row: ProfileRow, providerName: string | null) {
         displayName: row.display_name || (s.currentUser.displayName !== 'You' ? s.currentUser.displayName : (providerName ?? 'You')),
         designation: row.designation,
         bio: row.bio,
-        email: row.contact_email ?? '',
+        email: email ?? '',
+        links: row.links,
         avatarPath: row.avatar_path ?? undefined,
         avatarUrl: avatarUrl(row.avatar_path),
       },
-      onboarded: s.onboarded || row.onboarded,
+      // The account's own flag decides (not what this browser remembers): the welcome form is where the username is chosen.
+      onboarded: row.onboarded,
     }));
   } finally {
     applying = false;
@@ -71,14 +85,25 @@ function applyRemote(row: ProfileRow, providerName: string | null) {
 
 async function pull(userId: string): Promise<void> {
   if (!supabase) return;
+  const db = supabase;
   const providerName = useAuthStore.getState().user?.name ?? null;
-  let { data, error } = await supabase.from('profiles').select(COLUMNS).eq('id', userId).maybeSingle<PublicColumns>();
+  const read = () =>
+    db
+      .from('profiles')
+      .select(linksSupported ? COLUMNS : BASE_COLUMNS)
+      .eq('id', userId)
+      .maybeSingle<PublicColumns>();
+  let { data, error } = await read();
+  if (isMissingColumn(error)) {
+    linksSupported = false;
+    ({ data, error } = await read());
+  }
   if (!error && !data) {
     // Normally the sign-up trigger made this row; if it didn't (e.g. an account that pre-dates it), create it.
     const created = await supabase
       .from('profiles')
       .insert({ id: userId, username: `user_${userId.replace(/-/g, '').slice(0, 8)}`, display_name: (providerName ?? '').slice(0, 40) })
-      .select(COLUMNS)
+      .select(BASE_COLUMNS)
       .single<PublicColumns>();
     data = created.data;
     error = created.error;
@@ -94,9 +119,11 @@ async function pull(userId: string): Promise<void> {
     useProfileSync.setState({ ready: true });
     return;
   }
+  // The email is the sign-in's. (Read the private mirror first, fall back to the session's own address.)
   const priv = await supabase.from('profile_private').select('contact_email').eq('id', userId).maybeSingle<{ contact_email: string | null }>();
-  const row: ProfileRow = { ...data, avatar_path: data.avatar_path ?? null, contact_email: priv.data?.contact_email ?? null };
-  applyRemote(row, providerName);
+  const email = priv.data?.contact_email || useAuthStore.getState().user?.email || null;
+  const row: ProfileRow = { ...data, avatar_path: data.avatar_path ?? null, links: sanitizeLinks(data.links) };
+  applyRemote(row, providerName, email);
   // A brand-new profile with a provider name: persist the suggested display name too.
   if (!same(row, snapshot())) schedulePush(0);
   useProfileSync.setState({ ready: true });
@@ -107,24 +134,26 @@ async function push(): Promise<void> {
   if (!supabase || !user) return;
   const row = snapshot();
   if (same(last, row)) return;
-  const { contact_email, ...publicPart } = row;
-  const { error } = await supabase
-    .from('profiles')
-    .update({ ...publicPart, updated_at: new Date().toISOString() })
-    .eq('id', user.id);
-  if (!error && contact_email !== (last?.contact_email ?? null)) {
-    // The email is private: its own table, readable only by you.
-    const saved = await supabase.from('profile_private').upsert({ id: user.id, contact_email }, { onConflict: 'id' });
-    if (saved.error) {
-      notify.error('Couldn’t save your email', 'We’ll try again on your next change.');
-      return;
-    }
+  // Once the welcome form has been completed the username is fixed on the server; never send it again.
+  const { username, links, ...rest } = row;
+  const payload = (withLinks: boolean) => ({
+    ...rest,
+    ...(last?.onboarded ? null : { username }),
+    ...(withLinks ? { links } : null),
+    updated_at: new Date().toISOString(),
+  });
+  let { error } = await supabase.from('profiles').update(payload(linksSupported)).eq('id', user.id);
+  if (isMissingColumn(error) && linksSupported) {
+    linksSupported = false;
+    ({ error } = await supabase.from('profiles').update(payload(false)).eq('id', user.id));
   }
   if (!error) {
     last = row;
     return;
   }
   if (error.code === '23505') notify.error('That username is taken', 'Pick another one.');
+  else if (/username_locked/.test(error.message)) notify.error('Your username is fixed', 'It can’t be changed once it has been set.');
+  else if (/invalid_links/.test(error.message)) notify.error('Those links couldn’t be saved', 'Use up to five links to the platform’s own site (https).');
   else if (error.code === '23514') notify.error('That profile couldn’t be saved', 'Check the lengths and characters.');
   else notify.error('Couldn’t save your profile', 'We’ll try again on your next change.');
   await pull(user.id); // put the screen back to what's actually stored

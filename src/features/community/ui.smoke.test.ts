@@ -108,6 +108,45 @@ describe('safety UI (smoke)', () => {
     expect(host.querySelector('button[aria-label^="Actions for"]')).toBeNull(); // a plain member can do nothing to anyone
   });
 
+  it('a member row shows a hover card for the person (not for the actions menu), with their role, bio, links and join date', async () => {
+    const zed = server.addUser('zed', 'Zed Z', undefined, {
+      designation: 'Engineer',
+      bio: 'Builds the plumbing.',
+      links: [
+        { kind: 'github', url: 'https://github.com/zed' },
+        { kind: 'website', url: 'javascript:alert(1)' },
+      ],
+    });
+    const inv = await server.api(alice).createInvite(cid, { maxUses: null, expiresInHours: null });
+    await server.api(zed).joinCommunity(inv.code);
+    await server.api(alice).setRole(cid, zed, 'mod');
+    await as(alice);
+    const community = useCommunityStore.getState().communities[0];
+    await mount(MembersPanel, { community: community as NonNullable<typeof community> });
+    const row = (who: string) => [...host.querySelectorAll('li')].find((li) => li.textContent?.includes(who)) as HTMLElement;
+    // the trigger is the avatar + name block only: a tab stop for keyboard users, and the actions button is not inside it
+    const trigger = row('Zed Z').querySelector('[tabindex="0"]') as HTMLElement;
+    expect(trigger.textContent).toContain('Zed Z');
+    expect(trigger.querySelector('button')).toBeNull();
+    const actions = row('Zed Z').querySelector('button[aria-label="Actions for Zed Z"]') as HTMLElement;
+    expect(actions).not.toBeNull();
+    expect(trigger.contains(actions)).toBe(false);
+    expect(document.body.textContent).not.toContain('Builds the plumbing.'); // nothing until you hover
+    await act(async () => {
+      trigger.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+      trigger.dispatchEvent(new MouseEvent('mouseenter')); // Base UI listens for the native event
+    });
+    await tick(450);
+    const card = document.body.textContent ?? '';
+    expect(card).toContain('Builds the plumbing.');
+    expect(card).toContain('Engineer');
+    expect(card).toContain('Moderator');
+    expect(card).toMatch(/Joined [A-Z][a-z]{2} \d{4}/);
+    const links = [...document.body.querySelectorAll('a[target="_blank"]')] as HTMLAnchorElement[];
+    expect(links.map((a) => a.href)).toEqual(['https://github.com/zed']); // the invalid link never renders
+    expect(links[0]?.rel).toContain('noopener');
+  });
+
   it('the moderation dialog sets slowmode per channel and lists bans with an Unban button where allowed', async () => {
     await server.api(bob).banMember(cid, carol, 'spam');
     const dave = server.addUser('dave', 'Dave D');

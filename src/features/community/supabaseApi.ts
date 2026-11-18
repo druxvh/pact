@@ -71,6 +71,27 @@ async function withColumnFallback<T>(primary: () => PromiseLike<{ data: T; error
   return first;
 }
 
+/**
+ * Optional `profiles` columns, newest migration first. A database that lacks one answers "column does not exist"; we then drop
+ * the newest optional column still in use and ask again (links → avatar_path), and remember it, so a build that is ahead of
+ * the database asks once instead of failing on every lookup.
+ */
+const PROFILE_BASE = 'id, username, display_name, designation, bio';
+const profileOptional = ['avatar_path', 'links'];
+let missingProfileCols = 0; // how many of `profileOptional`, from the newest, this database doesn't have
+
+async function selectProfiles(ids: string[]) {
+  for (;;) {
+    const cols = [PROFILE_BASE, ...profileOptional.slice(0, profileOptional.length - missingProfileCols)].join(', ');
+    const res = await client().from('profiles').select(cols).in('id', ids);
+    if (res.error && isMissingColumn(res.error) && missingProfileCols < profileOptional.length) {
+      missingProfileCols += 1;
+      continue;
+    }
+    return res;
+  }
+}
+
 async function imageSize(file: File): Promise<{ width: number; height: number } | null> {
   if (!file.type.startsWith('image/')) return null;
   try {
@@ -243,11 +264,7 @@ export function createSupabaseApi(me: string): CommunityApi {
     },
     async getProfiles(ids): Promise<Profile[]> {
       if (!ids.length) return [];
-      const q = (cols: string) => client().from('profiles').select(cols).in('id', ids);
-      const { data, error } = await withColumnFallback(
-        () => q('id, username, display_name, designation, avatar_path'),
-        () => q('id, username, display_name, designation'),
-      );
+      const { data, error } = await selectProfiles(ids);
       if (error) throw toCommunityError(error);
       return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((r) => toProfile(r, avatarUrl));
     },

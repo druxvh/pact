@@ -1,4 +1,4 @@
-import { ArrowRight, AtSign, FileText, Sparkles } from 'lucide-react';
+import { ArrowRight, AtSign, FileText, Lock, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { profileStepError, suggestUsername } from '@/app/profileSetup';
@@ -47,13 +47,15 @@ export function Onboarding() {
   const profileReady = useProfileSync((s) => s.ready);
   const customised = useUserStore((s) => s.currentUser.displayName !== 'You');
   const me = useUserStore((s) => s.currentUser);
+  const signInEmail = useAuthStore((s) => s.user?.email) ?? '';
   // Each hook runs on every render (a `||` chain would skip the later ones and break the Rules of Hooks).
   const hasNotes = useNotesStore((s) => s.notes.length > 0);
   const hasTasks = useKanbanStore((s) => s.tasks.length > 0);
   const hasMessages = useChatStore((s) => s.messages.length > 0);
   const complete = useUserStore((s) => s.completeOnboarding);
   // A signed-in account's name is just whatever GitHub/Google supplied, so it doesn't mean "has used pact before".
-  const existingUser = (signedIn ? false : customised) || hasNotes || hasTasks || hasMessages;
+  // (A signed-in account is only "done" when its profile says so — that is where the username gets chosen, once.)
+  const existingUser = signedIn ? false : customised || hasNotes || hasTasks || hasMessages;
   const ready = signedIn && profileReady;
 
   useEffect(() => {
@@ -66,7 +68,9 @@ export function Onboarding() {
   const [username, setUsername] = useState('');
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [role, setRole] = useState('');
-  const [start, setStart] = useState<Start>('sample');
+  const [picked, setStart] = useState<Start | null>(null);
+  // Someone who already has things in pact shouldn't get sample data piled on top of them by default.
+  const start: Start = picked ?? (hasNotes || hasTasks || hasMessages ? 'empty' : 'sample');
 
   const open = ready && !onboarded && !existingUser;
 
@@ -98,8 +102,8 @@ export function Onboarding() {
   };
 
   return (
-    // Closing the dialog any other way (Esc, backdrop) counts as "skip for now" — we never nag twice.
-    <Dialog open={open} onOpenChange={(next) => !next && complete({})}>
+    // The username is chosen here, once, and then fixed — so this can't be dismissed with Esc or a click outside.
+    <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent size="md" hideClose initialFocus={nameRef}>
         <DialogHeader>
           <DialogTitle>{step === 0 ? 'Welcome to pact' : 'How do you want to start?'}</DialogTitle>
@@ -157,8 +161,22 @@ export function Onboarding() {
                     id="ob-username-hint"
                     error={showUsernameError}
                     status={usernameStatus}
-                    idleText="How friends find you. Letters, numbers and underscores."
+                    idleText="How people find you. Letters, numbers and underscores. You can’t change it later."
                   />
+                </div>
+                <div>
+                  <Label htmlFor="ob-email">Email</Label>
+                  <InputGroup
+                    id="ob-email"
+                    value={signInEmail || 'Not provided by your sign-in'}
+                    readOnly
+                    disabled
+                    leading={<Lock />}
+                    aria-describedby="ob-email-note"
+                  />
+                  <p id="ob-email-note" className="mt-1 text-xs text-subtle-foreground">
+                    From your sign-in. Only you can see it, and it can’t be changed here.
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="ob-role">What do you do? (optional)</Label>
@@ -220,9 +238,13 @@ export function Onboarding() {
         </DialogBody>
 
         <DialogFooter className="justify-between">
-          <Button variant="ghost" onClick={() => (step === 0 ? complete({}) : setStep(0))}>
-            {step === 0 ? 'Skip for now' : 'Back'}
-          </Button>
+          {step === 0 ? (
+            <span className="text-xs text-subtle-foreground">Your username and email stay fixed after this.</span>
+          ) : (
+            <Button variant="ghost" onClick={() => setStep(0)}>
+              Back
+            </Button>
+          )}
           {step === 0 ? (
             <Button variant="primary" disabled={error !== null} onClick={() => setStep(1)}>
               Continue <ArrowRight />

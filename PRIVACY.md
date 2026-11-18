@@ -70,7 +70,7 @@ We run pact's backend on **Supabase** (hosting, database, authentication, file s
 - your messages, replies and reactions, including images, short videos (up to 25 MB) and links;
 - what you have read in each channel (used for unread counts, and visible only to you).
 
-Members can see your display name, @username, role, bio and profile picture, and **never your email**. Attachments live in a private bucket and are opened through short-lived links. Moderators can hide a message; the original is kept so moderators can review or restore it. "Typing…" indicators are sent live to members and are not stored. The admin can delete a community, which deletes its channels, messages and uploaded files.
+Members can see your display name, @username, role, bio, profile picture and the social links (up to five) you choose to add, and **never your email**. Your email is simply the one your sign-in provided; it can't be edited, and your @username is chosen once during the welcome form and then can't be changed. Attachments live in a private bucket and are opened through short-lived links. Moderators can hide a message; the original is kept so moderators can review or restore it. "Typing…" indicators are sent live to members and are not stored. The admin can delete a community, which deletes its channels, messages and uploaded files.
 
 **GIFs.** The GIF picker sends your search words (or "trending") and a sign-in token to our server function, which asks **KLIPY** for results with pact's key, so KLIPY sees our server, not you. A GIF you post is shared as a link to KLIPY's own copy; when a member's browser displays it, that browser loads the image from KLIPY's servers, and KLIPY sees that request (such as an IP address) under its own policy.
 

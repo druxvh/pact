@@ -3,6 +3,7 @@
  * Used by unit tests and the dev harness (never shipped), so the store and UI can be exercised with several people
  * (admin, moderator, member) without a database.
  */
+import { sanitizeLinks } from '@/lib/socialLinks';
 import type { CommunityApi, TypingChannel } from './api';
 import { can, canActOnMember, canUnban } from './permissions';
 import { SLOWMODE_MAX_SECONDS, TIMEOUT_MAX_SECONDS, timeoutActive } from './safety';
@@ -61,9 +62,18 @@ export class MemoryServer {
     return new Date(this.last).toISOString();
   };
 
-  addUser(username: string, displayName = username, avatarUrl?: string): string {
+  /** `more.links` is stored as given (even junk, like a database row could hold) and validated when read, as the real thing does. */
+  addUser(username: string, displayName = username, avatarUrl?: string, more: { designation?: string; bio?: string; links?: unknown } = {}): string {
     const id = crypto.randomUUID();
-    this.users.set(id, { id, username, displayName, designation: '', ...(avatarUrl && { avatarUrl }) });
+    this.users.set(id, {
+      id,
+      username,
+      displayName,
+      designation: more.designation ?? '',
+      ...(avatarUrl && { avatarUrl }),
+      ...(more.bio && { bio: more.bio }),
+      ...(more.links !== undefined && { links: more.links as Profile['links'] }),
+    });
     return id;
   }
 
@@ -259,7 +269,13 @@ class MemoryApi implements CommunityApi {
     return this.s.members.filter((m) => m.communityId === cid).map(({ communityId: _c, ...m }) => m);
   }
   async getProfiles(ids: string[]) {
-    return ids.map((id) => this.s.users.get(id)).filter((p): p is Profile => !!p);
+    return ids
+      .map((id) => this.s.users.get(id))
+      .filter((p): p is Profile => !!p)
+      .map(({ links, ...p }) => {
+        const valid = sanitizeLinks(links); // somebody else's input: only valid links reach the UI
+        return valid.length > 0 ? { ...p, links: valid } : p;
+      });
   }
   async setRole(cid: string, userId: string, role: Exclude<Role, 'admin'>) {
     const target = this.s.members.find((m) => m.communityId === cid && m.userId === userId);

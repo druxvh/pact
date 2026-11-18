@@ -1,10 +1,15 @@
+import type { SocialLink } from '@/lib/socialLinks';
+
 export type Role = 'admin' | 'mod' | 'member';
 
 export type Community = { id: string; name: string; description: string; hue: number; role: Role; createdAt: string };
 /** `slowmodeSeconds`: the minimum gap between one member's messages here (0 = off; moderators are exempt). */
 export type Channel = { id: string; communityId: string; name: string; topic: string; slowmodeSeconds: number };
-/** `avatarUrl` is a public image URL, when the person has set one. */
-export type Profile = { id: string; username: string; displayName: string; designation: string; avatarUrl?: string };
+/**
+ * A member's public profile. `avatarUrl` is a public image URL, when the person has set one; `bio` and `links` (at most five,
+ * already validated) are shown on the hover card. `designation` is what they do ("Designer"), not their community role.
+ */
+export type Profile = { id: string; username: string; displayName: string; designation: string; avatarUrl?: string; bio?: string; links?: SocialLink[] };
 /** `timeoutUntil`: while in the future the member can read but not post or react (the server enforces it). */
 export type Member = { userId: string; role: Role; joinedAt: string; timeoutUntil: string | null };
 /** Someone banned from a community (only moderators can list these). */

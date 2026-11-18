@@ -22,9 +22,10 @@ import { notify } from '@/lib/toast';
 import { AttachmentView } from './AttachmentView';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { extractUrls, gifUrl, snippet } from './links';
+import { MemberHover } from './MemberHover';
 import { describeError } from './mapping';
 import { can, roleLabel } from './permissions';
-import type { CommunityMessage, Profile, Reaction, Role } from './types';
+import type { CommunityMessage, Member, Profile, Reaction, Role } from './types';
 import { getCommunityApi, useCommunityStore } from './useCommunityStore';
 
 const QUICK = ['👍', '❤️', '😂', '🔥', '🎉', '👀', '😮', '🙏'];
@@ -52,7 +53,10 @@ type Props = {
   replied: CommunityMessage | null | undefined;
   author: Profile | undefined;
   repliedAuthor: Profile | undefined;
-  authorRole: Role | undefined;
+  /** The author's membership (role and join date), for the badge and the hover card; undefined if they've left. */
+  authorMember: Member | undefined;
+  /** The same for the author of the message being replied to. */
+  repliedMember?: Member;
   reactions: Reaction[];
   me: string;
   myRole: Role;
@@ -82,7 +86,20 @@ function GifImage({ url, alt }: { url: string; alt: string }) {
   );
 }
 
-export function MessageItem({ message: m, previous, replied, author, repliedAuthor, authorRole, reactions, me, myRole, timedOut = false, onJumpTo }: Props) {
+export function MessageItem({
+  message: m,
+  previous,
+  replied,
+  author,
+  repliedAuthor,
+  authorMember,
+  repliedMember,
+  reactions,
+  me,
+  myRole,
+  timedOut = false,
+  onJumpTo,
+}: Props) {
   const store = useCommunityStore;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(m.body);
@@ -95,6 +112,7 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
   const hidden = m.hiddenAt !== null;
   const intact = !tomb && !hidden;
   const name = author?.displayName || author?.username || 'Someone';
+  const authorRole = authorMember?.role;
   const grouped =
     !!previous &&
     previous.authorId === m.authorId &&
@@ -222,7 +240,11 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
         {grouped ? (
           <span className="hidden pt-1 text-right text-[10px] text-subtle-foreground group-hover:block pointer-coarse:block">{time(m.createdAt)}</span>
         ) : (
-          <Avatar name={name} src={author?.avatarUrl} size="lg" />
+          <MemberHover profile={author} role={authorRole} joinedAt={authorMember?.joinedAt}>
+            <span className="inline-flex">
+              <Avatar name={name} src={author?.avatarUrl} size="lg" />
+            </span>
+          </MemberHover>
         )}
       </div>
 
@@ -234,7 +256,9 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
             className="mb-0.5 flex max-w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <CornerUpLeft className="size-3 shrink-0" aria-hidden="true" />
-            <span className="max-w-[45%] shrink-0 truncate font-medium">{repliedAuthor?.displayName || repliedAuthor?.username || 'Someone'}</span>
+            <MemberHover profile={repliedAuthor} role={repliedMember?.role} joinedAt={repliedMember?.joinedAt} side="bottom">
+              <span className="max-w-[45%] shrink-0 truncate font-medium">{repliedAuthor?.displayName || repliedAuthor?.username || 'Someone'}</span>
+            </MemberHover>
             <span className="min-w-0 truncate">
               {replied
                 ? replied.deletedAt
@@ -248,7 +272,9 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
         )}
         {!grouped && (
           <p className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold">{name}</span>
+            <MemberHover profile={author} role={authorRole} joinedAt={authorMember?.joinedAt} focusable side="bottom">
+              <span className="rounded-sm text-sm font-semibold">{name}</span>
+            </MemberHover>
             {author && <span className="text-xs text-subtle-foreground">@{author.username}</span>}
             {authorRole && authorRole !== 'member' && <Badge tone={authorRole === 'admin' ? 'brand' : 'neutral'}>{roleLabel[authorRole]}</Badge>}
             <time dateTime={m.createdAt} className="text-[11px] text-subtle-foreground">

@@ -6,6 +6,7 @@ import { AttachmentView } from '@/features/chat/AttachmentView';
 import { EmojiPicker } from '@/features/chat/EmojiPicker';
 import { QUICK_REACTIONS } from '@/features/chat/emoji-data';
 import { Linkified } from '@/features/chat/Linkified';
+import { PersonHover } from '@/features/chat/PersonHover';
 import type { RunPosition } from '@/features/chat/rows';
 import type { Message } from '@/features/chat/types';
 import { findRoomCode } from '@/features/party/roomCode';
@@ -56,19 +57,35 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={spring.soft}
       data-message-id={m.id}
-      className={cn('group/msg relative flex items-end gap-2 px-1', mine ? 'justify-end' : 'justify-start', joinedAbove ? 'mt-0.5' : 'mt-3')}
+      className={cn('relative flex items-end gap-2 px-1', mine ? 'justify-end' : 'justify-start', joinedAbove ? 'mt-0.5' : 'mt-3')}
     >
-      {!mine && <span className="w-8 shrink-0">{showAvatar && sender && <Avatar name={sender.displayName} src={sender.avatarUrl} size="md" />}</span>}
+      {!mine && (
+        <span className="w-8 shrink-0">
+          {showAvatar && sender && (
+            <PersonHover person={sender}>
+              <span className="inline-flex">
+                <Avatar name={sender.displayName} src={sender.avatarUrl} size="md" />
+              </span>
+            </PersonHover>
+          )}
+        </span>
+      )}
 
       <div className={cn('flex max-w-[min(34rem,78%)] flex-col', mine ? 'items-end' : 'items-start')}>
-        {showName && sender && <span className="mb-0.5 ml-1 text-[11px] font-medium text-muted-foreground">{sender.displayName}</span>}
+        {showName && sender && (
+          <PersonHover person={sender} focusable side="bottom">
+            <span className="mb-0.5 ml-1 rounded-sm text-[11px] font-medium text-muted-foreground">{sender.displayName}</span>
+          </PersonHover>
+        )}
 
-        <div className="relative">
-          {/* hover actions */}
+        <div className="group/bubble relative">
+          {/* hover actions: shown while the bubble (or something in it) is hovered or focused. They sit over the sender's name in groups, so
+              while hidden they must not catch the pointer (or the name couldn't be hovered), and they don't follow the whole row. */}
           <div
             className={cn(
-              'absolute -top-4 z-10 flex items-center gap-0.5 rounded-lg border bg-popover p-0.5 opacity-0 shadow-md transition-opacity duration-150',
-              'group-focus-within/msg:opacity-100 group-hover/msg:opacity-100 data-[open=true]:opacity-100',
+              'pointer-events-none absolute -top-4 z-10 flex items-center gap-0.5 rounded-lg border bg-popover p-0.5 opacity-0 shadow-md transition-opacity duration-150',
+              'group-focus-within/bubble:pointer-events-auto group-focus-within/bubble:opacity-100 group-hover/bubble:pointer-events-auto group-hover/bubble:opacity-100',
+              'data-[open=true]:pointer-events-auto data-[open=true]:opacity-100',
               mine ? 'right-1' : 'left-1',
             )}
             data-open={pickerOpen}

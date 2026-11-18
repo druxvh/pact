@@ -141,6 +141,29 @@ describe('server errors and rows', () => {
     expect('avatarUrl' in toProfile({ ...row, avatar_path: 'u/a.webp' })).toBe(false);
     expect(toProfile({ ...row, avatar_path: 'u/a.webp' }, () => undefined).avatarUrl).toBeUndefined();
   });
+  it('profiles: bio and links reach the card, links are validated (they are somebody else’s input), and missing columns are fine', () => {
+    const row = { id: 'u', username: 'ann', display_name: 'Ann', designation: 'Designer' };
+    const links = [
+      { kind: 'instagram', url: 'https://instagram.com/ann' },
+      { kind: 'github', url: 'javascript:alert(1)' }, // not https
+      { kind: 'github', url: 'https://github.com.evil.example/ann' }, // wrong host
+      { kind: 'nonsense', url: 'https://ann.dev/' }, // unknown platform
+      { kind: 'website', url: 'http://ann.dev/' }, // http is upgraded to https
+      { kind: 'instagram', url: 'https://instagram.com/ann' }, // duplicate
+    ];
+    const p = toProfile({ ...row, bio: '  Makes things.  ', links });
+    expect(p.bio).toBe('Makes things.');
+    expect(p.links).toEqual([
+      { kind: 'instagram', url: 'https://instagram.com/ann' },
+      { kind: 'website', url: 'https://ann.dev/' },
+    ]);
+    expect(toProfile({ ...row, links: Array.from({ length: 9 }, (_, i) => ({ kind: 'website', url: `https://a${i}.dev/` })) }).links).toHaveLength(5);
+    // no column (migration not applied), null, junk, or empty: no key at all
+    for (const bad of [undefined, null, 'x', 7, {}, []]) expect('links' in toProfile({ ...row, links: bad })).toBe(false);
+    expect('bio' in toProfile(row)).toBe(false);
+    expect('bio' in toProfile({ ...row, bio: '   ' })).toBe(false);
+    expect('bio' in toProfile({ ...row, bio: 42 })).toBe(false);
+  });
   it('a realtime message insert becomes an activity event (or nothing, if it is unusable)', () => {
     const row = {
       id: 'm',

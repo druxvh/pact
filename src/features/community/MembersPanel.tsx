@@ -14,6 +14,7 @@ import {
   promptText,
 } from '@/components/ui';
 import { notify } from '@/lib/toast';
+import { MemberHover } from './MemberHover';
 import { describeError } from './mapping';
 import { can, canActOnMember, roleLabel } from './permissions';
 import { TimeoutDialog } from './SafetyDialogs';
@@ -84,14 +85,18 @@ export function MembersPanel({ community, onShowBans }: { community: Community; 
               const timedOut = timeoutActive(m.timeoutUntil, Date.now());
               return (
                 <li key={m.userId} className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent/50">
-                  <Avatar name={name} src={m.profile?.avatarUrl} size="md" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">
-                      {name}
-                      {m.userId === me && <span className="text-subtle-foreground"> (you)</span>}
+                  <MemberHover profile={m.profile} role={m.role} joinedAt={m.joinedAt} focusable side="left">
+                    <span className="flex min-w-0 flex-1 items-center gap-2 rounded-sm">
+                      <Avatar name={name} src={m.profile?.avatarUrl} size="md" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm">
+                          {name}
+                          {m.userId === me && <span className="text-subtle-foreground"> (you)</span>}
+                        </span>
+                        {m.profile && <span className="block truncate text-[11px] text-subtle-foreground">@{m.profile.username}</span>}
+                      </span>
                     </span>
-                    {m.profile && <span className="block truncate text-[11px] text-subtle-foreground">@{m.profile.username}</span>}
-                  </span>
+                  </MemberHover>
                   {timedOut && m.timeoutUntil && (
                     <Badge tone="warning" title={`Timed out until ${formatUntil(m.timeoutUntil)}`}>
                       <Timer aria-hidden="true" /> Timed out

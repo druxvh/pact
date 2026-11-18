@@ -41,7 +41,7 @@ export function MessagePane({
   const lastId = useRef<string | null>(null);
   const height = useRef(0);
 
-  const roleOf = useMemo(() => new Map((members ?? []).map((m) => [m.userId, m.role])), [members]);
+  const memberOf = useMemo(() => new Map((members ?? []).map((m) => [m.userId, m])), [members]);
   const byId = useMemo(() => new Map((messages ?? []).map((m) => [m.id, m])), [messages]);
 
   // New channel → start at the bottom.
@@ -173,7 +173,8 @@ export function MessagePane({
                     replied={replied}
                     author={profiles[m.authorId]}
                     repliedAuthor={replied ? profiles[replied.authorId] : undefined}
-                    authorRole={roleOf.get(m.authorId)}
+                    authorMember={memberOf.get(m.authorId)}
+                    repliedMember={replied ? memberOf.get(replied.authorId) : undefined}
                     reactions={reactions[m.id] ?? []}
                     me={me}
                     myRole={community.role}

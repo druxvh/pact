@@ -1,4 +1,5 @@
 /** Row ↔ app-type mapping and error translation for the Supabase data layer (pure, so it is unit-tested). */
+import { sanitizeLinks } from '@/lib/socialLinks';
 import { formatUntil, formatWait } from './safety';
 import {
   type ActivityEvent,
@@ -65,11 +66,22 @@ export const toChannel = (r: Row): Channel => ({
 });
 /**
  * `profiles.avatar_path` is a Storage path, never a URL; `resolveAvatar` turns it into the public URL (lib/supabase/avatar).
- * A database without the column (migration not applied yet) simply has no avatars.
+ * A database without the column (migration not applied yet) simply has no avatars. `links` is somebody else's input, so it goes
+ * through the same validation as when it is saved (https, known hosts, at most five); a database without that column has none.
  */
 export const toProfile = (r: Row, resolveAvatar?: (path: string) => string | undefined): Profile => {
   const avatar = resolveAvatar && typeof r.avatar_path === 'string' && r.avatar_path ? resolveAvatar(r.avatar_path) : undefined;
-  return { id: str(r.id), username: str(r.username), displayName: str(r.display_name), designation: str(r.designation), ...(avatar && { avatarUrl: avatar }) };
+  const bio = str(r.bio).trim();
+  const links = sanitizeLinks(r.links);
+  return {
+    id: str(r.id),
+    username: str(r.username),
+    displayName: str(r.display_name),
+    designation: str(r.designation),
+    ...(avatar && { avatarUrl: avatar }),
+    ...(bio && { bio }),
+    ...(links.length > 0 && { links }),
+  };
 };
 export const toMember = (r: Row): Member => ({
   userId: str(r.user_id),
