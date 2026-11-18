@@ -1,10 +1,12 @@
 import { Pin, PinOff, X } from 'lucide-react';
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildProviders, type SiteLink } from '@/app/paletteSources';
+import { aliasIndex } from '@/features/commands/model';
+import { useCommandsStore } from '@/features/commands/store';
 import { useHomeStore } from '@/features/home/store';
 import { getTopSites } from '@/lib/ext';
 import { IS_MAC, MOD_KEY } from '@/lib/hotkeys';
-import { BANG_BY_ID, type Bang, chipFor } from '@/lib/omnibox/bangs';
+import { type Bang, bangById, chipFor } from '@/lib/omnibox/bangs';
 import { type EngineOptions, registeredProviders, runOmnibox } from '@/lib/omnibox/engine';
 import { hotkeyCaps, matchesHotkey } from '@/lib/omnibox/keys';
 import { scopeProvider, submitText } from '@/lib/omnibox/providers';
@@ -16,13 +18,13 @@ import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 const ENGINE: Record<Surface, EngineOptions> = {
   home: {
     defaultCap: 3,
-    caps: { shortcuts: 4, recent: 5, suggestions: 4, notes: 3, tasks: 3 },
+    caps: { shortcuts: 4, recent: 5, suggestions: 4, commands: 4, notes: 3, tasks: 3 },
     maxTotal: 10,
   },
   palette: { defaultCap: 6, caps: { recent: 5, pinned: 8 }, maxTotal: 40, recentFromUsage: true },
 };
 
-export type FooterHint = { keys: string[]; label: string };
+export type FooterHint = { keys: string[]; label: string /** Makes the hint clickable (the footer's "Actions" opens the action panel). */; run?: () => void };
 
 /** Everything both surfaces share: the query + chip, the ranked results, the keyboard, the action panel. */
 export type Omnibox = ReturnType<typeof useOmnibox>;
@@ -49,7 +51,10 @@ function usePaletteLinks(enabled: boolean): SiteLink[] {
 }
 
 /** Results that make sense to keep at the top of an empty box. */
-const PINNABLE: ReadonlySet<Group> = new Set(['pages', 'actions', 'tools', 'notes', 'tasks', 'chats', 'shortcuts', 'pinned', 'recent']);
+const PINNABLE: ReadonlySet<Group> = new Set(['pages', 'actions', 'tools', 'commands', 'notes', 'tasks', 'chats', 'shortcuts', 'pinned', 'recent']);
+
+/** ⌘/ (Ctrl+/) — the actions panel. On layouts where `/` needs Shift the key is still `/`; `code` covers the rest. */
+const isActionsKey = (e: { key: string; code: string; altKey: boolean }, mod: boolean) => mod && !e.altKey && (e.key === '/' || e.code === 'Slash');
 
 /** An action that throws or rejects must never leave the box half-open; the failure is logged, not swallowed silently. */
 function runSafely(action: OmniAction): void {
@@ -73,6 +78,7 @@ export function useOmnibox({ surface, links, active, onDone }: { surface: Surfac
   const clearRecent = useHomeStore((s) => s.clearRecent);
   const entries = useOmniStore((s) => s.entries);
   const pinned = useOmniStore((s) => s.pinned);
+  const commands = useCommandsStore((s) => s.items);
   const paletteLinks = usePaletteLinks(surface === 'palette' && active);
   const siteLinks = links ?? paletteLinks;
 
@@ -86,7 +92,7 @@ export function useOmnibox({ surface, links, active, onDone }: { surface: Surfac
   const copiedTimer = useRef<number | undefined>(undefined);
   const doneTimer = useRef<number | undefined>(undefined);
 
-  const scope: Bang | null = scopeId ? (BANG_BY_ID[scopeId] ?? null) : null;
+  const scope: Bang | null = scopeId ? (bangById(scopeId) ?? null) : null;
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
   const providers = useMemo(
@@ -98,8 +104,12 @@ export function useOmnibox({ surface, links, active, onDone }: { surface: Surfac
   );
 
   const engineOpts = useMemo<EngineOptions>(
-    () => ({ ...ENGINE[surface], sectionActions: surface === 'home' ? { recent: { label: 'Clear', run: clearRecent } } : undefined }),
-    [surface, clearRecent],
+    () => ({
+      ...ENGINE[surface],
+      sectionActions: surface === 'home' ? { recent: { label: 'Clear', run: clearRecent } } : undefined,
+      aliases: aliasIndex(commands),
+    }),
+    [surface, clearRecent, commands],
   );
 
   // `nonce` is deliberately a dependency: bumping it re-runs the providers (a new dice roll) for the same text.
@@ -282,7 +292,7 @@ export function useOmnibox({ surface, links, active, onDone }: { surface: Surfac
         consume();
         const a = panelActions[panelIndex];
         if (selected && a) execute(selected, a);
-      } else if (e.key === 'Escape' || e.key === 'ArrowLeft' || (mod && e.key.toLowerCase() === 'k')) {
+      } else if (e.key === 'Escape' || e.key === 'ArrowLeft' || isActionsKey(e, mod)) {
         consume();
         setPanelOpen(false);
       } else if (e.key === 'Tab') {
@@ -293,9 +303,11 @@ export function useOmnibox({ surface, links, active, onDone }: { surface: Surfac
       return;
     }
 
-    if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+    // ⌘/ opens the actions panel. (⌘K is not handled here at all: it always reaches the global handler, which focuses
+    // Home's box or toggles the palette — the omnibox shortcut means the same thing wherever you are.)
+    if (isActionsKey(e, mod)) {
       if (selected && openPanel()) consume();
-      return; // nothing to act on: let ⌘K reach the global handler (opens / closes the palette)
+      return;
     }
 
     // ⌘C copies the highlighted result's text — but never steals a normal copy of selected text in the input
@@ -399,12 +411,12 @@ export function useOmnibox({ surface, links, active, onDone }: { surface: Surfac
     }
     const second = selected ? actionsFor(selected).find((a) => a.hotkey === 'mod+enter') : undefined;
     if (second) hints.push({ keys: hotkeyCaps('mod+enter', MOD_KEY), label: second.label });
-    if (selected && actionsFor(selected).length > 1) hints.push({ keys: [MOD_KEY, 'K'], label: 'Actions' });
-    if (chip) hints.push({ keys: ['⇥'], label: `Search ${chip.bang.name}` });
+    if (selected && actionsFor(selected).length > 1) hints.push({ keys: [MOD_KEY, '/'], label: 'Actions', run: openPanel });
+    if (chip) hints.push({ keys: ['⇥'], label: chip.bang.custom ? chip.bang.name : `Search ${chip.bang.name}` });
     else if (view.ghost) hints.push({ keys: ['⇥'], label: 'Complete' });
     hints.push({ keys: ['esc'], label: query || scope ? 'Clear' : 'Close' });
     return { primaryLabel, hints };
-  }, [panelOpen, panelActions, panelIndex, selected, query, actionsFor, chip, view.ghost, scope]);
+  }, [panelOpen, panelActions, panelIndex, selected, query, actionsFor, chip, view.ghost, scope, openPanel]);
 
   const listId = `${surface}-omni-list`;
   const panelId = `${surface}-omni-actions`;

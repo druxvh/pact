@@ -1,6 +1,6 @@
 import { ArrowLeft, Search, Wrench, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useMemo, useState } from 'react';
+import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, EmptyState, IconButton, InputGroup, PageHeader, Skeleton } from '@/components/ui';
 import { isToolId, TOOL_BY_ID, TOOLS, type ToolDef, type ToolId } from '@/features/tools/registry';
 import { cn } from '@/lib/cn';
@@ -36,9 +36,11 @@ function Gallery() {
         icon={Wrench}
         title="Tools"
         description="Tiny utilities that run entirely on your device — no uploads, no accounts"
+        // below sm the search drops under the title and spans the row, like the filter on Kanban
+        className="max-sm:[&>div:last-child]:w-full"
         actions={
           <InputGroup
-            className="w-56"
+            className="w-full sm:w-56"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             leading={<Search />}
@@ -75,7 +77,7 @@ function Gallery() {
             const Icon = t.icon;
             return (
               <motion.li key={t.id} variants={fadeUp}>
-                <button type="button" onClick={() => go('tools', t.id)} className="group block w-full text-left outline-offset-2">
+                <button type="button" onClick={() => go('tools', t.id)} className="group block h-full w-full text-left outline-offset-2">
                   <Card interactive spotlight className="h-full gap-3 transition-shadow">
                     <span className="grid size-10 place-items-center rounded-lg bg-brand-soft text-brand-text transition-transform duration-300 ease-out-expo group-hover:scale-110 group-hover:-rotate-3">
                       <Icon className="size-5" />
@@ -107,6 +109,15 @@ function ToolFallback() {
 function ToolPage({ def }: { def: ToolDef }) {
   const go = useNavStore((s) => s.go);
   const Tool = toolComponent(def);
+  const strip = useRef<HTMLElement>(null);
+
+  // Seventeen tools don't fit in one strip: slide it (only the strip — never the page) so the open tool's pill is in view.
+  useEffect(() => {
+    const nav = strip.current;
+    const pill = nav?.querySelector<HTMLElement>(`[data-tool="${def.id}"]`);
+    if (!nav || !pill || nav.scrollWidth <= nav.clientWidth) return;
+    nav.scrollTo({ left: pill.offsetLeft - (nav.clientWidth - pill.offsetWidth) / 2, behavior: 'smooth' });
+  }, [def.id]);
 
   return (
     <div className="space-y-5">
@@ -118,7 +129,7 @@ function ToolPage({ def }: { def: ToolDef }) {
       </div>
 
       {/* quick switcher */}
-      <nav aria-label="Tools" className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+      <nav ref={strip} aria-label="Tools" className="no-scrollbar -mx-1 -mt-1 flex gap-1 overflow-x-auto px-1 pb-1 pt-1">
         {TOOLS.map((t) => {
           const Icon = t.icon;
           const active = t.id === def.id;
@@ -126,6 +137,7 @@ function ToolPage({ def }: { def: ToolDef }) {
             <button
               key={t.id}
               type="button"
+              data-tool={t.id}
               aria-current={active ? 'page' : undefined}
               onClick={() => go('tools', t.id, { replace: true })}
               className={cn(

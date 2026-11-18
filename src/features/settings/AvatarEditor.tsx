@@ -142,7 +142,7 @@ export function CropDialog({ file, onClose }: { file: File; onClose: () => void 
 }
 
 /** The profile picture with Change / Remove. Only offered when signed in (guests have no account to attach it to). */
-export function AvatarEditor({ name }: { name: string }) {
+export function AvatarEditor({ name, handle }: { name: string; handle?: string }) {
   const src = useUserStore((s) => s.currentUser.avatarUrl);
   const signedIn = useAuthStore(selectSignedIn);
   const ready = useProfileSync((s) => s.ready);
@@ -152,9 +152,9 @@ export function AvatarEditor({ name }: { name: string }) {
   const canEdit = signedIn && ready;
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-3">
       <div className="group relative shrink-0">
-        <Avatar name={name} src={src} size="xl" className="size-[72px] text-2xl" />
+        <Avatar name={name} src={src} size="xl" className="size-14 text-xl" />
         {canEdit && (
           <button
             type="button"
@@ -166,8 +166,11 @@ export function AvatarEditor({ name }: { name: string }) {
           </button>
         )}
       </div>
-      <div className="min-w-0 space-y-1.5">
-        <p className="truncate text-base font-semibold tracking-tight">{name}</p>
+      <div className="min-w-0 space-y-1">
+        <p className="truncate text-sm font-semibold leading-tight tracking-tight">
+          {name}
+          {handle && <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">@{handle}</span>}
+        </p>
         {signedIn ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" disabled={!canEdit} onClick={() => input.current?.click()}>

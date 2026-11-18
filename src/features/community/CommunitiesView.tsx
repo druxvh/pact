@@ -57,7 +57,10 @@ export function CommunitiesView() {
     void useCommunityStore
       .getState()
       .init()
-      .then(() => openLink());
+      .then(() => openLink())
+      // the store has already put the message in its `error` state (shown on the page); a rejection here would only
+      // surface as an "Uncaught (in promise)" entry in the extension's error list
+      .catch(() => {});
     return () => useCommunityStore.getState().dispose();
   }, [openLink]);
 

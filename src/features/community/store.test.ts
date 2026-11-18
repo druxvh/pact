@@ -38,6 +38,15 @@ describe('communities (store + the rules the database enforces)', () => {
     channelId = A.getState().activeChannelId as string;
   });
 
+  it('someone who was removed lands back on the community list instead of an empty pane', async () => {
+    expect(C.getState().activeId).toBe(cid);
+    await server.api(alice).kickMember(cid, carol);
+    await C.getState().refreshMembers(); // what the realtime "members changed" event triggers
+    await flush();
+    expect(C.getState().activeId).toBeNull();
+    expect(C.getState().communities).toEqual([]);
+  });
+
   it('loads my communities, picks #general and my role', () => {
     expect(A.getState().communities.map((c) => [c.name, c.role])).toEqual([['Pact Club', 'admin']]);
     expect(B.getState().communities[0]?.role).toBe('mod');

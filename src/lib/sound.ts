@@ -44,3 +44,26 @@ export function playTick(): void {
   if (!c) return;
   tone(c, 1200, c.currentTime, 0.05, 0.05);
 }
+
+/** A camera shutter: a short burst of noise (the curtain) and a low thump (the mirror). Used by the camera. */
+export function playShutter(): void {
+  const c = getCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.005;
+  const length = Math.floor(c.sampleRate * 0.07);
+  const buffer = c.createBuffer(1, length, c.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2;
+  const noise = c.createBufferSource();
+  noise.buffer = buffer;
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 1800;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.22, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+  noise.connect(hp).connect(g).connect(c.destination);
+  noise.start(t);
+  tone(c, 180, t, 0.09, 0.12);
+  tone(c, 1500, t + 0.075, 0.04, 0.05);
+}

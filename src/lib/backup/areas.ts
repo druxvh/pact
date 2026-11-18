@@ -6,8 +6,12 @@
  * sign-in PKCE verifier (secrets / per-device state), and the VibeParty "recent rooms" (room codes are bearer
  * passwords — only the display name is kept).
  */
+import { type CustomCommand, MAX_COMMANDS, repairCommands, sanitizeCommand } from '@/features/commands/model';
+import { TOPIC_IDS } from '@/features/discover/catalog';
+import { CUSTOM_FEED_CAP, capList, FOLLOW_CAP, READ_CAP, SAVED_CAP } from '@/features/discover/logic';
 import { ACCENT_PRESETS } from '@/lib/appearance/accent';
 import { fontById } from '@/lib/appearance/fonts';
+import { RADIUS_IDS } from '@/lib/appearance/radius';
 import { IMAGE_ASSET_ID, MESHES } from '@/lib/appearance/wallpaper';
 import {
   arr,
@@ -47,12 +51,14 @@ export type AreaId =
   | 'mainFocus'
   | 'capture'
   | 'omnibox'
+  | 'commands'
   | 'tour'
   | 'settings'
   | 'appearance'
   | 'theme'
   | 'notifications'
-  | 'party';
+  | 'party'
+  | 'discover';
 
 /** A list inside a store that can be counted, compared by id and merged. */
 export type Coll = {
@@ -513,6 +519,27 @@ const omnibox: AreaSpec = {
   parse: stateParser(() => ({ entries: jsonObject(200_000), pinned: arr(str({ max: 300 }), { max: 200 }) })),
 };
 
+/**
+ * Quicklinks, snippets and aliases. An address can later be opened from the search box, so each one goes through the same
+ * validator as the store (`sanitizeCommand`): http(s) only, bounded lengths, a well-formed alias, nothing unknown riding along.
+ * Merge adds the backup's commands by id; a clashing alias is then resolved by `repairCommands` (the local one keeps it).
+ */
+const command: Parser<Rec> = (v) => {
+  const c = sanitizeCommand(v);
+  return c ? (c as unknown as Rec) : INVALID;
+};
+
+const commands: AreaSpec = {
+  id: 'commands',
+  label: 'Your commands (quicklinks, snippets, aliases)',
+  key: 'pact-commands',
+  version: 1,
+  mergeable: true,
+  colls: [{ field: 'items', noun: ['command', 'commands'], stamp: 'updatedAt' }],
+  parse: stateParser(() => ({ items: arr(command, { max: MAX_COMMANDS }) })),
+  repair: (state) => ({ ...state, items: repairCommands(((state.items as CustomCommand[] | undefined) ?? []).filter(Boolean)) }),
+};
+
 const tour: AreaSpec = {
   id: 'tour',
   label: 'Tour progress',
@@ -579,9 +606,9 @@ const knownFont: Parser<string> = (v) => (typeof v === 'string' && fontById(v) ?
 
 const appearance: AreaSpec = {
   id: 'appearance',
-  label: 'Appearance (accent, fonts, wallpaper)',
+  label: 'Appearance (accent, fonts, roundness, wallpaper)',
   key: 'pact-appearance',
-  version: 2,
+  version: 3,
   mergeable: false,
   colls: [],
   parse: stateParser((strict) => {
@@ -590,6 +617,8 @@ const appearance: AreaSpec = {
       accent,
       font: knownFont,
       monoFont: knownFont,
+      // ends up in CSS variables, so only the four known steps ever get through; an older file simply has none (the stock look)
+      radius: oneOf(...RADIUS_IDS),
       wallpaper,
       // v1 kept one number for both themes; the store's migrate upgrades it
       dim: (v, c) =>
@@ -655,6 +684,85 @@ const party: AreaSpec = {
   parse: stateParser(() => ({ name: str({ max: 24, truncate: true }) })),
 };
 
+// ── Discover ─────────────────────────────────────────────────────────────────
+
+/** Article addresses are rendered as links and opened: https only, no credentials. */
+const httpsUrl: Parser<string> = (v, c) => {
+  const r = webUrl(v, c);
+  if (r === INVALID || !r.startsWith('https://')) return INVALID;
+  try {
+    const u = new URL(r);
+    return u.username || u.password ? INVALID : r;
+  } catch {
+    return INVALID;
+  }
+};
+
+// Followed sources, hidden sources, the reading list and read marks are worth keeping; the fetched articles (a cache) are not.
+const discover: AreaSpec = {
+  id: 'discover',
+  label: 'Discover (sources, reading list)',
+  key: 'pact-discover',
+  version: 1,
+  mergeable: true,
+  colls: [
+    { field: 'saved', noun: ['saved article', 'saved articles'], stamp: 'savedAt', order: 'desc' },
+    { field: 'customFeeds', noun: ['custom feed', 'custom feeds'], stamp: 'addedAt' },
+    { field: 'followedSources', noun: ['followed source', 'followed sources'], primitive: true },
+    { field: 'hiddenSources', noun: ['hidden source', 'hidden sources'], primitive: true },
+    { field: 'followedTopics', noun: ['followed topic', 'followed topics'], primitive: true },
+    { field: 'read', noun: ['read mark', 'read marks'], primitive: true },
+  ],
+  parse: stateParser((strict) => {
+    const articleId = str({ pattern: /^[\w-]{3,40}$/ });
+    const source = obj({ id: required(str({ min: 1, max: 80 })), name: required(str({ min: 1, max: 100, truncate: true })), site: optional(webUrl) }, strict);
+    return {
+      followedSources: arr(str({ min: 1, max: 80 }), { max: FOLLOW_CAP }),
+      hiddenSources: arr(str({ min: 1, max: 80 }), { max: FOLLOW_CAP }),
+      followedTopics: arr(oneOf(...TOPIC_IDS), { max: 12 }),
+      read: arr(str({ min: 1, max: 40 }), { max: READ_CAP }),
+      density: oneOf('grid', 'list'),
+      topic: oneOf('foryou', 'saved', ...TOPIC_IDS),
+      customFeeds: arr(obj({ id: required(str({ pattern: /^custom-[a-z0-9]{1,12}$/ })), url: required(httpsUrl), name: text(60), addedAt: stamp() }, strict), {
+        max: CUSTOM_FEED_CAP,
+      }),
+      saved: arr(
+        obj(
+          {
+            id: required(articleId),
+            title: required(str({ min: 1, max: 300, truncate: true })),
+            url: required(httpsUrl),
+            summary: text(400),
+            image: optional(nullable(httpsUrl)),
+            author: text(100),
+            publishedAt: optional(nullable(iso)),
+            categories: optional(arr(str({ max: 40, truncate: true }), { max: 5 })),
+            words: optional(num({ min: 0, max: 1_000_000, int: true })),
+            source: required(source),
+            savedAt: stamp(),
+          },
+          strict,
+        ),
+        { max: SAVED_CAP },
+      ),
+    };
+  }),
+  // After a merge two lists can add up to more than the caps allow: newest first, no duplicates, at most the cap.
+  repair: (state) => {
+    const list = (v: unknown): Rec[] => (Array.isArray(v) ? (v.filter(isRecord) as Rec[]) : []);
+    const strings = (v: unknown, cap: number) => capList(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [], (x) => x, cap);
+    const saved = list(state.saved).sort((a, b) => Date.parse(String(b.savedAt)) - Date.parse(String(a.savedAt)));
+    return {
+      ...state,
+      saved: capList(saved, (s) => String(s.id), SAVED_CAP),
+      customFeeds: capList(list(state.customFeeds), (c) => String(c.id), CUSTOM_FEED_CAP),
+      followedSources: strings(state.followedSources, FOLLOW_CAP),
+      hiddenSources: strings(state.hiddenSources, FOLLOW_CAP),
+      read: strings(state.read, READ_CAP),
+    };
+  },
+};
+
 export const AREAS: readonly AreaSpec[] = [
   notes,
   kanban,
@@ -666,12 +774,14 @@ export const AREAS: readonly AreaSpec[] = [
   mainFocus,
   capture,
   omnibox,
+  commands,
   tour,
   settings,
   appearance,
   theme,
   notifications,
   party,
+  discover,
 ];
 export const AREA_BY_KEY: Readonly<Record<string, AreaSpec>> = Object.fromEntries(AREAS.map((a) => [a.key, a]));
 export const AREA_KEYS: readonly string[] = AREAS.map((a) => a.key);
@@ -689,6 +799,8 @@ export const NOT_BACKED_UP: Readonly<Record<string, string>> = {
   'pact-community-last': 'the last community opened — belongs to the account on the server',
   'pact-party-client': 'this browser’s VibeParty identity — per device',
   'pact-party-host': 'live VibeParty room state — ephemeral',
+  'pact-discover-cache': 'the last fetched articles in Discover — a cache, rebuilt from the feeds on the next visit',
+  'pact-camera': 'camera choices (device id, mirror, filter…) — specific to this computer’s cameras',
 };
 
 /** Sanitise one persisted value from our own storage before it goes into a file or snapshot (secrets removed, nothing else touched). */

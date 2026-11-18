@@ -156,7 +156,6 @@ export function PresetDialog({ preset, open, onOpenChange }: { preset: TimerPres
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
                 className="text-destructive-text"
                 onClick={async () => {
                   const ok = await confirm({

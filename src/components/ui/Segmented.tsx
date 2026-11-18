@@ -37,8 +37,9 @@ export function Segmented<T extends string>({ value, onValueChange, options, siz
             disabled={disabled}
             className={cn(
               disabled && 'cursor-not-allowed opacity-50',
-              'relative z-10 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium text-muted-foreground outline-none transition-colors duration-150',
-              'hover:text-foreground data-[active]:text-foreground [&_svg]:size-3.5',
+              'relative z-10 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium text-muted-foreground transition-colors duration-150',
+              // the ring is drawn inside the tab so a parent with overflow hidden/auto can't clip it
+              'hover:text-foreground focus-visible:-outline-offset-2 data-[active]:text-foreground [&_svg]:size-3.5',
               size === 'sm' ? 'h-6 px-2.5 text-xs' : 'h-7 px-3 text-[13px]',
               fullWidth && 'flex-1',
             )}

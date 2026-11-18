@@ -12,6 +12,9 @@ type UiState = {
   /** The quick-capture sheet (press `C`). */
   captureOpen: boolean;
   setCaptureOpen: (open: boolean) => void;
+  /** The camera studio (`!cam`, or "Open camera" in the palette). */
+  cameraOpen: boolean;
+  setCameraOpen: (open: boolean) => void;
   /** One-shot intents: the palette sets them, the target view consumes them on mount. */
   pendingTaskId: string | null;
   pendingNewTask: boolean;
@@ -32,6 +35,8 @@ export const useUiStore = create<UiState>((set) => ({
   setSignInOpen: (signInOpen) => set({ signInOpen }),
   captureOpen: false,
   setCaptureOpen: (captureOpen) => set({ captureOpen }),
+  cameraOpen: false,
+  setCameraOpen: (cameraOpen) => set({ cameraOpen }),
   pendingTaskId: null,
   pendingNewTask: false,
   setPendingTaskId: (pendingTaskId) => set({ pendingTaskId }),

@@ -17,7 +17,8 @@ export function TimerPill() {
   const visible = status !== 'idle' && !onTimerPage;
 
   return (
-    <AnimatePresence>
+    // initial={false}: a timer that is already running when the page opens is just there — no slide-in that shoves the icons beside it.
+    <AnimatePresence initial={false}>
       {visible && (
         <motion.button
           type="button"

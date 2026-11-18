@@ -22,7 +22,7 @@ export function CountdownWidget() {
         title="Countdown"
         action={
           days !== null ? (
-            <IconButton label="Cancel" size="icon-sm" onClick={() => setEditing(false)}>
+            <IconButton label="Cancel" size="icon-xs" onClick={() => setEditing(false)}>
               <X />
             </IconButton>
           ) : undefined
@@ -61,7 +61,7 @@ export function CountdownWidget() {
       icon={CalendarClock}
       title="Countdown"
       action={
-        <IconButton label="Edit countdown" size="icon-sm" onClick={() => setEditing(true)}>
+        <IconButton label="Edit countdown" size="icon-xs" onClick={() => setEditing(true)}>
           <Pencil />
         </IconButton>
       }

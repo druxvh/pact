@@ -211,7 +211,8 @@ export function CaptureSheet({ account, variant, title, textareaRef, onDone }: P
       }}
     >
       <div className={cn('space-y-3 p-4', variant === 'dialog' && 'pr-12')}>
-        <div className="flex items-center justify-between gap-3">
+        {/* in the dialog the row is 32px tall so its centre lines up with the dialog's close button */}
+        <div className={cn('flex items-center justify-between gap-3', variant === 'dialog' && 'min-h-8')}>
           <div className="flex min-w-0 items-center gap-2">
             {/* Only in the popup: the logo's gradient ids are global, and inside pact the sidebar already owns them (hidden on a phone). */}
             {variant === 'popup' && <Logo className="size-6 drop-shadow-none" />}

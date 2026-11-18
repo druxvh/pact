@@ -190,17 +190,17 @@ export function TaskDialog({ target, members, onClose, onDelete }: Props) {
               <Label htmlFor="task-due">Due date</Label>
               <div className="flex flex-wrap items-center gap-2">
                 <Input id="task-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} className="w-40" />
-                <Button size="sm" variant="outline" onClick={() => setDue(addDays(0))}>
+                <Button variant="outline" onClick={() => setDue(addDays(0))}>
                   Today
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setDue(addDays(1))}>
+                <Button variant="outline" onClick={() => setDue(addDays(1))}>
                   Tomorrow
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setDue(addDays(7))}>
+                <Button variant="outline" onClick={() => setDue(addDays(7))}>
                   Next week
                 </Button>
                 {/* Always rendered (just invisible when empty) so the row never reflows. */}
-                <IconButton label="Clear due date" size="icon-sm" onClick={() => setDue('')} className={cn(!due && 'invisible')} tabIndex={due ? 0 : -1}>
+                <IconButton label="Clear due date" onClick={() => setDue('')} className={cn(!due && 'invisible')} tabIndex={due ? 0 : -1}>
                   <X />
                 </IconButton>
               </div>

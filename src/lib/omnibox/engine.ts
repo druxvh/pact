@@ -48,12 +48,21 @@ export type EngineOptions = {
   sectionActions?: Partial<Record<Group, { label: string; run: () => void }>>;
   /** With an empty box, promote what the user picked before into a "Recent" section (the palette does; Home shows search history). */
   recentFromUsage?: boolean;
+  /**
+   * The user's aliases for built-in results: alias → result ids (`{ t: ['page:timer'] }`). Typing exactly an alias makes
+   * that result the Top hit (providers are told through `ctx.aliased`, so it is offered even when the text would not
+   * match it); an aliased result always shows its alias as `hint`.
+   */
+  aliases?: Readonly<Record<string, readonly string[]>>;
 };
 
+/** Score an aliased result gets when its alias is typed in full: above a plain match, below the answer / a typed `!bang` / an address. */
+export const ALIAS_SCORE = 1450;
+
 /** Browsing order (empty box). */
-const EMPTY_ORDER: readonly Group[] = ['pinned', 'recent', 'suggestions', 'pages', 'actions', 'tools', 'shortcuts', 'notes', 'tasks', 'chats'];
+const EMPTY_ORDER: readonly Group[] = ['pinned', 'recent', 'suggestions', 'pages', 'actions', 'tools', 'commands', 'shortcuts', 'notes', 'tasks', 'chats'];
 /** Groups whose members make sense as "recent" / "pinned" shortcuts. */
-const PROMOTABLE: ReadonlySet<Group> = new Set(['pages', 'actions', 'tools', 'notes', 'tasks', 'chats', 'shortcuts']);
+const PROMOTABLE: ReadonlySet<Group> = new Set(['pages', 'actions', 'tools', 'commands', 'notes', 'tasks', 'chats', 'shortcuts']);
 
 const keyOf = (r: OmniResult): string | null => (r.frecencyKey === undefined ? r.id : r.frecencyKey);
 const orderOf = (g: Group) => GROUPS.indexOf(g);
@@ -69,15 +78,30 @@ const orderOf = (g: Group) => GROUPS.indexOf(g);
 export function runOmnibox(rawQuery: string, ctx: OmniCtx, providers: readonly Provider[], usage: Usage, opts: EngineOptions = {}): OmniView {
   const q = rawQuery.trim();
   const now = ctx.now.getTime();
+
+  // The user's aliases: which result ids the typed text names exactly, and which alias to show on each aliased result.
+  const aliasOf = new Map<string, string>();
+  for (const [alias, ids] of Object.entries(opts.aliases ?? {})) for (const id of ids) if (!aliasOf.has(id)) aliasOf.set(id, alias);
+  const typed = opts.aliases && q ? opts.aliases[q.toLowerCase()] : undefined;
+  const aliased = typed?.length ? new Set(typed) : undefined;
+  const pctx: OmniCtx = aliased ? { ...ctx, aliased } : ctx;
+
   const collected = new Map<string, OmniResult>();
   for (const provider of providers) {
     let out: OmniResult[];
     try {
-      out = provider(q, ctx);
+      out = provider(q, pctx);
     } catch {
       continue; // one broken provider must never take the whole box down
     }
-    for (const r of out) {
+    for (const r0 of out) {
+      let r = r0;
+      const alias = aliasOf.get(r.id);
+      if (alias && !r.hint) r = { ...r, hint: alias };
+      if (aliased?.has(r.id)) {
+        // typing the alias in full: this result is the Top hit (it falls back to its own group if something outranks it)
+        r = { ...r, score: Math.max(r.score, ALIAS_SCORE), demoteTo: r.group === 'top' ? r.demoteTo : r.group, group: 'top' };
+      }
       if (!(r.score > 0)) continue;
       const prev = collected.get(r.id);
       if (!prev || prev.score < r.score) collected.set(r.id, r);
@@ -169,7 +193,9 @@ export function runOmnibox(rawQuery: string, ctx: OmniCtx, providers: readonly P
  * have to be typed, and a trailing space means "I'm moving on" — no ghost.
  *
  * Tab precedence (the footer shows whichever applies):
- *   1. the input is a bang (`!yt …`, or `yt`/`gh` typed in full)  → it becomes a chip,
+ *   1. the input is a bang (`!yt …`, `yt`/`gh` typed in full, or one of the user's own quicklink aliases — bare, with
+ *      `!`, or followed by text: `gh react`)                      → it becomes a chip (the user's quicklinks join the
+ *                                                                  built-in table; a built-in trigger always wins),
  *   2. a ghost is showing                                         → accept it (a bang ghost becomes a chip),
  *   3. otherwise                                                  → Tab keeps its normal job and moves focus on.
  */

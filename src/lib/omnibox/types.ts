@@ -7,7 +7,22 @@ export type Surface = 'home' | 'palette';
  * Result groups. The order here is the fallback display order; the engine moves a group up when it holds the best
  * match, keeps `answer` and `top` first and `web` last.
  */
-export const GROUPS = ['answer', 'top', 'pinned', 'recent', 'suggestions', 'pages', 'actions', 'tools', 'notes', 'tasks', 'chats', 'shortcuts', 'web'] as const;
+export const GROUPS = [
+  'answer',
+  'top',
+  'pinned',
+  'recent',
+  'suggestions',
+  'pages',
+  'actions',
+  'tools',
+  'commands',
+  'notes',
+  'tasks',
+  'chats',
+  'shortcuts',
+  'web',
+] as const;
 export type Group = (typeof GROUPS)[number];
 
 export const GROUP_LABEL: Record<Group, string> = {
@@ -19,6 +34,7 @@ export const GROUP_LABEL: Record<Group, string> = {
   pages: 'Pages',
   actions: 'Actions',
   tools: 'Tools',
+  commands: 'Your commands',
   notes: 'Notes',
   tasks: 'Tasks',
   chats: 'Chats',
@@ -26,7 +42,7 @@ export const GROUP_LABEL: Record<Group, string> = {
   web: 'Web',
 };
 
-/** Something the user can do with a result: the primary one runs on ↵, the rest live in the action panel (⌘K or →). */
+/** Something the user can do with a result: the primary one runs on ↵, the rest live in the action panel (⌘/ or →). */
 export type OmniAction = {
   id: string;
   label: string;
@@ -83,8 +99,12 @@ export type OmniResult = {
   /** Extra words the search matches (not shown). */
   keywords?: string;
   icon: LucideIcon;
+  /** Show this emoji in the icon tile instead of `icon` (a custom command the user gave an emoji). */
+  emoji?: string;
   /** Use a site's brand mark / favicon instead of `icon`. */
   site?: { url: string; title?: string };
+  /** Right-aligned alias the user gave this result (`gh`): typing it finds the result. The engine fills it in for aliased built-ins. */
+  hint?: string;
   /** Base relevance: ~1000 exact … 10 weak … 0 = hidden. The engine adds frecency and pin boosts. */
   score: number;
   /** Positions of `title` that matched the query — filled by `scoreFields`. */
@@ -122,6 +142,11 @@ export type OmniCtx = {
   scope: string | null;
   /** Frecency keys the user pinned: with an empty box, providers should include these even if they would otherwise stay quiet. */
   pinned: readonly string[];
+  /**
+   * Result ids the user aliased to exactly what is typed (alias `t` → `page:timer`). Set by the engine from
+   * `EngineOptions.aliases`; a provider must return these results even if the text would not otherwise match them.
+   */
+  aliased?: ReadonlySet<string>;
 };
 
 export type OmniSection = {

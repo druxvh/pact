@@ -35,7 +35,7 @@ function RailItem({ item, active, badge, onSelect }: { item: SectionMeta; active
         )}
         <Icon className="relative size-[19px] transition-transform duration-200 ease-out-expo group-hover:scale-110" />
         {badge ? (
-          <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold leading-4 text-brand-foreground ring-2 ring-background">
+          <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-4 text-brand-foreground ring-2 ring-background">
             {badge === 'dot' ? '' : badge > 99 ? '99+' : badge}
           </span>
         ) : null}
@@ -98,7 +98,8 @@ export function MobileNav({ badges = {} }: { badges?: Badges }) {
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.id)}
             className={cn(
-              'relative grid h-12 flex-1 place-items-center transition-colors active:scale-95',
+              // the ring is drawn inside the button: the bar sits at the edge of the window, where an outer ring would be clipped
+              'relative grid h-12 flex-1 place-items-center transition-colors focus-visible:-outline-offset-2 active:scale-95',
               active ? 'text-brand-text' : 'text-muted-foreground',
             )}
           >

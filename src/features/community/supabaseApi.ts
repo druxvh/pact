@@ -33,6 +33,7 @@ import {
   type Member,
   type Profile,
   type Role,
+  type TypingEvent,
 } from './types';
 
 const MESSAGE_COLS =
@@ -399,17 +400,40 @@ export function createSupabaseApi(me: string): CommunityApi {
     },
     subscribeTyping(communityId, onTyping): TypingChannel {
       const c = client();
-      // A private broadcast topic: the policies on realtime.messages only admit members of this community.
-      const channel = c
-        .channel(`typing:${communityId}`, { config: { private: true, broadcast: { self: false } } })
-        .on('broadcast', { event: 'typing' }, ({ payload }) => {
-          const { channelId, userId } = (payload ?? {}) as { channelId?: unknown; userId?: unknown };
-          if (typeof channelId === 'string' && typeof userId === 'string') onTyping({ channelId, userId });
-        })
-        .subscribe();
+      // One private broadcast channel per community, shared by whoever listens. Re-creating a channel with the same topic
+      // right after removing it (switching communities back and forth) can hand back the still-closing old one, which then
+      // can't take new listeners — so the channel is reused, and only dropped a while after the last listener has left.
+      let shared = typingShared.get(communityId);
+      if (shared) {
+        clearTimeout(shared.drop);
+        shared.drop = undefined;
+      } else {
+        const listeners = new Set<(t: TypingEvent) => void>();
+        // A private topic: the policies on realtime.messages only admit members of this community.
+        const channel = c
+          .channel(`typing:${communityId}`, { config: { private: true, broadcast: { self: false } } })
+          .on('broadcast', { event: 'typing' }, ({ payload }) => {
+            const { channelId, userId } = (payload ?? {}) as { channelId?: unknown; userId?: unknown };
+            if (typeof channelId === 'string' && typeof userId === 'string') for (const l of listeners) l({ channelId, userId });
+          })
+          .subscribe();
+        shared = { channel, listeners };
+        typingShared.set(communityId, shared);
+      }
+      const mine = shared;
+      mine.listeners.add(onTyping);
       return {
-        announce: (channelId) => void channel.send({ type: 'broadcast', event: 'typing', payload: { channelId, userId: me } }),
-        stop: () => void c.removeChannel(channel),
+        announce: (channelId) => void mine.channel.send({ type: 'broadcast', event: 'typing', payload: { channelId, userId: me } }),
+        stop: () => {
+          mine.listeners.delete(onTyping);
+          if (mine.listeners.size > 0) return;
+          mine.drop = setTimeout(() => {
+            if (mine.listeners.size === 0 && typingShared.get(communityId) === mine) {
+              typingShared.delete(communityId);
+              void c.removeChannel(mine.channel);
+            }
+          }, TYPING_KEEP_MS);
+        },
       };
     },
     async searchGifs(query, opts): Promise<GifPage> {
@@ -423,7 +447,7 @@ export function createSupabaseApi(me: string): CommunityApi {
       const c = client();
       const filter = `community_id=eq.${communityId}`;
       const channel = c
-        .channel(`community:${communityId}`)
+        .channel(`community:${communityId}:${++eventChannelSeq}`)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'messages', filter },
@@ -442,6 +466,12 @@ export function createSupabaseApi(me: string): CommunityApi {
     },
   };
 }
+
+type TypingShared = { channel: ReturnType<SupabaseClient['channel']>; listeners: Set<(t: TypingEvent) => void>; drop?: ReturnType<typeof setTimeout> };
+const typingShared = new Map<string, TypingShared>();
+const TYPING_KEEP_MS = 15_000;
+/** Makes each community event channel's name unique, so a quick re-subscribe never meets the previous one still closing. */
+let eventChannelSeq = 0;
 
 // One API object per signed-in user.
 let cached: { id: string; api: CommunityApi } | null = null;

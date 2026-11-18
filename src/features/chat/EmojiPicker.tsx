@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { InputGroup } from '@/components/ui';
 import { EMOJI_CATEGORIES, searchEmoji } from '@/features/chat/emoji-data';
 import { useChatStore } from '@/features/chat/store';
 import { cn } from '@/lib/cn';
@@ -45,16 +46,15 @@ export function EmojiPicker({ onPick, className }: Props) {
 
   return (
     <div className={cn('w-[19rem]', className)}>
-      <div className="relative p-2 pb-1">
-        <Search className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-[40%] text-muted-foreground" />
-        <input
-          // biome-ignore lint/a11y/noAutofocus: the picker opens on request and search should be ready to type
+      <div className="p-2 pb-1">
+        <InputGroup
           autoFocus
+          leading={<Search />}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search emoji…"
           aria-label="Search emoji"
-          className="h-8 w-full rounded-lg border bg-muted/40 pl-8 pr-2 text-[13px] outline-none placeholder:text-subtle-foreground focus:border-ring"
+          inputClassName="text-[13px]"
         />
       </div>
 

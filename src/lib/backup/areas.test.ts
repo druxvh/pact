@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { useCaptureStore } from '@/features/capture/store';
 import { useChatStore } from '@/features/chat/store';
+import { useCommandsStore } from '@/features/commands/store';
+import { useDiscoverStore } from '@/features/discover/store';
 import { useHomeLayoutStore } from '@/features/home/layout';
 import { useHomeStore } from '@/features/home/store';
 import { useMainFocusStore } from '@/features/home/widgets/mainFocusStore';
@@ -57,12 +59,14 @@ describe('the area list stays in step with the app', () => {
       'pact-main-focus': useMainFocusStore.persist.getOptions().version as number,
       'pact-capture': useCaptureStore.persist.getOptions().version as number,
       'pact-omnibox': useOmniStore.persist.getOptions().version as number,
+      'pact-commands': useCommandsStore.persist.getOptions().version as number,
       'pact-tour': useTourStore.persist.getOptions().version as number,
       'pact-settings': useSettingsStore.persist.getOptions().version as number,
       'pact-appearance': useAppearanceStore.persist.getOptions().version as number,
       'pact-theme': useThemeStore.persist.getOptions().version as number,
       'pact-notifications': useNotificationStore.persist.getOptions().version as number,
       'pact-party': usePartyStore.persist.getOptions().version as number,
+      'pact-discover': useDiscoverStore.persist.getOptions().version as number,
     };
     for (const a of AREAS) expect(a.version, a.key).toBe(versions[a.key]);
     expect(Object.keys(versions).sort()).toEqual([...AREA_KEYS].sort());
@@ -80,12 +84,14 @@ describe('the area list stays in step with the app', () => {
       'pact-main-focus': useMainFocusStore,
       'pact-capture': useCaptureStore,
       'pact-omnibox': useOmniStore,
+      'pact-commands': useCommandsStore,
       'pact-tour': useTourStore,
       'pact-settings': useSettingsStore,
       'pact-appearance': useAppearanceStore,
       'pact-theme': useThemeStore,
       'pact-notifications': useNotificationStore,
       'pact-party': usePartyStore,
+      'pact-discover': useDiscoverStore,
     } as never;
     // persisted on purpose but not backed up: a static directory the store rebuilds, and secrets
     const LEFT_OUT: Record<string, string[]> = { 'pact-user': ['teammates'], 'pact-party': ['recent'] };
@@ -251,7 +257,7 @@ describe('prepareBundle: never trust what is in a file', () => {
   describe('Appearance: values end up inside a generated stylesheet', () => {
     it('colours must be exactly #rrggbb — CSS can’t be smuggled in', () => {
       const evil = 'red;} body{background:url(//evil.example/x)} .x{color:';
-      const p = only('pact-appearance', { accent: { kind: 'custom', hex: evil }, wallpaper: { kind: 'solid', color: evil }, font: 'geist' }, 2);
+      const p = only('pact-appearance', { accent: { kind: 'custom', hex: evil }, wallpaper: { kind: 'solid', color: evil }, font: 'geist' }, 3);
       const s = st(p) as Record<string, unknown>;
       expect(s.accent).toBeUndefined();
       expect(s.wallpaper).toBeUndefined();
@@ -259,7 +265,7 @@ describe('prepareBundle: never trust what is in a file', () => {
       const good = only(
         'pact-appearance',
         { accent: { kind: 'custom', hex: '#12abEF' }, wallpaper: { kind: 'gradient', from: '#000000', to: '#ffffff', angle: 90 } },
-        2,
+        3,
       );
       expect(st(good).accent).toEqual({ kind: 'custom', hex: '#12abEF' });
       expect(st(good).wallpaper).toEqual({ kind: 'gradient', from: '#000000', to: '#ffffff', angle: 90 });
@@ -276,7 +282,7 @@ describe('prepareBundle: never trust what is in a file', () => {
           dim: { light: 999, dark: 'x' },
           blur: 500,
         },
-        2,
+        3,
       );
       const s = st(p) as Record<string, unknown>;
       expect(s.accent).toBeUndefined();
@@ -284,8 +290,23 @@ describe('prepareBundle: never trust what is in a file', () => {
       expect(s.wallpaper).toBeUndefined();
       expect(s.blur).toBeUndefined();
       expect(s.dim).toEqual({ light: 0, dark: 0 });
-      const img = only('pact-appearance', { wallpaper: { kind: 'image', id: '../../etc/passwd', name: 'n'.repeat(500) } }, 2);
+      const img = only('pact-appearance', { wallpaper: { kind: 'image', id: '../../etc/passwd', name: 'n'.repeat(500) } }, 3);
       expect(st(img).wallpaper).toEqual({ kind: 'image', id: 'wallpaper-image', name: 'n'.repeat(200) });
+    });
+
+    it('roundness is one of the four known steps — anything else is dropped (it ends up in CSS variables)', () => {
+      for (const radius of ['none', 'sm', 'md', 'lg']) expect(st(only('pact-appearance', { radius }, 3))).toEqual({ radius });
+      for (const radius of ['xl', 'MD', '12px; } body { display:none', 12, null, {}]) {
+        const p = only('pact-appearance', { radius, font: 'geist' }, 3);
+        expect(st(p)).toEqual({ font: 'geist' });
+        expect(p.areas[0]?.dropped).toBeGreaterThan(0);
+      }
+    });
+
+    it('an older backup without roundness still imports; the store gives it the stock look on load', () => {
+      const p = only('pact-appearance', { font: 'geist', dim: 30 }, 2);
+      expect(st(p)).toEqual({ font: 'geist', dim: 30 });
+      expect(p.areas[0]?.strict).toBe(false);
     });
   });
 
@@ -351,6 +372,100 @@ describe('prepareBundle: never trust what is in a file', () => {
     const s = st(p) as { messages: unknown[]; activeId: unknown };
     expect(s.messages).toHaveLength(1);
     expect(s.activeId).toBeNull();
+  });
+});
+
+describe('Your commands (quicklinks, snippets, aliases)', () => {
+  const stamp = { createdAt: NOW, updatedAt: NOW };
+  const ql = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    kind: 'quicklink',
+    name: id,
+    alias: '',
+    url: 'https://example.com/?q={query}',
+    icon: '',
+    ...stamp,
+    ...over,
+  });
+  const items = (p: PreparedBundle) => (st(p).items as Array<Record<string, unknown>>) ?? [];
+
+  it('only http(s) addresses survive — a quicklink is opened from the search box', () => {
+    const p = only(
+      'pact-commands',
+      {
+        items: [
+          ql('ok'),
+          ql('js', { url: 'javascript:alert(1)' }),
+          ql('data', { url: 'data:text/html,<script>1</script>' }),
+          ql('chrome', { url: 'chrome://settings' }),
+          ql('file', { url: 'file:///etc/passwd' }),
+          ql('plain', { url: 'not a url' }),
+          ql('placeholder-scheme', { url: '{query}://evil.example' }),
+          ql('creds', { url: 'https://user:pw@example.com/' }),
+          ql('unknown-placeholder', { url: 'https://example.com/{nope}' }),
+          ql('http', { url: 'http://example.org/{clipboard}' }),
+        ],
+      },
+      1,
+    );
+    expect(items(p).map((x) => x.id)).toEqual(['ok', 'http']);
+    expect(p.warnings.join(' ')).toMatch(/8 unreadable entries in .*commands.* were skipped/i);
+  });
+
+  it('checks lengths, alias format and icons; unknown fields never ride along', () => {
+    const p = only(
+      'pact-commands',
+      {
+        items: [
+          ql('a', { name: 'n'.repeat(80), alias: 'MyGH', icon: 'icon:rocket', evil: '<script>', __proto__: { x: 1 } }),
+          ql('b', { alias: 'bad alias!', icon: 'emoji:x' }),
+          ql('c', { icon: 'icon:../../etc', alias: 'x'.repeat(40) }),
+          { id: 's', kind: 'snippet', name: 'Sig', alias: 'sig', text: 'Hi {date}', ...stamp },
+          { id: 's2', kind: 'snippet', name: 'Too long', alias: '', text: 'x'.repeat(5000), ...stamp },
+          { id: 'al', kind: 'alias', name: 'Focus', alias: 't', target: 'page:timer', ...stamp },
+          { id: 'al2', kind: 'alias', name: 'Bad target', alias: 'z', target: 'javascript:1', ...stamp },
+          { id: 'al3', kind: 'alias', name: 'No alias', alias: '', target: 'page:notes', ...stamp },
+          { id: 'w', kind: 'wat', name: 'x', ...stamp },
+        ],
+      },
+      1,
+    );
+    const got = items(p);
+    expect(got.map((x) => x.id)).toEqual(['a', 'b', 'c', 's', 'al']);
+    expect(got[0]).toMatchObject({ name: 'n'.repeat(40), alias: 'mygh', icon: 'icon:rocket' });
+    expect(Object.keys(got[0] ?? {}).sort()).toEqual(['alias', 'createdAt', 'icon', 'id', 'kind', 'name', 'updatedAt', 'url']);
+    expect(got[1]).toMatchObject({ alias: '', icon: '' }); // an unusable alias / icon is cleared, the link stays
+    expect(got[2]).toMatchObject({ alias: '', icon: '' });
+  });
+
+  it('a clashing alias is resolved after the data is read: built-in searches and earlier commands keep theirs', () => {
+    const p = only(
+      'pact-commands',
+      {
+        items: [
+          ql('one', { alias: 'repo' }),
+          ql('two', { alias: 'repo' }),
+          ql('gh', { alias: 'gh' }), // a built-in bang trigger
+          { id: 'al', kind: 'alias', name: 'Focus', alias: 'repo', target: 'page:timer', ...stamp },
+          { id: 'dup', kind: 'quicklink', name: 'same id', alias: '', url: 'https://a.example/', icon: '', ...stamp },
+          { id: 'dup', kind: 'quicklink', name: 'same id again', alias: '', url: 'https://b.example/', icon: '', ...stamp },
+        ],
+      },
+      1,
+    );
+    expect(items(p).map((x) => [x.id, x.alias])).toEqual([
+      ['one', 'repo'],
+      ['two', ''],
+      ['gh', ''],
+      ['dup', ''],
+    ]);
+  });
+
+  it('is capped at 100 and counts what it left out', () => {
+    const many = Array.from({ length: 130 }, (_, i) => ql(`q${i}`));
+    const p = only('pact-commands', { items: many }, 1);
+    expect(items(p)).toHaveLength(100);
+    expect(p.warnings.join(' ')).toMatch(/30 unreadable/);
   });
 });
 

@@ -218,9 +218,9 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
       className={cn('group relative flex gap-3 rounded-lg px-3 py-0.5 transition-colors hover:bg-accent/30', !grouped && 'mt-3')}
       aria-label={`${name}, ${time(m.createdAt)}`}
     >
-      <div className="w-9 shrink-0 pt-0.5">
+      <div className="w-10 shrink-0 pt-0.5">
         {grouped ? (
-          <span className="hidden pt-1 text-right text-[10px] text-subtle-foreground group-hover:block">{time(m.createdAt)}</span>
+          <span className="hidden pt-1 text-right text-[10px] text-subtle-foreground group-hover:block pointer-coarse:block">{time(m.createdAt)}</span>
         ) : (
           <Avatar name={name} src={author?.avatarUrl} size="lg" />
         )}
@@ -234,8 +234,8 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
             className="mb-0.5 flex max-w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <CornerUpLeft className="size-3 shrink-0" aria-hidden="true" />
-            <span className="font-medium">{repliedAuthor?.displayName || repliedAuthor?.username || 'Someone'}</span>
-            <span className="truncate">
+            <span className="max-w-[45%] shrink-0 truncate font-medium">{repliedAuthor?.displayName || repliedAuthor?.username || 'Someone'}</span>
+            <span className="min-w-0 truncate">
               {replied
                 ? replied.deletedAt
                   ? 'deleted message'
@@ -282,7 +282,7 @@ export function MessageItem({ message: m, previous, replied, author, repliedAuth
       </div>
 
       {intact && !editing && (
-        <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-lg border bg-popover p-0.5 shadow-sm focus-within:flex group-focus-within:flex group-hover:flex">
+        <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-lg border bg-popover p-0.5 shadow-sm focus-within:flex group-focus-within:flex group-hover:flex pointer-coarse:flex">
           <Popover open={picker} onOpenChange={setPicker}>
             <PopoverTrigger render={<IconButton label={timedOut ? 'Add reaction (you’re timed out)' : 'Add reaction'} size="icon-xs" disabled={timedOut} />}>
               <SmilePlus />

@@ -53,6 +53,14 @@ export function KanbanColumn({ column, index, boardId, ids, tasksById, memberByI
     <section
       ref={ref}
       aria-label={column.title}
+      // dnd-kit adds role="button" + tabindex="0" + "press space to lift" to any element it registers unless these are already there. A
+      // column isn't draggable (only its cards are), so keep the plain labelled-region semantics it really has instead of a keyboard stop that does nothing.
+      // biome-ignore lint/a11y/noRedundantRoles: redundant on purpose — dnd-kit only adds its own role when the attribute is missing
+      role="region"
+      tabIndex={-1}
+      aria-roledescription="column"
+      // biome-ignore lint/a11y/useValidAriaValues: empty on purpose — dnd-kit only fills this attribute in when it is missing
+      aria-describedby=""
       className={cn(
         'flex min-h-0 min-w-[280px] flex-1 flex-col rounded-lg border bg-muted/40 transition-[border-color,background-color,box-shadow] duration-200',
         isDropTarget && 'border-brand/50 bg-brand-soft/50 shadow-[inset_0_0_0_1px_var(--brand-glow)]',

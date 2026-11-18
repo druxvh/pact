@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { CommandIcon } from '@/features/commands/CommandIcon';
 import { SiteIcon } from '@/features/home/SiteIcon';
 import { spring } from '@/lib/motion';
 import type { Bang } from '@/lib/omnibox/bangs';
@@ -20,7 +21,11 @@ export function ScopeChip({ bang, onRemove }: { bang: Bang; onRemove: () => void
       title="Backspace removes it"
       className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-brand-soft pl-1.5 pr-1.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand/20"
     >
-      <SiteIcon url={bang.home} title={bang.name} size={16} chip={false} />
+      {bang.icon ? (
+        <CommandIcon icon={bang.icon} url={bang.home} title={bang.name} size={16} />
+      ) : (
+        <SiteIcon url={bang.home} title={bang.name} size={16} chip={false} />
+      )}
       <span className="max-w-32 truncate">{bang.name}</span>
       <ChevronRight className="size-3.5 opacity-70" />
     </motion.button>

@@ -273,18 +273,10 @@ export function Composer({
           </span>
         )}
 
-        <motion.button
-          type="button"
-          onClick={() => void send()}
-          disabled={!canSend}
-          aria-label="Send message"
-          whileTap={{ scale: 0.88 }}
-          animate={{ scale: canSend ? 1 : 0.92, opacity: canSend ? 1 : 0.45 }}
-          transition={spring.snappy}
-          className="mb-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] outline-offset-2"
-        >
-          <Send className="size-[17px]" />
-        </motion.button>
+        {/* the same send button as Communities: the kit's primary icon button */}
+        <IconButton label="Send message" size="icon" variant="primary" disabled={!canSend} onClick={() => void send()} className="mb-1">
+          <Send />
+        </IconButton>
       </div>
       <p className="mt-1.5 px-2 text-[11px] text-subtle-foreground">
         <kbd className="font-mono">Enter</kbd> to send · <kbd className="font-mono">Shift+Enter</kbd> for a new line · images &amp; video up to 5 MB

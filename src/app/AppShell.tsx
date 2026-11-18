@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { CommandPalette } from '@/app/CommandPalette';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { Onboarding } from '@/app/Onboarding';
+import { openOmnibox } from '@/app/openOmnibox';
 import { baseTitle, SECTION_BY_ID, SECTIONS } from '@/app/routes';
 import { ShortcutsDialog } from '@/app/ShortcutsDialog';
 import { MobileNav, Sidebar } from '@/app/Sidebar';
@@ -10,6 +11,7 @@ import { SignInDialog } from '@/app/SignIn';
 import { TopBar } from '@/app/TopBar';
 import { WallpaperLayer } from '@/app/WallpaperLayer';
 import { ConfirmHost, PromptHost, Toaster, TooltipProvider } from '@/components/ui';
+import { CameraHost } from '@/features/camera/CameraHost';
 import { CaptureDialog } from '@/features/capture/CaptureDialog';
 import { selectTotalUnread, useChatStore } from '@/features/chat/store';
 import { useTitleBadge } from '@/features/community/titleBadge';
@@ -31,12 +33,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const section = useNavStore((s) => s.section);
   const go = useNavStore((s) => s.go);
   const motionPref = useSettingsStore((s) => s.motion);
-  const togglePalette = useUiStore((s) => s.togglePalette);
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const setCaptureOpen = useUiStore((s) => s.setCaptureOpen);
   const tourActive = useTourStore((s) => s.active);
   // While the first-run tour (or any of these) is up, the page's own hotkeys stay quiet.
-  const overlayOpen = useUiStore((s) => s.paletteOpen || s.shortcutsOpen || s.captureOpen) || tourActive;
+  const overlayOpen = useUiStore((s) => s.paletteOpen || s.shortcutsOpen || s.captureOpen || s.cameraOpen) || tourActive;
   const signedIn = useAuthStore(selectSignedIn);
   // Chat badge = direct-message unread + community unread (muted communities excluded). The community feed runs for the
   // whole signed-in app, not just while the Chat tab is open.
@@ -67,7 +68,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [section]);
 
   useHotkeys([
-    { keys: 'mod+k', allowInInput: true, enabled: !tourActive, handler: togglePalette },
+    // ⌘K is "the omnibox" everywhere: it focuses Home's search box, and opens (or closes) the overlay palette on other pages.
+    { keys: 'mod+k', allowInInput: true, enabled: !tourActive, handler: () => openOmnibox() },
     { keys: 'c', enabled: !overlayOpen, handler: () => setCaptureOpen(true) },
     { keys: '?', enabled: !overlayOpen, handler: () => setShortcutsOpen(true) },
     ...SECTIONS.map((s) => ({
@@ -83,12 +85,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="relative isolate flex h-full w-full">
           <WallpaperLayer />
           <div aria-hidden="true" className="bg-ambient pointer-events-none absolute inset-0 -z-10" />
-          <a
-            href="#main"
+          {/* a real anchor would rewrite the URL hash, which is the router — so it just moves focus */}
+          <button
+            type="button"
+            onClick={() => mainRef.current?.focus()}
             className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-foreground focus:not-sr-only focus:absolute focus:left-3 focus:top-3"
           >
             Skip to content
-          </a>
+          </button>
 
           <Sidebar badges={badges} />
 
@@ -115,6 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <ShortcutsDialog />
         <SignInDialog />
         <CaptureDialog />
+        <CameraHost />
         <Onboarding />
         <Tour />
       </TooltipProvider>

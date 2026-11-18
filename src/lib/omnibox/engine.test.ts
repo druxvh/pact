@@ -199,3 +199,46 @@ describe('scoreFields', () => {
     expect(scoreFields('boards', 'Kanban', ['boards']).score).toBeGreaterThan(0);
   });
 });
+
+describe('user aliases', () => {
+  const silent: Provider = () => [];
+  // a provider that only offers the timer page when the text matches it, and honours `ctx.aliased` like the app's providers do
+  const pages: Provider = (q, c) => {
+    const forced = c.aliased?.has('page:timer') === true;
+    const found = scoreFields(q, 'Focus');
+    return forced || found.score > 0 ? [result('page:timer', 'pages', 'Focus', q, { score: forced && found.score <= 0 ? 1 : found.score })] : [];
+  };
+
+  it('typing an alias in full offers the aliased result as the Top hit, however little the text matches', () => {
+    const view = runOmnibox('zq', ctx(), [pages], emptyUsage(), { aliases: { zq: ['page:timer'] } });
+    expect(view.sections.map((s) => s.id)).toEqual(['top']);
+    expect(view.results[0]).toMatchObject({ id: 'page:timer', group: 'top', hint: 'zq' });
+    expect(view.results[0]?.score).toBeGreaterThanOrEqual(1450);
+  });
+
+  it('is case-insensitive, and an alias typed only in part changes nothing', () => {
+    expect(runOmnibox('ZQ', ctx(), [pages], emptyUsage(), { aliases: { zq: ['page:timer'] } }).results[0]?.id).toBe('page:timer');
+    expect(runOmnibox('z', ctx(), [pages], emptyUsage(), { aliases: { zq: ['page:timer'] } }).results).toEqual([]);
+  });
+
+  it('keeps a result in its own group when something else already holds the Top hit', () => {
+    const answer: Provider = () => [{ id: 't', group: 'top', title: 'Big', icon: Search, score: 1600, primary: NOOP }];
+    const view = runOmnibox('foc', ctx(), [pages, answer], emptyUsage(), { aliases: { foc: ['page:timer'] } });
+    expect(view.results.map((r) => r.id)).toEqual(['t', 'page:timer']);
+    expect(view.sections.map((s) => s.id)).toEqual(['top', 'pages']);
+  });
+
+  it('labels an aliased result with its alias wherever it shows up', () => {
+    const view = runOmnibox('focus', ctx(), [pages], emptyUsage(), { aliases: { zq: ['page:timer'] } });
+    expect(view.results[0]).toMatchObject({ id: 'page:timer', group: 'pages', hint: 'zq' });
+  });
+
+  it('an alias pointing at something no provider offers does nothing', () => {
+    expect(runOmnibox('zq', ctx(), [silent], emptyUsage(), { aliases: { zq: ['page:gone'] } }).results).toEqual([]);
+  });
+
+  it('a provider that already set its own hint keeps it', () => {
+    const own: Provider = (q) => [result('page:timer', 'pages', 'Focus', q, { hint: 'mine' })];
+    expect(runOmnibox('focus', ctx(), [own], emptyUsage(), { aliases: { zq: ['page:timer'] } }).results[0]?.hint).toBe('mine');
+  });
+});

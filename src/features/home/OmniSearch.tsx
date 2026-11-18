@@ -8,8 +8,9 @@ import { OmniPanel, useEntrance } from '@/components/omnibox/OmniList';
 import { useOmnibox } from '@/components/omnibox/useOmnibox';
 import { Kbd } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import { useHotkeys } from '@/lib/hotkeys';
+import { modCombo, useHotkeys } from '@/lib/hotkeys';
 import { spring } from '@/lib/motion';
+import { registerHomeOmnibox, startAutoFocus } from '@/lib/omnibox/focus';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 
 export type SearchableLink = SiteLink;
@@ -21,7 +22,9 @@ const PLACEHOLDERS = [
   'Try “!yt lofi beats”',
   'Try “time in tokyo”',
   'Try “days until dec 25”',
-  'Jump anywhere with ⌘K',
+  'Try “create quicklink” to add your own shortcut',
+  'Try “cam” to take a photo',
+  `${modCombo('K')} brings you back here from any page`,
 ];
 const SIGNED_IN_PLACEHOLDERS = [...PLACEHOLDERS, 'Try “note: buy milk”', 'Try “timer 25”'];
 
@@ -89,25 +92,30 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
   const [room, setRoom] = useState(400);
   const blur = useCallback(() => inputRef.current?.blur(), []);
   const omni = useOmnibox({ surface: 'home', links, active: focused, onDone: blur });
+  const omniRef = useRef(omni);
+  omniRef.current = omni;
 
-  useHotkeys([
-    {
-      keys: '/',
-      handler: () => {
-        setEngaged(true);
-        inputRef.current?.focus();
-      },
-    },
-  ]);
+  // Focus the box, select what is in it (typing replaces it) and open the dropdown. `/` and ⌘K both land here.
+  const focusBox = useCallback((select: boolean) => {
+    omniRef.current.closePanel();
+    setEngaged(true);
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    if (select) el.select();
+  }, []);
 
-  // Chrome often keeps focus in the omnibox on a new tab; try once, politely.
+  useHotkeys([{ keys: '/', handler: () => focusBox(false) }]);
+
+  // ⌘K / Ctrl+K means "the omnibox" everywhere: on Home that is this box. Registered while it is mounted, so a layout that
+  // hides the search (or another page) falls back to the overlay palette.
+  useEffect(() => registerHomeOmnibox({ focus: () => focusBox(true) }), [focusBox]);
+
+  // Focus the box once the page is up (and keep politely trying for a couple of seconds, since browsers often hand focus to
+  // their own address bar around a new tab). Never takes focus from a dialog or another field, nor after the person has clicked or typed.
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      // Never pull focus out of a modal (e.g. the first-run welcome dialog).
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
-      inputRef.current?.focus({ preventScroll: true });
-    }, 80);
-    return () => window.clearTimeout(t);
+    const el = inputRef.current;
+    return el ? startAutoFocus(el) : undefined;
   }, []);
 
   const typed = omni.query.trim().length > 0 || Boolean(omni.scope);
@@ -193,7 +201,7 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
                 <X className="size-4" />
               </motion.button>
             ) : (
-              <motion.span key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="hidden sm:block">
+              <motion.span key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="hidden sm:flex">
                 <Kbd>/</Kbd>
               </motion.span>
             )}

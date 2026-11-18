@@ -6,6 +6,8 @@
  * functions instead of poking stores directly, so replacing this module with a real realtime
  * backend later doesn't touch any views.
  */
+
+import { clearCaptures } from '@/features/camera/gallery';
 import { botReply, typingDuration } from '@/features/chat/bots';
 import { clearBlobs } from '@/features/chat/idb';
 import { useChatStore } from '@/features/chat/store';
@@ -43,6 +45,9 @@ export const STORAGE_KEYS = [
   'pact-main-focus',
   'pact-capture',
   'pact-tour',
+  'pact-omnibox',
+  'pact-commands',
+  'pact-discover',
 ] as const;
 
 // ── chat ─────────────────────────────────────────────────────────────────────
@@ -366,5 +371,7 @@ export async function resetAllData() {
   for (const key of STORAGE_KEYS) localStorage.removeItem(key);
   localStorage.removeItem(SYNC_STATE_KEY);
   localStorage.removeItem(BOOT_KEY);
-  await Promise.all([clearBlobs().catch(() => {}), clearAssets().catch(() => {})]);
+  // not part of a backup, but not something to leave behind either
+  for (const key of ['pact-camera', 'pact-discover-cache']) localStorage.removeItem(key);
+  await Promise.all([clearBlobs().catch(() => {}), clearAssets().catch(() => {}), clearCaptures().catch(() => {})]);
 }

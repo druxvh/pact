@@ -58,7 +58,7 @@ const SURFACE = {
   dark: [c(0.155, 0, 0), c(0.19, 0, 0), c(0.22, 0, 0)],
 } as const;
 const WHITE = c(0.985, 0, 0);
-const TEXT_TARGET = 4.6; // a hair over AA so brand-soft tints don't tip it under
+const TEXT_TARGET = 5.0; // a hair over AA so brand-soft tints don't tip it under
 
 export type AccentTokens = Record<
   '--brand' | '--brand-foreground' | '--brand-text' | '--brand-soft' | '--brand-glow' | '--ring' | '--elev-brand' | '--ambient-1' | '--ambient-2',

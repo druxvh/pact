@@ -1,6 +1,7 @@
 import { ArrowLeft, Hash, MessageCircleMore, Timer, Users } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Badge, Button, EmptyState, IconButton, Skeleton } from '@/components/ui';
+import { scrollToElement } from '@/lib/scroll';
 import { Composer } from './Composer';
 import { DayDivider, MessageItem, sameDay } from './MessageItem';
 import { can } from './permissions';
@@ -92,7 +93,7 @@ export function MessagePane({
   const jumpTo = useCallback((id: string) => {
     const el = document.getElementById(`msg-${id}`);
     if (!el) return;
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    scrollToElement(el, { block: 'center', behavior: 'smooth' });
     el.classList.add('bg-brand-soft');
     window.setTimeout(() => el.classList.remove('bg-brand-soft'), 1400);
   }, []);

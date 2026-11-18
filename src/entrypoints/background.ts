@@ -8,6 +8,7 @@ const SECTIONS: Array<{ id: string; label: string; keywords: string[] }> = [
   { id: 'kanban', label: 'Kanban', keywords: ['kanban', 'board', 'tasks', 'task', 'todo'] },
   { id: 'timer', label: 'Focus timer', keywords: ['timer', 'focus', 'pomodoro'] },
   { id: 'tools', label: 'Tools', keywords: ['tools', 'tool', 'qr', 'calc', 'calculator', 'convert'] },
+  { id: 'discover', label: 'Discover', keywords: ['discover', 'news', 'articles', 'read', 'reading', 'rss', 'feeds'] },
   { id: 'chat', label: 'Chat', keywords: ['chat', 'chats', 'messages', 'friends'] },
   { id: 'party', label: 'VibeParty', keywords: ['party', 'vibeparty', 'watch', 'youtube'] },
   { id: 'settings', label: 'Settings', keywords: ['settings', 'profile', 'prefs'] },

@@ -23,6 +23,7 @@ import type { Conversation, Message } from '@/features/chat/types';
 import { generateRoomCode } from '@/features/party/roomCode';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
+import { scrollToElement } from '@/lib/scroll';
 import { notify } from '@/lib/toast';
 import { sendMessage } from '@/store/demoServer';
 import { useNavStore } from '@/store/useNavStore';
@@ -111,7 +112,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
 
   const jumpTo = (id: string) => {
     const el = scroller.current?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(id)}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollToElement(el, { behavior: 'smooth', block: 'center' });
     el?.animate([{ backgroundColor: 'var(--brand-soft)' }, { backgroundColor: 'transparent' }], { duration: 1400 });
   };
 

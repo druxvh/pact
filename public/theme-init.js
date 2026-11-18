@@ -15,7 +15,7 @@
   } catch (e) {
     el.classList.add('dark');
   }
-  // Appearance (accent / font / colour wallpaper), cached by src/lib/appearance/apply.ts. Applied here, before first
+  // Appearance (accent / font / corner roundness / colour wallpaper), cached by src/lib/appearance/apply.ts. Applied here, before first
   // paint, so there is no flash of the default look. Keep the key in sync with BOOT_KEY.
   try {
     var boot = JSON.parse(localStorage.getItem('pact-appearance-boot') || 'null');

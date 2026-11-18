@@ -1,19 +1,20 @@
 import { SlidersHorizontal } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Button, EmptyState } from '@/components/ui';
+import { Button, EmptyState, Kbd } from '@/components/ui';
 import { Clock } from '@/features/home/Clock';
 import { useHomeLayoutStore } from '@/features/home/layout';
 import { OmniSearch } from '@/features/home/OmniSearch';
 import { ShortcutGrid, useHomeLinks } from '@/features/home/ShortcutGrid';
 import { HomeWidgets, useVisibleWidgets } from '@/features/home/widgets/HomeWidgets';
 import { cn } from '@/lib/cn';
+import { modCombo } from '@/lib/hotkeys';
 import { fadeUp, stagger } from '@/lib/motion';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { useNavStore } from '@/store/useNavStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 export function HomeView() {
-  const { tiles, top, links } = useHomeLinks();
+  const { tiles, top, links, ready } = useHomeLinks();
   const layout = useHomeLayoutStore((s) => s.layout);
   const showGreeting = useSettingsStore((s) => s.showGreeting);
   const go = useNavStore((s) => s.go);
@@ -68,7 +69,7 @@ export function HomeView() {
 
           {showShortcuts && (
             <motion.div variants={fadeUp} className="w-full max-w-3xl">
-              <ShortcutGrid tiles={tiles} top={top} />
+              <ShortcutGrid tiles={tiles} top={top} ready={ready} />
             </motion.div>
           )}
 
@@ -76,8 +77,7 @@ export function HomeView() {
 
           {showSearch && layout.showHints && (
             <motion.p variants={fadeUp} className="text-center text-xs text-subtle-foreground">
-              Press <kbd className="rounded-sm border bg-muted px-1 font-mono text-[10px]">/</kbd> to search ·{' '}
-              <kbd className="rounded-sm border bg-muted px-1 font-mono text-[10px]">⌘K</kbd> for everything else
+              Press <Kbd className="align-middle">/</Kbd> to search · <Kbd className="align-middle">{modCombo('K')}</Kbd> from any page to come back here
             </motion.p>
           )}
         </motion.div>

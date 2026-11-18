@@ -1,10 +1,13 @@
-import { Check } from 'lucide-react';
-import { useEffect } from 'react';
-import { Select } from '@/components/ui';
+import { Check, Search, Type } from 'lucide-react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { Button, InputGroup, Popover, PopoverTrigger, Segmented } from '@/components/ui';
 import { ensureFont } from '@/lib/appearance/fontLoader';
 import { type FontDef, fontById, fontStack, interfaceFonts, monoFonts } from '@/lib/appearance/fonts';
 import { cn } from '@/lib/cn';
 import { useAppearanceStore } from '@/store/useAppearanceStore';
+import { Panel, SettingsRow } from './ui';
+
+type Slot = 'sans' | 'mono';
 
 const GROUPS: Array<{ title: string; match: (f: FontDef) => boolean }> = [
   { title: 'Sans-serif', match: (f) => f.category === 'sans' },
@@ -12,84 +15,171 @@ const GROUPS: Array<{ title: string; match: (f: FontDef) => boolean }> = [
   { title: 'System', match: (f) => f.category === 'system' },
 ];
 
-function FontCard({ font, selected, onClick }: { font: FontDef; selected: boolean; onClick: () => void }) {
+const SAMPLE = {
+  sans: 'The quick brown fox jumps over the lazy dog — 0123456789',
+  mono: 'const answer = 42; // 0123456789 {} [] => !==',
+} as const;
+
+/**
+ * Up / Down move through the font buttons — from the search box into the list and back — and Home / End jump to the first /
+ * last one (Tab still works too). Inside the search box Home / End keep their usual meaning.
+ */
+function onFontsKey(e: KeyboardEvent<HTMLElement>) {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  const input = e.currentTarget.querySelector('input');
+  const inInput = document.activeElement === input;
+  if (inInput && (e.key === 'Home' || e.key === 'End')) return;
+  const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button[data-font]')];
+  if (items.length === 0) return;
+  const i = items.indexOf(document.activeElement as HTMLButtonElement);
+  e.preventDefault();
+  if (e.key === 'ArrowUp' && i <= 0) return input?.focus();
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : e.key === 'ArrowDown' ? Math.min(items.length - 1, i + 1) : i - 1;
+  items[next]?.focus();
+}
+
+function FontItem({ font, selected, onPick }: { font: FontDef; selected: boolean; onPick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={cn(
-        'relative flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left outline-offset-2 transition-[border-color,background-color,transform] duration-150 active:scale-[0.98]',
-        selected ? 'border-brand/60 bg-brand-soft' : 'hover:border-foreground/25 hover:bg-accent/60',
-      )}
-    >
-      <span className="text-2xl leading-none" style={{ fontFamily: fontStack(font) }}>
-        Aa
-      </span>
-      <span className="mt-1 truncate text-[12px] font-medium text-muted-foreground" style={{ fontFamily: 'var(--font-sans)' }}>
-        {font.label}
-      </span>
-      {selected && <Check className="absolute right-2 top-2 size-3.5 text-brand-text" />}
-    </button>
+    <li>
+      <button
+        type="button"
+        data-font={font.id}
+        aria-pressed={selected}
+        onClick={onPick}
+        className={cn(
+          'flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+          selected ? 'bg-brand-soft' : 'hover:bg-accent',
+        )}
+      >
+        <span className="truncate text-[15px] leading-6" style={{ fontFamily: fontStack(font) }}>
+          {font.label}
+        </span>
+        {selected && <Check className="size-3.5 shrink-0 text-brand-text" />}
+      </button>
+    </li>
   );
 }
 
-/** Interface font (a grid you can see) + the font used for code and numbers. */
-export function FontPicker() {
+/** Search, pick and preview — interface font and the font for code and numbers. Choosing applies instantly. */
+function FontPanel() {
   const font = useAppearanceStore((s) => s.font);
   const monoFont = useAppearanceStore((s) => s.monoFont);
   const setFont = useAppearanceStore((s) => s.setFont);
   const setMonoFont = useAppearanceStore((s) => s.setMonoFont);
+  const [slot, setSlot] = useState<Slot>('sans');
+  const [query, setQuery] = useState('');
+  const search = useRef<HTMLInputElement>(null);
 
-  // Preview every option in its own typeface: load them (locally bundled, a few KB each) while this is on screen.
+  // Preview every option in its own typeface: load them (locally bundled, a few KB each) while this is open.
   useEffect(() => {
     for (const f of [...interfaceFonts(), ...monoFonts()]) void ensureFont(f.id);
   }, []);
 
-  const chosen = fontById(font);
+  const current = slot === 'sans' ? font : monoFont;
+  const pick = slot === 'sans' ? setFont : setMonoFont;
+  const q = query.trim().toLowerCase();
+  const fonts = (slot === 'sans' ? interfaceFonts() : monoFonts()).filter((f) => !q || f.label.toLowerCase().includes(q));
+  const chosen = fontById(current);
 
   return (
-    <div className="space-y-5">
-      {GROUPS.map((g) => {
-        const fonts = interfaceFonts().filter(g.match);
-        if (fonts.length === 0) return null;
-        return (
-          <div key={g.title}>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">{g.title}</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-              {fonts.map((f) => (
-                <FontCard key={f.id} font={f} selected={font === f.id} onClick={() => setFont(f.id)} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-
-      <div className="space-y-2 rounded-lg border bg-background/40 p-3">
-        <p className="text-xs text-muted-foreground">Preview · {chosen?.label}</p>
-        <p className="text-[15px] leading-relaxed">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.</p>
-        <p className="text-[13px] text-muted-foreground">
-          <span className="font-light">Light</span> · <span>Regular</span> · <span className="font-medium">Medium</span> ·{' '}
-          <span className="font-semibold">Semibold</span> · <span className="font-bold">Bold</span> — 0123456789
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium">Code &amp; numbers</p>
-          <p className="text-[13px] text-muted-foreground">Used for shortcuts, the timer digits, code blocks and the calculator.</p>
-        </div>
-        <Select
-          aria-label="Monospace font"
-          value={monoFont}
-          onValueChange={setMonoFont}
-          options={monoFonts().map((f) => ({ value: f.id, label: f.label }))}
-          className="w-48"
+    <Panel align="end" className="w-[min(22rem,calc(100vw-1.5rem))] space-y-2.5" initialFocus={search}>
+      <Segmented<Slot>
+        aria-label="Which font"
+        fullWidth
+        value={slot}
+        onValueChange={(v) => {
+          setSlot(v);
+          setQuery('');
+        }}
+        options={[
+          { value: 'sans', label: 'Interface' },
+          { value: 'mono', label: 'Code & numbers' },
+        ]}
+      />
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: arrow-key roving between the search box and the buttons inside; those are the interactive elements */}
+      <div onKeyDown={onFontsKey} className="space-y-2.5">
+        <InputGroup
+          ref={search}
+          aria-label={slot === 'sans' ? 'Search interface fonts' : 'Search code fonts'}
+          placeholder="Search fonts…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          leading={<Search />}
+          inputClassName="h-8"
+          autoComplete="off"
+          spellCheck={false}
         />
+        <div className="max-h-56 overflow-y-auto overscroll-contain rounded-md border p-1">
+          {fonts.length === 0 && <p className="px-2 py-3 text-center text-[13px] text-muted-foreground">No font called “{query.trim()}”.</p>}
+          {slot === 'mono' || q ? (
+            <ul>
+              {fonts.map((f) => (
+                <FontItem key={f.id} font={f} selected={current === f.id} onPick={() => pick(f.id)} />
+              ))}
+            </ul>
+          ) : (
+            GROUPS.map((g) => {
+              const list = fonts.filter(g.match);
+              if (list.length === 0) return null;
+              return (
+                <div key={g.title} className="[&:not(:first-child)]:mt-1">
+                  <p className="px-2.5 pb-0.5 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-subtle-foreground">{g.title}</p>
+                  <ul>
+                    {list.map((f) => (
+                      <FontItem key={f.id} font={f} selected={current === f.id} onPick={() => pick(f.id)} />
+                    ))}
+                  </ul>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
-      <p className="rounded-lg border bg-background/40 px-3 py-2 font-mono text-[13px] text-muted-foreground">
-        {'const answer = 42; // 0123456789 {} [] => !=='}
+      <p
+        className={cn('truncate rounded-md bg-muted px-2.5 py-2 text-[13px] text-muted-foreground', slot === 'mono' && 'font-mono')}
+        style={{ fontFamily: chosen ? fontStack(chosen) : undefined }}
+      >
+        {SAMPLE[slot]}
       </p>
-    </div>
+    </Panel>
+  );
+}
+
+/** Settings → Appearance → Font: what you have now, shown in the font itself; the full list is one click away. */
+export function FontRow() {
+  const font = useAppearanceStore((s) => s.font);
+  const monoFont = useAppearanceStore((s) => s.monoFont);
+  const sans = fontById(font);
+  const mono = fontById(monoFont);
+
+  // The summary is set in the fonts it names, so make sure they're loaded (a no-op for the built-in ones).
+  useEffect(() => {
+    void ensureFont(font);
+    void ensureFont(monoFont);
+  }, [font, monoFont]);
+
+  return (
+    <SettingsRow
+      label="Font"
+      description={
+        <span className="block truncate">
+          <span className="text-[13px] text-foreground" style={{ fontFamily: sans ? fontStack(sans) : undefined }}>
+            {sans?.label ?? 'Geist'}
+          </span>
+          {' · '}
+          <span className="font-mono text-foreground" style={{ fontFamily: mono ? fontStack(mono) : undefined }}>
+            {mono?.label ?? 'Geist Mono'}
+          </span>
+          {' for code and numbers'}
+        </span>
+      }
+    >
+      <Popover>
+        <PopoverTrigger render={<Button variant="outline" size="sm" />}>
+          <Type /> Change font…
+        </PopoverTrigger>
+        <FontPanel />
+      </Popover>
+    </SettingsRow>
   );
 }

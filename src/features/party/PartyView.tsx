@@ -83,7 +83,7 @@ function useStatus(): AppStatus | null | undefined {
 }
 
 function ModeBadge({ status }: { status: AppStatus | null | undefined }) {
-  if (status === undefined) return <Skeleton className="h-6 w-28 rounded-lg" />;
+  if (status === undefined) return <Skeleton className="h-6 w-28 rounded-sm" />;
   if (status === null) {
     return (
       <Badge

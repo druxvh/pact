@@ -100,7 +100,7 @@ export function NoteList({ notes, query, onQuery, selectedId, onSelect, onNew, n
                       <span className="shrink-0 text-[11px] text-subtle-foreground">{relativeTime(n.updatedAt)}</span>
                     </span>
                     <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">{excerpt(n.body) || 'No content'}</span>
-                    {(shared || selected) && (
+                    {shared && (
                       <span className="mt-1.5 flex items-center gap-1.5">
                         <Badge mono>#{n.number}</Badge>
                         {assignee && (

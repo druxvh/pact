@@ -26,6 +26,9 @@ const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(naviga
 export const MOD_KEY = isMac ? '⌘' : 'Ctrl';
 export const IS_MAC = isMac;
 
+/** The platform's shortcut as prose — `⌘K` on a Mac, `Ctrl+K` elsewhere (key caps use MOD_KEY and the key as separate labels). */
+export const modCombo = (key: string, mac: boolean = isMac): string => (mac ? `⌘${key}` : `Ctrl+${key}`);
+
 function isTypingTarget(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
   if (!el?.tagName) return false;

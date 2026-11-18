@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { type AccentChoice, DEFAULT_ACCENT_ID } from '@/lib/appearance/accent';
 import { DEFAULT_MONO, DEFAULT_SANS } from '@/lib/appearance/fonts';
+import { coerceRadius, DEFAULT_RADIUS, type RadiusId } from '@/lib/appearance/radius';
 import { type Dim, defaultDim, NO_WALLPAPER, uniformDim, type Wallpaper } from '@/lib/appearance/wallpaper';
 import { syncAcrossTabs } from '@/lib/persist';
 
@@ -11,6 +12,8 @@ export type AppearanceState = {
   font: string;
   /** Font for code, numbers and shortcuts. */
   monoFont: string;
+  /** Corner roundness of buttons, cards, inputs… (`md` is the stock look). */
+  radius: RadiusId;
   wallpaper: Wallpaper;
   /** 0–80 per theme: how much of the page background colour is laid over the wallpaper. */
   dim: Dim;
@@ -22,6 +25,7 @@ export type AppearanceState = {
   setAccent: (accent: AccentChoice) => void;
   setFont: (id: string) => void;
   setMonoFont: (id: string) => void;
+  setRadius: (radius: RadiusId) => void;
   /** Switching kind resets dim to a sensible default for that kind. */
   setWallpaper: (wallpaper: Wallpaper, imageLuminance?: number | null) => void;
   /** Set the dim for one theme. */
@@ -36,6 +40,7 @@ export const APPEARANCE_DEFAULTS = {
   accent: { kind: 'preset', id: DEFAULT_ACCENT_ID } as AccentChoice,
   font: DEFAULT_SANS,
   monoFont: DEFAULT_MONO,
+  radius: DEFAULT_RADIUS as RadiusId,
   wallpaper: NO_WALLPAPER,
   dim: uniformDim(0),
   blur: 0,
@@ -51,6 +56,7 @@ export const useAppearanceStore = create<AppearanceState>()(
       setAccent: (accent) => set({ accent }),
       setFont: (font) => set({ font }),
       setMonoFont: (monoFont) => set({ monoFont }),
+      setRadius: (radius) => set({ radius: coerceRadius(radius) }),
       setWallpaper: (wallpaper, imageLuminance) =>
         set((s) => ({
           wallpaper,
@@ -65,17 +71,19 @@ export const useAppearanceStore = create<AppearanceState>()(
     }),
     {
       name: 'pact-appearance',
-      version: 2,
-      // v1 kept one dim for both themes.
+      version: 3,
+      // v1 kept one dim for both themes; v2 had no roundness setting (everyone had the stock one).
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         if (version < 2 && typeof p.dim === 'number') p.dim = uniformDim(clamp(p.dim, 0, 80));
+        if (version < 3) p.radius = DEFAULT_RADIUS;
         return p as unknown as AppearanceState;
       },
       partialize: (s) => ({
         accent: s.accent,
         font: s.font,
         monoFont: s.monoFont,
+        radius: s.radius,
         wallpaper: s.wallpaper,
         dim: s.dim,
         blur: s.blur,

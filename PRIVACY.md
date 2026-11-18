@@ -45,6 +45,10 @@ Uninstalling the extension removes all of this from your browser. You can also e
 
 When you use the search box, your search text is handed to **your browser's default search engine**, which handles it under its own privacy policy. pact keeps only your recent searches, on your device.
 
+**Camera.** If you open pact's Camera, your browser asks permission to use your camera (and, only when you record a video with sound switched on, your microphone). The video stays on your device: it is shown in the page, and photos or videos you take are saved in this browser's local storage (IndexedDB; the latest 24, up to 1 GB). pact never uploads, shares or analyses them. The camera and microphone turn off when you close the Camera, switch away from the tab for a while, or close pact. You can delete captures at any time in the Camera, and they are removed if a different account signs in on this device or you use Erase everything. You can withdraw permission in your browser's site settings.
+
+**Your own commands.** Quicklinks, snippets and aliases you create for the search box are stored on your device only (and are part of a backup you export). Nothing about them is sent anywhere; a quicklink only contacts its website when you press Enter on it.
+
 ## 3. If you sign in
 
 You can sign in with **GitHub** or **Google**. If email sign-in is switched on in your copy of pact, you can also use a **one-time code sent to your email**. There are no passwords: you sign in on GitHub's or Google's own page and pact never sees your password there.
@@ -69,6 +73,8 @@ We run pact's backend on **Supabase** (hosting, database, authentication, file s
 Members can see your display name, @username, role, bio and profile picture, and **never your email**. Attachments live in a private bucket and are opened through short-lived links. Moderators can hide a message; the original is kept so moderators can review or restore it. "Typing…" indicators are sent live to members and are not stored. The admin can delete a community, which deletes its channels, messages and uploaded files.
 
 **GIFs.** The GIF picker sends your search words (or "trending") and a sign-in token to our server function, which asks **KLIPY** for results with pact's key, so KLIPY sees our server, not you. A GIF you post is shared as a link to KLIPY's own copy; when a member's browser displays it, that browser loads the image from KLIPY's servers, and KLIPY sees that request (such as an IP address) under its own policy.
+
+**Discover (news and articles).** When you open Discover while signed in, pact sends the web addresses of the feeds you follow, or have added yourself, to your project's `feeds` Edge Function together with your sign-in token. The function downloads those feeds on pact's behalf (so the publishers see the server's address, not yours), keeps the result in memory for up to 10 minutes, and returns the article titles, summaries, pictures' addresses and, when the publisher includes it, the article text. It does not store what you read or follow. Article pictures are loaded directly from the publishers' servers when you view a story (without a Referer header), so a publisher can see your IP address and that a picture was requested. Opening an article's original page or a link inside it contacts that site in the usual way. The sources you follow, hidden sources, custom feed addresses, the stories you saved (title, summary, link and picture address — not the article text), which stories you have read, and a short-lived cache of the latest headlines are stored on your device only; all of it is removed when a different account signs in or you erase your data.
 
 **Link previews.** When a message contains a link, our server function fetches that page (not your browser) to get a title, description and image, caches the result for about a week, and keeps a copy of the thumbnail in a public image bucket. The linked site sees our server, not you.
 

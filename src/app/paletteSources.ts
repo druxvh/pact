@@ -1,5 +1,6 @@
 import {
   BellOff,
+  Camera,
   CircleCheck,
   Clock3,
   Copy,
@@ -7,6 +8,8 @@ import {
   FilePlus2,
   FileText,
   Keyboard,
+  LayoutList,
+  Link2,
   ListPlus,
   ListTodo,
   Lock,
@@ -17,11 +20,15 @@ import {
   Play,
   Sparkles,
   SunMoon,
+  Tag,
+  TextCursorInput,
   Timer,
   Users,
 } from 'lucide-react';
 import { SECTION_BY_ID, SECTIONS } from '@/app/routes';
 import { useChatStore } from '@/features/chat/store';
+import { commandsProvider } from '@/features/commands/provider';
+import { openCreateCommand, openManageCommands } from '@/features/commands/ui';
 import { COLUMNS, useKanbanStore } from '@/features/kanban/store';
 import { excerpt, useNotesStore } from '@/features/notes/store';
 import { useTimerStore } from '@/features/timer/store';
@@ -103,7 +110,9 @@ function pagesProvider(o: SourceOptions): Provider {
       if (s.id === current) continue;
       if (homeEmpty && !ctx.pinned.includes(`page:${s.id}`)) continue;
       const locked = !o.signedIn && s.id !== 'home';
-      const { score, matches } = scoreFields(q, s.label, [`go to open jump ${s.label}`, s.description]);
+      const aliased = ctx.aliased?.has(`page:${s.id}`) === true; // the user's own alias for this page, typed in full
+      const found = scoreFields(q, s.label, [`go to open jump ${s.label}`, s.description]);
+      const { score, matches } = aliased && found.score <= 0 ? { score: 1, matches: [] } : found;
       if (score <= 0) continue;
       if (locked) {
         out.push({
@@ -144,6 +153,7 @@ function pagesProvider(o: SourceOptions): Provider {
 type StaticAction = {
   id: string;
   title: string;
+  subtitle?: string;
   keywords?: string;
   icon: OmniResult['icon'];
   kbd?: string[];
@@ -152,7 +162,11 @@ type StaticAction = {
   label?: string;
 };
 
-function staticActions(): StaticAction[] {
+/** What the "Open camera" result says it does. */
+export const CAMERA_HINT = 'Take a photo or record a video — on this device only';
+const openCamera = () => useUiStore.getState().setCameraOpen(true);
+
+export function staticActions(): StaticAction[] {
   const timer = useTimerStore.getState();
   const running = timer.status === 'running';
   return [
@@ -201,6 +215,46 @@ function staticActions(): StaticAction[] {
       run: () => useUiStore.getState().setShortcutsOpen(true),
     },
     {
+      id: 'camera',
+      title: 'Open camera',
+      subtitle: CAMERA_HINT,
+      keywords: 'cam camera selfie photo video record webcam picture',
+      icon: Camera,
+      run: openCamera,
+    },
+    {
+      id: 'create-quicklink',
+      title: 'Create Quicklink',
+      subtitle: 'A name, an alias and an address — type the alias to open it',
+      keywords: 'new add link bookmark shortcut custom command site',
+      icon: Link2,
+      run: () => openCreateCommand('quicklink'),
+    },
+    {
+      id: 'create-snippet',
+      title: 'Create Snippet',
+      subtitle: 'Text you paste often — copied to the clipboard in one go',
+      keywords: 'new add text template signature custom command expand',
+      icon: TextCursorInput,
+      run: () => openCreateCommand('snippet'),
+    },
+    {
+      id: 'create-alias',
+      title: 'Create Alias',
+      subtitle: 'A short name for any page, tool or action',
+      keywords: 'new add shortcut keyword custom command rename',
+      icon: Tag,
+      run: () => openCreateCommand('alias'),
+    },
+    {
+      id: 'manage-commands',
+      title: 'Manage commands',
+      subtitle: 'Your quicklinks, snippets and aliases',
+      keywords: 'quicklinks snippets aliases custom edit delete import export',
+      icon: LayoutList,
+      run: openManageCommands,
+    },
+    {
       id: 'read',
       title: 'Mark all notifications as read',
       keywords: 'inbox clear',
@@ -218,12 +272,14 @@ function actionsProvider(o: SourceOptions): Provider {
     for (const a of staticActions()) {
       if (a.account && !o.signedIn) continue;
       if (homeEmpty && !ctx.pinned.includes(`action:${a.id}`)) continue;
-      const { score, matches } = scoreFields(q, a.title, [a.keywords]);
+      const found = scoreFields(q, a.title, [a.keywords]);
+      const { score, matches } = ctx.aliased?.has(`action:${a.id}`) && found.score <= 0 ? { score: 1, matches: [] } : found;
       if (score <= 0) continue;
       out.push({
         id: `action:${a.id}`,
         group: 'actions',
         title: a.title,
+        subtitle: a.subtitle,
         keywords: a.keywords,
         icon: a.icon,
         score,
@@ -261,7 +317,8 @@ function toolsProvider(o: SourceOptions): Provider {
     const out: OmniResult[] = [];
     for (const t of TOOLS) {
       if (!q && !ctx.pinned.includes(`tool:${t.id}`)) continue; // only pinned tools are worth showing with nothing typed
-      const { score, matches } = scoreFields(q, t.title, [t.keywords, t.description]);
+      const found = scoreFields(q, t.title, [t.keywords, t.description]);
+      const { score, matches } = ctx.aliased?.has(`tool:${t.id}`) && found.score <= 0 ? { score: 1, matches: [] } : found;
       if (score <= 0) continue;
       out.push({
         id: `tool:${t.id}`,
@@ -607,6 +664,33 @@ function intentsProvider(o: SourceOptions): Provider {
   };
 }
 
+/* ───────────────────────────── the camera ───────────────────────────── */
+
+const CAMERA_WORDS: ReadonlySet<string> = new Set(['cam', 'camera', 'selfie']);
+
+/**
+ * `cam`, `!cam`, `camera` or `selfie` typed in full → "Open camera" as the Top hit (it's also an ordinary palette action,
+ * found by "camera", "photo", "video"…). Works for guests: the studio is entirely on this device.
+ */
+function cameraProvider(): Provider {
+  return (q) => {
+    if (!CAMERA_WORDS.has(q.trim().toLowerCase().replace(/^!/, ''))) return [];
+    return [
+      {
+        id: 'action:camera',
+        group: 'top',
+        demoteTo: 'actions',
+        title: 'Open camera',
+        subtitle: CAMERA_HINT,
+        icon: Camera,
+        score: 1450,
+        primary: { id: 'open', label: 'Open camera', icon: Camera, run: openCamera },
+        frecencyKey: 'action:camera',
+      },
+    ];
+  };
+}
+
 /* ───────────────────────────── assembly ───────────────────────────── */
 
 export function coreDeps(o: Pick<SourceOptions, 'signedIn' | 'recordSearch'>): CoreDeps {
@@ -618,6 +702,8 @@ export function buildProviders(o: SourceOptions): Provider[] {
   return [
     ...coreProviders(coreDeps(o)),
     intentsProvider(o),
+    cameraProvider(),
+    commandsProvider(),
     pagesProvider(o),
     actionsProvider(o),
     toolsProvider(o),

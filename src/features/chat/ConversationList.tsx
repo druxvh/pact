@@ -84,14 +84,9 @@ export function ConversationList({
           leading={<Search />}
           trailing={
             search ? (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => setSearch('')}
-                className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent"
-              >
-                <X className="size-3.5" />
-              </button>
+              <IconButton label="Clear search" size="icon-xs" tooltip={false} onClick={() => setSearch('')}>
+                <X />
+              </IconButton>
             ) : undefined
           }
           placeholder="Search chats and messages…"

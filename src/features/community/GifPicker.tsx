@@ -69,7 +69,7 @@ export function GifPicker({ onPick }: { onPick: (gif: Gif) => void }) {
         type="search"
       />
 
-      <div className="h-72 overflow-y-auto rounded-lg" aria-busy={state === 'loading'}>
+      <div className="h-72 overflow-y-auto rounded-lg p-1" aria-busy={state === 'loading'}>
         {state === 'unavailable' && <p className="p-3 text-sm text-muted-foreground">{message}</p>}
         {state === 'error' && (
           <p className="p-3 text-sm text-muted-foreground" role="alert">

@@ -13,6 +13,7 @@ export const TILE: Record<Group, string> = {
   pages: 'bg-muted text-foreground',
   actions: 'bg-brand-soft text-brand-text',
   tools: 'bg-brand-soft text-brand-text',
+  commands: 'bg-muted text-foreground',
   notes: 'bg-muted text-foreground',
   tasks: 'bg-muted text-foreground',
   chats: 'bg-muted text-foreground',

@@ -1,6 +1,6 @@
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Button, Segmented, Slider } from '@/components/ui';
+import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Segmented, Slider } from '@/components/ui';
 import {
   GRADIENTS,
   IMAGE_ASSET_ID,
@@ -21,6 +21,7 @@ import { cn } from '@/lib/cn';
 import { notify } from '@/lib/toast';
 import { useAppearanceStore } from '@/store/useAppearanceStore';
 import { useThemeStore } from '@/store/useThemeStore';
+import { SettingsRow } from './ui';
 
 const KINDS: Array<{ value: WallpaperKind; label: string }> = [
   { value: 'none', label: 'None' },
@@ -39,7 +40,7 @@ function Swatch({ background, label, selected, onClick }: { background: string; 
       aria-pressed={selected}
       title={label}
       className={cn(
-        'h-12 rounded-md outline-offset-2 transition-[transform,box-shadow] duration-150 hover:scale-[1.04] active:scale-95',
+        'h-10 rounded-md outline-offset-2 transition-[transform,box-shadow] duration-150 hover:scale-[1.04] active:scale-95',
         selected ? 'ring-2 ring-foreground ring-offset-2 ring-offset-card' : 'ring-1 ring-black/10 dark:ring-white/15',
       )}
       style={{ background }}
@@ -48,7 +49,7 @@ function Swatch({ background, label, selected, onClick }: { background: string; 
 }
 
 /** Object URL for a stored asset (revoked on change/unmount). */
-function useAssetUrl(id: string | null): string | null {
+export function useAssetUrl(id: string | null): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!id) {
@@ -96,7 +97,7 @@ function Hint({ level, ratio }: Legibility) {
 /** Miniature of the app over the current wallpaper — what you pick is what you get, dim included. */
 function Preview({ background, imageUrl, dim, blur }: { background: string | null; imageUrl: string | null; dim: number; blur: number }) {
   return (
-    <div className="relative isolate h-28 overflow-hidden rounded-lg border" aria-hidden="true">
+    <div className="relative isolate h-24 overflow-hidden rounded-lg border" aria-hidden="true">
       <div className="absolute inset-0 bg-background" />
       {background && <div className="absolute inset-0" style={{ background }} />}
       {imageUrl && (
@@ -114,6 +115,7 @@ function Preview({ background, imageUrl, dim, blur }: { background: string | nul
   );
 }
 
+/** The full gallery and fine-tuning (kind, swatches, your own picture, dim and blur) — shown in the Wallpaper dialog. */
 export function WallpaperPicker() {
   const wallpaper = useAppearanceStore((s) => s.wallpaper);
   const dims = useAppearanceStore((s) => s.dim);
@@ -187,7 +189,7 @@ export function WallpaperPicker() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <Segmented<WallpaperKind> aria-label="Wallpaper type" value={kind} onValueChange={pickKind} options={KINDS} />
 
       {kind === 'solid' && wallpaper.kind === 'solid' && (
@@ -324,11 +326,11 @@ export function WallpaperPicker() {
       />
 
       {kind !== 'none' && (
-        <>
+        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)]">
           <Preview background={background} imageUrl={imageUrl} dim={dim} blur={blur} />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-3">
             <div>
-              <div className="mb-2 flex justify-between text-[13px]">
+              <div className="mb-1.5 flex justify-between text-[13px]">
                 <span className="font-medium">
                   Dim <span className="font-normal text-muted-foreground">· {theme} theme</span>
                 </span>
@@ -338,17 +340,89 @@ export function WallpaperPicker() {
             </div>
             {kind === 'image' && (
               <div>
-                <div className="mb-2 flex justify-between text-[13px]">
+                <div className="mb-1.5 flex justify-between text-[13px]">
                   <span className="font-medium">Blur</span>
                   <span className="tabular text-muted-foreground">{blur}px</span>
                 </div>
                 <Slider aria-label="Blur" value={blur} min={0} max={24} onValueChange={setBlur} />
               </div>
             )}
+            {lum !== null && <Hint {...legibility(lum, dim, theme)} />}
           </div>
-          {lum !== null && <Hint {...legibility(lum, dim, theme)} />}
-        </>
+        </div>
       )}
     </div>
+  );
+}
+
+const SOLID_BY_COLOR = new Map(SOLIDS.map((x) => [x.color, x.label]));
+
+/** Short words for what's behind the page right now. */
+export function describeWallpaper(wp: Wallpaper): string {
+  switch (wp.kind) {
+    case 'none':
+      return 'None';
+    case 'solid':
+      return `Colour · ${SOLID_BY_COLOR.get(wp.color.toLowerCase()) ?? wp.color.toLowerCase()}`;
+    case 'gradient':
+      return `Gradient · ${GRADIENTS.find((g) => g.from === wp.from && g.to === wp.to)?.label ?? 'custom'}`;
+    case 'mesh':
+      return `Mesh · ${MESHES.find((m) => m.id === wp.id)?.label ?? 'custom'}`;
+    case 'image':
+      return `Picture · ${wp.name}`;
+  }
+}
+
+/** A thumbnail of the current wallpaper (or a hatched "nothing"). */
+function Thumb() {
+  const wallpaper = useAppearanceStore((s) => s.wallpaper);
+  const imageUrl = useAssetUrl(wallpaper.kind === 'image' ? wallpaper.id : null);
+  const background = wallpaperBackground(wallpaper);
+  return (
+    <span
+      aria-hidden="true"
+      className="relative size-8 shrink-0 overflow-hidden rounded-md border bg-muted ring-1 ring-inset ring-black/5"
+      style={
+        imageUrl ? { backgroundImage: `url(${imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : background ? { background } : undefined
+      }
+    >
+      {wallpaper.kind === 'none' && (
+        <span className="absolute inset-0 grid place-items-center text-muted-foreground">
+          <ImagePlus className="size-3.5" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Settings → Appearance → Wallpaper: a thumbnail and a name; "Choose…" opens the whole gallery in a dialog. */
+export function WallpaperRow() {
+  const wallpaper = useAppearanceStore((s) => s.wallpaper);
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <SettingsRow label="Wallpaper" description={describeWallpaper(wallpaper)}>
+        <Thumb />
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          Choose…
+        </Button>
+      </SettingsRow>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>Wallpaper</DialogTitle>
+            <DialogDescription>A colour, gradient or your own picture behind everything. A dim layer keeps text readable.</DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <WallpaperPicker />
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="primary" onClick={() => setOpen(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

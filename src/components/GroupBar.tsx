@@ -51,7 +51,7 @@ export function GroupBar({ items, activeId, onSelect, onCreate, onRename, onInvi
                   isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >
-                {isActive && <motion.span layoutId="group-pill" transition={spring.layout} className="absolute inset-0 rounded-lg border bg-card shadow-sm" />}
+                {isActive && <motion.span layoutId="group-pill" transition={spring.layout} className="absolute inset-0 rounded-md border bg-card shadow-sm" />}
                 <span
                   aria-hidden="true"
                   className="relative grid size-5 shrink-0 place-items-center rounded-md text-[10px] font-bold text-white"
@@ -81,11 +81,12 @@ export function GroupBar({ items, activeId, onSelect, onCreate, onRename, onInvi
               <AvatarGroup people={active.members} max={3} size="sm" />
             </button>
           )}
-          <Button variant="outline" size="sm" onClick={() => onInvite(active.id)}>
+          {/* below sm the label is hidden: collapse to a 32px square like the options button beside it */}
+          <Button variant="outline" size="md" onClick={() => onInvite(active.id)} aria-label="Invite" className="max-sm:size-8 max-sm:px-0">
             <UserPlus /> <span className="hidden sm:inline">Invite</span>
           </Button>
           <DropdownMenu>
-            <DropdownTrigger render={<IconButton label={`${noun} options`} size="icon-sm" />}>
+            <DropdownTrigger render={<IconButton label={`${noun} options`} size="icon" />}>
               <MoreHorizontal />
             </DropdownTrigger>
             <DropdownContent align="end" className="min-w-44">
@@ -104,7 +105,7 @@ export function GroupBar({ items, activeId, onSelect, onCreate, onRename, onInvi
         </div>
       )}
 
-      <Button variant="soft" size="sm" onClick={onCreate} className="shrink-0">
+      <Button variant="soft" size="md" onClick={onCreate} aria-label={`New ${noun}`} className="shrink-0 max-sm:size-8 max-sm:px-0">
         <Plus /> <span className="hidden sm:inline">New {noun}</span>
       </Button>
     </div>

@@ -17,9 +17,11 @@ import {
 import { copyText } from '@/lib/clipboard';
 import { openUrl, webSearch } from '@/lib/ext';
 import { type Computed, computeAnswer } from '@/lib/omnibox/answers';
-import { BANG_BY_ID, type Bang, bangsMatching, bangUrl, parseBang } from '@/lib/omnibox/bangs';
+import { type Bang, bangById, bangNeedsClipboard, bangsMatching, bangUrl, parseBang, parseCustomAlias } from '@/lib/omnibox/bangs';
 import { scoreFields } from '@/lib/omnibox/engine';
+import { readClipboardText } from '@/lib/omnibox/templates';
 import type { Answer, AnswerKind, OmniAction, OmniCtx, OmniResult, Provider } from '@/lib/omnibox/types';
+import { notify } from '@/lib/toast';
 import { hostnameOf, resolveInput } from '@/lib/url';
 
 /** What the host app lends to the built-in providers (so this module never imports a feature store). */
@@ -88,13 +90,26 @@ export function linkActions(url: string, label = 'Open'): { primary: OmniAction;
   };
 }
 
+/**
+ * The address a bang opens for `rest`. A quicklink whose address holds `{clipboard}` reads the clipboard first (that needs
+ * the click that got us here); when the browser refuses, the placeholder is left empty and the person is told.
+ * Synchronous for everything else — the promise is already settled.
+ */
+export async function resolveBangUrl(bang: Bang, rest: string): Promise<string> {
+  if (!bangNeedsClipboard(bang)) return bangUrl(bang, rest);
+  const clip = await readClipboardText();
+  if (clip === null) notify.error('Couldn’t read the clipboard', 'Allow clipboard access for pact, or copy something first.');
+  return bangUrl(bang, rest, clip ?? '');
+}
+
 /** Run whatever the user typed the way the omnibox would: a bang, an address, or a web search. */
 export function submitText(text: string, deps: CoreDeps = {}, opts: { newTab?: boolean } = {}): void {
   const q = text.trim();
   if (!q) return;
-  const bang = parseBang(q);
+  const bang = parseBang(q) ?? parseCustomAlias(q);
   if (bang) {
-    openUrl(bangUrl(bang.bang, bang.rest), opts);
+    if (bangNeedsClipboard(bang.bang)) void resolveBangUrl(bang.bang, bang.rest).then((url) => openUrl(url, opts));
+    else openUrl(bangUrl(bang.bang, bang.rest), opts);
     if (bang.rest) deps.recordSearch?.(q);
     return;
   }
@@ -192,6 +207,8 @@ export function coreProviders(deps: CoreDeps = {}): Provider[] {
   const bangs: Provider = (q) => {
     const parsed = parseBang(q);
     if (parsed) return [bangResult(parsed.bang, parsed.rest, 'top', 1600, deps)];
+    const own = parseCustomAlias(q); // the user's own quicklink alias followed by text: `jira PACT-12`
+    if (own) return [bangResult(own.bang, own.rest, 'top', 1550, deps)];
     const bare = q.toLowerCase();
     const prefix = bare.startsWith('!') ? bare.slice(1) : bare;
     if (!prefix || /\s/.test(prefix) || (!bare.startsWith('!') && prefix.length < 2)) return [];
@@ -221,7 +238,7 @@ export function coreProviders(deps: CoreDeps = {}): Provider[] {
   };
 
   const web: Provider = (q, ctx) => {
-    if (!q || parseBang(q) || resolveInput(q).kind === 'url') return [];
+    if (!q || parseBang(q) || parseCustomAlias(q) || resolveInput(q).kind === 'url') return [];
     const home = ctx.surface === 'home';
     return [
       {
@@ -246,37 +263,55 @@ export function coreProviders(deps: CoreDeps = {}): Provider[] {
 }
 
 function bangResult(bang: Bang, rest: string, group: OmniResult['group'], score: number, deps: CoreDeps, scoped = false): OmniResult {
-  const target = bangUrl(bang, rest);
   const trigger = bang.triggers[0] ?? bang.id;
+  // The user's own quicklinks read as "Open <name>" (their name is not necessarily a website: "Jira issue", "Docs").
+  const own = Boolean(bang.custom);
+  const title = own ? (rest ? `Open ${bang.name} with “${rest}”` : `Open ${bang.name}`) : rest ? `Search ${bang.name} for “${rest}”` : `Open ${bang.name}`;
+  // Synchronous unless the address needs the clipboard (then it waits for the read).
+  const withTarget = (fn: (url: string) => void) => () => {
+    if (bangNeedsClipboard(bang)) void resolveBangUrl(bang, rest).then(fn);
+    else fn(bangUrl(bang, rest));
+  };
   return {
     id: group === 'top' ? 'top-bang' : `bang-run:${bang.id}`,
     group,
-    title: rest ? `Search ${bang.name} for “${rest}”` : `Open ${bang.name}`,
+    title,
     subtitle: rest ? `!${trigger}` : scoped ? 'Start typing to search this site' : 'Press Tab, then type to search here',
     icon: Search,
     site: { url: bang.home, title: bang.name },
+    emoji: own ? emojiOfIcon(bang.icon) : undefined,
     score,
     primary: {
       id: 'open',
-      label: rest ? `Search ${bang.name}` : `Open ${bang.name}`,
+      label: own ? `Open ${bang.name}` : rest ? `Search ${bang.name}` : `Open ${bang.name}`,
       icon: ExternalLink,
-      run: () => {
-        openUrl(target);
+      run: withTarget((url) => {
+        openUrl(url);
         if (rest) deps.recordSearch?.(`!${trigger} ${rest}`);
-      },
+      }),
     },
     actions: [
-      { id: 'open-new-tab', label: 'Open in new tab', icon: ExternalLink, hotkey: 'mod+enter', run: () => openUrl(target, { newTab: true }) },
-      { id: 'copy-link', label: 'Copy link', icon: Copy, hotkey: 'mod+c', record: false, run: () => void copyKeepingFocus(target, 'Link copied') },
+      { id: 'open-new-tab', label: 'Open in new tab', icon: ExternalLink, hotkey: 'mod+enter', run: withTarget((url) => openUrl(url, { newTab: true })) },
+      {
+        id: 'copy-link',
+        label: 'Copy link',
+        icon: Copy,
+        hotkey: 'mod+c',
+        record: false,
+        run: withTarget((url) => void copyKeepingFocus(url, 'Link copied')),
+      },
     ],
     frecencyKey: `bang:${bang.id}`,
   };
 }
 
+/** `emoji:🍵` → `🍵` (a custom quicklink's icon), otherwise nothing. */
+const emojiOfIcon = (icon?: string): string | undefined => (icon?.startsWith('emoji:') ? icon.slice('emoji:'.length) || undefined : undefined);
+
 /** While a bang chip is active the box searches that one site and nothing else. */
 export function scopeProvider(deps: CoreDeps = {}): Provider {
   return (q, ctx) => {
-    const bang = ctx.scope ? BANG_BY_ID[ctx.scope] : undefined;
+    const bang = ctx.scope ? bangById(ctx.scope) : undefined;
     if (!bang) return [];
     return [bangResult(bang, q, 'top', 1000, deps, true)];
   };

@@ -114,6 +114,7 @@ export function createCommunityStore(
   const prefs = deps.prefs ?? useCommunityPrefs;
   const sink = deps.sink ?? noopSink;
   let unsubscribe: (() => void) | null = null;
+  let reactionTimer: ReturnType<typeof setInterval> | null = null;
   let unsubscribeActivity: (() => void) | null = null;
   let stopResync: (() => void) | null = null;
   let typingChannel: TypingChannel | null = null;
@@ -146,6 +147,24 @@ export function createCommunityStore(
         return { reactions: next };
       });
     }
+
+    /**
+     * Realtime can't tell us when someone *removes* a reaction (delete events aren't filterable, so they're not subscribed
+     * to). A light re-read of the visible channel's reactions every 30 s while the window is showing covers it.
+     */
+    const stopReactionSync = () => {
+      if (reactionTimer) clearInterval(reactionTimer);
+      reactionTimer = null;
+    };
+    const startReactionSync = () => {
+      stopReactionSync();
+      reactionTimer = setInterval(() => {
+        if (!isVisible()) return;
+        const ch = get().activeChannelId;
+        const ids = ch ? (get().messages[ch] ?? []).map((m) => m.id) : [];
+        if (ids.length) void loadReactions(ids).catch(() => {});
+      }, 30_000);
+    };
 
     function applyEvent(e: CommunityEvent) {
       if (e.type === 'message') {
@@ -377,6 +396,7 @@ export function createCommunityStore(
       },
 
       reset() {
+        stopReactionSync();
         epoch++;
         get().stopActivity();
         unsubscribe?.();
@@ -396,6 +416,7 @@ export function createCommunityStore(
       },
 
       async select(communityId) {
+        stopReactionSync();
         unsubscribe?.();
         unsubscribe = null;
         typingChannel?.stop();
@@ -414,6 +435,7 @@ export function createCommunityStore(
           void ensureProfiles(members.map((m) => m.userId));
           unsubscribe = api().subscribe(communityId, applyEvent);
           typingChannel = api().subscribeTyping(communityId, (t) => get().noteTyping(t.channelId, t.userId));
+          startReactionSync();
           const first = channels.find((c) => c.name === 'general') ?? channels[0];
           if (first) await get().selectChannel(first.id);
         } catch (err) {
@@ -510,6 +532,15 @@ export function createCommunityStore(
         if (!id) return;
         try {
           const members = await api().listMembers(id);
+          // Removed or banned: the database then simply shows us nobody (it doesn't error), which used to leave a blank pane
+          // until a reload. Not being in the list ourselves means we're out — drop back to the community list.
+          if (!members.some((m) => m.userId === api().me)) {
+            await get().refreshCommunities();
+            if (!get().communities.some((c) => c.id === id)) {
+              void get().select(null);
+              return;
+            }
+          }
           set((s) => ({ members: { ...s.members, [id]: members } }));
           void ensureProfiles(members.map((m) => m.userId));
           await get().refreshCommunities(); // my own role may have changed
@@ -522,13 +553,17 @@ export function createCommunityStore(
       async refreshChannels() {
         const id = get().activeId;
         if (!id) return;
-        const channels = await api().listChannels(id);
-        set((s) => ({ channels: { ...s.channels, [id]: channels } }));
-        const cur = get().activeChannelId;
-        if (!cur || !channels.some((c) => c.id === cur)) {
-          const first = channels[0];
-          if (first) await get().selectChannel(first.id);
-          else set({ activeChannelId: null });
+        try {
+          const channels = await api().listChannels(id);
+          set((s) => ({ channels: { ...s.channels, [id]: channels } }));
+          const cur = get().activeChannelId;
+          if (!cur || !channels.some((c) => c.id === cur)) {
+            const first = channels[0];
+            if (first) await get().selectChannel(first.id);
+            else set({ activeChannelId: null });
+          }
+        } catch {
+          // called from realtime events with `void`: a failed refresh (offline, just removed) must not become an unhandled rejection
         }
       },
 
@@ -595,6 +630,7 @@ export function createCommunityStore(
       },
 
       dispose() {
+        stopReactionSync();
         unsubscribe?.();
         unsubscribe = null;
         typingChannel?.stop();

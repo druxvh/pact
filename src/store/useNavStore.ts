@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export const SECTION_IDS = ['home', 'notes', 'kanban', 'timer', 'tools', 'chat', 'party', 'settings'] as const;
+export const SECTION_IDS = ['home', 'notes', 'kanban', 'timer', 'tools', 'discover', 'chat', 'party', 'settings'] as const;
 export type Section = (typeof SECTION_IDS)[number];
 
 type Route = { section: Section; sub: string | null };
@@ -15,7 +15,15 @@ const isSection = (v: string | undefined): v is Section => !!v && (SECTION_IDS a
 /** `#/tools/qr` → { section: 'tools', sub: 'qr' } */
 export function parseHash(hash: string): Route {
   const [, s, sub] = hash.replace(/^#/, '').split('/');
-  return { section: isSection(s) ? s : 'home', sub: sub ? decodeURIComponent(sub) : null };
+  let decoded: string | null = null;
+  if (sub) {
+    try {
+      decoded = decodeURIComponent(sub);
+    } catch {
+      decoded = sub; // a hand-typed or truncated "%E0%A4%A" must not take the whole app down
+    }
+  }
+  return { section: isSection(s) ? s : 'home', sub: decoded };
 }
 
 export function toHash(section: Section, sub?: string | null): string {

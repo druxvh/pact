@@ -17,7 +17,7 @@ function ColorInput({ label, value, onChange, valid }: { label: string; value: s
     <Field label={label}>
       <div className="flex items-center gap-2">
         <label
-          className="relative size-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border shadow-xs"
+          className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border shadow-xs has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring"
           style={{ background: rgb ? toRgbString(rgb) : 'transparent' }}
         >
           <input
@@ -25,7 +25,7 @@ function ColorInput({ label, value, onChange, valid }: { label: string; value: s
             aria-label={`${label} colour picker`}
             value={rgb ? toHex({ ...rgb, a: 1 }) : '#000000'}
             onChange={(e) => onChange(e.target.value)}
-            className="absolute inset-0 size-full cursor-pointer opacity-0"
+            className="absolute inset-0 size-full cursor-pointer opacity-0 focus-visible:outline-none"
           />
         </label>
         <Input

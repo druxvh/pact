@@ -9,12 +9,12 @@ export function ShortcutsDialog() {
   const setOpen = useUiStore((s) => s.setShortcutsOpen);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent size="md">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
           <DialogDescription>Everything in pact is reachable without the mouse.</DialogDescription>
         </DialogHeader>
-        <DialogBody className="grid gap-5 sm:grid-cols-2">
+        <DialogBody className="grid max-h-[min(70vh,640px)] gap-5 overflow-y-auto sm:grid-cols-2">
           {GROUPS.map((group) => (
             <section key={group} className={group === 'Navigate' ? 'sm:row-span-2' : undefined}>
               <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">{group}</h3>

@@ -12,6 +12,7 @@
  * which account its own memory belongs to (`tabOwner`), compares against *that* — not just against the disk — and,
  * when the account changes underneath it, freezes persistence and reloads instead of carrying on.
  */
+import { clearCaptures } from '@/features/camera/gallery';
 import { clearBlobs } from '@/features/chat/idb';
 import { clearSnapshots } from '@/lib/backup/db';
 import { freezePersistence } from '@/lib/persist';
@@ -29,7 +30,11 @@ const PERSONAL_KEYS = [
   'pact-chat',
   'pact-home-layout',
   'pact-main-focus',
+  'pact-discover',
+  'pact-discover-cache',
   'pact-capture',
+  'pact-commands',
+  'pact-camera',
   'pact-sync-notes',
 ] as const;
 
@@ -84,7 +89,7 @@ export async function wipePersonalData(): Promise<void> {
   } catch {
     /* storage unavailable */
   }
-  await Promise.all([clearBlobs().catch(() => {}), clearSnapshots().catch(() => {})]);
+  await Promise.all([clearBlobs().catch(() => {}), clearSnapshots().catch(() => {}), clearCaptures()]);
 }
 
 /**

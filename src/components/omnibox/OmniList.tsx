@@ -8,6 +8,7 @@ import { OmniFooter } from '@/components/omnibox/OmniFooter';
 import { ResultRow } from '@/components/omnibox/ResultRow';
 import type { Omnibox } from '@/components/omnibox/useOmnibox';
 import { cn } from '@/lib/cn';
+import { scrollToElement } from '@/lib/scroll';
 
 /** True for ~½ s after the omnibox opens: only then do rows stagger in, so typing never replays the entrance. */
 export function useEntrance(open: boolean): boolean {
@@ -46,7 +47,7 @@ export function OmniPanel({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `selected` identity changes whenever the list does, which is exactly when this should re-run
   useEffect(() => {
     if (!selected) return;
-    document.getElementById(omni.optionId(selected))?.scrollIntoView({ block: 'nearest' });
+    scrollToElement(document.getElementById(omni.optionId(selected)), { block: 'nearest' });
   }, [selected]);
 
   let n = 0;

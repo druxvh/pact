@@ -11,17 +11,34 @@ const sk = (className: string) => <Skeleton className={className} />;
 const times = <T,>(n: number, f: (i: number) => T): T[] => Array.from({ length: n }, (_, i) => f(i));
 
 /** Same block as `PageHeader`: icon tile, title, one-line description, actions on the right. */
-function Header({ actions }: { actions?: ReactNode }) {
+function Header({ actions, desc = 'w-52' }: { actions?: ReactNode; desc?: string }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex h-[42px] min-w-0 items-center gap-3">
         <Skeleton className="size-9 shrink-0 rounded-lg" />
         <div className="space-y-1.5">
           <Skeleton className="h-[18px] w-28" />
-          <Skeleton className="h-3 w-52 max-w-[60vw]" />
+          <Skeleton className={cn('h-3 max-w-[60vw]', desc)} />
         </div>
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/** Same row as `GroupBar`: the notebook/board tabs, Invite + options, and the "New …" button (all collapse to 32px squares below sm). */
+function GroupRow({ newWidth }: { newWidth: string }) {
+  return (
+    <div className="flex h-10 items-center gap-2">
+      <div className="flex min-w-0 flex-1 gap-1">
+        {sk('h-8 w-28')}
+        {sk('h-8 w-24')}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {sk('h-8 w-8 sm:w-[82px]')}
+        {sk('size-8')}
+      </div>
+      <Skeleton className={cn('h-8 w-8 shrink-0', newWidth)} />
     </div>
   );
 }
@@ -46,22 +63,29 @@ const PersonRow = ({ lines = 2, avatar = 'size-10' }: { lines?: number; avatar?:
 // ── pages ────────────────────────────────────────────────────────────────────
 
 function HomeSkeleton() {
+  // Same column as `HomeView` with the default layout: clock, search, shortcuts and four widgets, centred in the page.
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-10 px-4 pb-6">
-      <div className="flex flex-col items-center gap-3">
-        <Skeleton className="h-[88px] w-[280px] max-w-[80vw]" />
-        <Skeleton className="h-3.5 w-56" />
+    <div className="flex h-full flex-col items-center overflow-hidden px-4">
+      <div className="my-auto flex w-full max-w-5xl flex-col items-center gap-8 pb-[5vh] pt-6">
+        <div className="flex h-[202px] flex-col items-center justify-center gap-3">
+          <Skeleton className="h-[88px] w-[280px] max-w-[80vw]" />
+          <Skeleton className="h-3.5 w-56" />
+        </div>
+        <Skeleton className="h-14 w-full max-w-[688px]" />
+        <div className="grid min-h-[192px] w-full max-w-3xl grid-cols-4 content-start justify-items-center gap-x-4 gap-y-6 sm:grid-cols-7">
+          {times(9, (i) => (
+            <div key={i} className="flex w-16 flex-col items-center gap-2">
+              <Skeleton className="size-12" />
+              <Skeleton className="h-2.5 w-10" />
+            </div>
+          ))}
+        </div>
+        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
+          {times(4, (i) => (
+            <Skeleton key={i} className={cn('w-full', i < 2 ? 'h-[193px]' : 'h-[176px]')} />
+          ))}
+        </div>
       </div>
-      <Skeleton className="h-14 w-full max-w-[680px]" />
-      <div className="grid w-full max-w-3xl grid-cols-4 justify-items-center gap-x-4 gap-y-6 sm:grid-cols-6 md:grid-cols-8">
-        {times(10, (i) => (
-          <div key={i} className="flex w-16 flex-col items-center gap-2">
-            <Skeleton className="size-12" />
-            <Skeleton className="h-2.5 w-10" />
-          </div>
-        ))}
-      </div>
-      <Skeleton className="h-3 w-64 max-w-[70vw]" />
     </div>
   );
 }
@@ -69,12 +93,9 @@ function HomeSkeleton() {
 function NotesSkeleton() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 px-4 py-6 md:px-8 md:py-8">
-      <Header actions={<Skeleton className="h-8 w-28" />} />
-      <div className="flex items-center gap-2">
-        {sk('h-8 w-28')}
-        {sk('h-8 w-24')}
-        <Skeleton className="ml-auto h-8 w-20" />
-      </div>
+      {/* a long description: on a phone the button wraps under the title, as on the page */}
+      <Header desc="w-[351px]" actions={<Skeleton className="h-8 w-28" />} />
+      <GroupRow newWidth="sm:w-[135px]" />
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
         <Panel className="flex flex-col gap-3 p-3">
           <Skeleton className="h-8 w-full" />
@@ -114,11 +135,7 @@ function KanbanSkeleton() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 px-4 py-6 md:px-8 md:py-8">
       <Header actions={<Skeleton className="h-8 w-28" />} />
-      <div className="flex items-center gap-2">
-        {sk('h-8 w-28')}
-        {sk('h-8 w-24')}
-        <Skeleton className="ml-auto h-8 w-24" />
-      </div>
+      <GroupRow newWidth="sm:w-28" />
       <div className="flex flex-wrap items-center gap-3">
         <Skeleton className="h-8 w-full sm:w-64" />
         <Skeleton className="ml-auto h-6 w-full sm:w-48" />
@@ -157,37 +174,40 @@ function TimerSkeleton() {
     <div className="space-y-6">
       <Header actions={<Skeleton className="size-8" />} />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Panel className="flex flex-col items-center gap-6 px-4 py-8 sm:px-8">
+        <Panel className="flex flex-col items-center gap-7 px-4 py-8 sm:px-8">
           <Skeleton className="h-8 w-60" />
-          <div className="flex gap-1.5">
+          <div className="flex w-full max-w-md flex-wrap justify-center gap-1.5">
             {sk('h-8 w-28')}
             {sk('h-8 w-24')}
-            {sk('h-8 w-28')}
+            {sk('h-8 w-32')}
+            {sk('h-8 w-24')}
           </div>
           <Skeleton className="aspect-square w-[min(300px,78vw)] rounded-full" />
-          <Skeleton className="h-3 w-40" />
+          <Skeleton className="h-4 w-40" />
           <div className="flex items-center gap-4">
             <Skeleton className="size-10" />
             <Skeleton className="size-[72px]" />
             <Skeleton className="size-10" />
           </div>
+          <Skeleton className="-mt-3 h-4 w-32" />
           <div className="w-full max-w-md space-y-2 border-t pt-6">
             <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-9 w-full" />
           </div>
         </Panel>
         <div className="space-y-6">
-          <Panel className="space-y-5">
-            <div className="flex items-center gap-3">
+          <Panel className="flex flex-col gap-5">
+            <div className="flex h-[57px] items-center gap-3">
               <Skeleton className="size-10" />
               <div className="space-y-1.5">
                 <Skeleton className="h-3 w-12" />
                 <Skeleton className="h-5 w-16" />
               </div>
             </div>
+            <div className="h-px bg-border" />
             <div className="grid grid-cols-2 gap-4">
               {times(2, (i) => (
-                <div key={i} className="flex items-center gap-3">
+                <div key={i} className="flex h-[57px] items-center gap-3">
                   <Skeleton className="size-10" />
                   <div className="space-y-1.5">
                     <Skeleton className="h-3 w-10" />
@@ -197,18 +217,18 @@ function TimerSkeleton() {
               ))}
             </div>
           </Panel>
-          <Panel className="space-y-3">
-            <Skeleton className="h-4 w-24" />
+          <Panel className="flex flex-col gap-3">
+            <Skeleton className="h-5 w-24" />
             <div className="flex h-28 items-end gap-2">
               {times(7, (i) => (
                 <Skeleton key={i} className="flex-1" style={{ height: `${[40, 20, 65, 30, 55, 12, 45][i]}%` }} />
               ))}
             </div>
           </Panel>
-          <Panel className="space-y-3">
-            <Skeleton className="h-4 w-32" />
+          <Panel className="flex flex-col gap-3">
+            <Skeleton className="h-5 w-32" />
             {times(3, (i) => (
-              <div key={i} className="flex items-center gap-3">
+              <div key={i} className="flex h-10 items-center gap-3">
                 <Skeleton className="size-7" />
                 <Skeleton className="h-3 flex-1" />
                 <Skeleton className="h-3 w-8" />
@@ -224,15 +244,15 @@ function TimerSkeleton() {
 function ToolsSkeleton() {
   return (
     <div className="space-y-6">
-      <Header actions={<Skeleton className="h-8 w-full min-w-[200px] sm:w-56" />} />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <Header desc="w-[420px]" actions={<Skeleton className="h-8 w-full min-w-[200px] sm:w-56" />} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {times(9, (i) => (
-          <Panel key={i} className="space-y-3 p-5">
+          <Panel key={i} className="flex flex-col gap-3">
             <Skeleton className="size-10" />
-            <Skeleton className="h-4 w-28" />
-            <div className="space-y-1.5">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-3/5" />
+            <div className="space-y-0.5">
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-[18px] w-full" />
+              {i % 6 > 2 && <Skeleton className="h-[18px] w-3/5" />}
             </div>
           </Panel>
         ))}
@@ -335,48 +355,124 @@ function PartySkeleton() {
   );
 }
 
+/** One Settings section: a small heading row above a single bordered list of rows (same metrics as `SettingsSection` / `SettingsRow`). */
+function SettingsBlock({ rows, children }: { rows?: number; children?: ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex min-h-7 items-center gap-2 px-1">
+        <Skeleton className="size-3.5" />
+        <Skeleton className="h-3.5 w-20" />
+        <Skeleton className="h-3 w-48 max-w-[40vw]" />
+      </div>
+      <div className="divide-y divide-border/70 rounded-lg border bg-card/60 px-4">
+        {children ??
+          times(rows ?? 1, (i) => (
+            <div key={i} className="flex min-h-[53px] items-center justify-between gap-4 py-2">
+              <div className="space-y-1.5">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-3 w-48 max-w-[40vw]" />
+              </div>
+              <Skeleton className="h-8 w-32 shrink-0" />
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+}
+
 function SettingsSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Header />
-      <div className="grid gap-6 md:grid-cols-[140px_minmax(0,1fr)]">
-        <div className="hidden space-y-1.5 md:block">
-          {times(5, (i) => (
-            <Skeleton key={i} className="h-8 w-full" />
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-x-8 gap-y-4 lg:grid-cols-[152px_minmax(0,1fr)]">
+        {/* a strip of pills on narrow screens, a column beside the content on wide ones */}
+        <div className="-mx-4 flex gap-1 overflow-hidden border-b px-4 py-1.5 md:-mx-8 md:px-8 lg:hidden">
+          {times(6, (i) => (
+            <Skeleton key={i} className="h-8 w-24 shrink-0" />
           ))}
         </div>
-        <div className="space-y-6">
-          <Panel className="space-y-5 p-5">
-            <div className="flex items-center gap-3">
-              <Skeleton className="size-8" />
-              <div className="space-y-1.5">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-3 w-64 max-w-[50vw]" />
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Skeleton className="size-14" />
-              <div className="space-y-1.5">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {times(4, (i) => (
-                <div key={i} className="space-y-1.5">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-8 w-full" />
-                </div>
-              ))}
-            </div>
-            <Skeleton className="h-20 w-full" />
-          </Panel>
-          <Panel className="space-y-4 p-5">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-2/3" />
-          </Panel>
+        <div className="hidden space-y-0.5 lg:block">
+          {times(6, (i) => (
+            <Skeleton key={i} className="h-[31.5px] w-full" />
+          ))}
         </div>
+        <div className="max-w-3xl space-y-5 pb-8">
+          <SettingsBlock>
+            <div className="flex flex-col gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-14" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {times(4, (i) => (
+                  <div key={i} className="space-y-1.5">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+                ))}
+              </div>
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-8 w-28 self-end" />
+            </div>
+          </SettingsBlock>
+          <SettingsBlock rows={7} />
+          <SettingsBlock rows={4} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiscoverSkeleton() {
+  return (
+    <div className="space-y-5">
+      <Header actions={<Skeleton className="h-8 w-24" />} />
+      {/* the filter bar: topic chips, search, layout toggle */}
+      <div className="flex items-center gap-2 rounded-lg border bg-card/60 p-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+          {times(7, (i) => (
+            <Skeleton key={i} className={cn('h-8 shrink-0', i === 0 ? 'w-20' : 'w-24')} />
+          ))}
+        </div>
+        <Skeleton className="hidden h-8 w-52 md:block" />
+        <Skeleton className="h-7 w-16" />
+      </div>
+      {/* the top story */}
+      <div className="grid overflow-hidden rounded-lg border bg-card md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <Skeleton className="aspect-[16/9] rounded-none md:aspect-auto md:min-h-[300px]" />
+        <div className="space-y-4 p-5 md:p-7">
+          <Skeleton className="h-5 w-24" />
+          <div className="space-y-2.5">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-5/6" />
+            <Skeleton className="h-6 w-2/3" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-11/12" />
+            <Skeleton className="h-3.5 w-3/5" />
+          </div>
+        </div>
+      </div>
+      {/* the grid of stories */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {times(6, (i) => (
+          <div key={i} className="overflow-hidden rounded-lg border bg-card">
+            <Skeleton className="aspect-[16/9] rounded-none" />
+            <div className="space-y-3 p-4">
+              <div className="flex items-center gap-2">
+                <Skeleton className="size-5" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -388,6 +484,7 @@ const BY_SECTION: Record<Section, () => ReactNode> = {
   kanban: KanbanSkeleton,
   timer: TimerSkeleton,
   tools: ToolsSkeleton,
+  discover: DiscoverSkeleton,
   chat: ChatSkeleton,
   party: PartySkeleton,
   settings: SettingsSkeleton,

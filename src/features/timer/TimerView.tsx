@@ -1,7 +1,7 @@
 import { CheckCircle2, Flame, Pause, Play, RotateCcw, Settings2, SkipForward, Timer, Trophy } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { Badge, Card, EmptyState, IconButton, InputGroup, PageHeader, Segmented, Select } from '@/components/ui';
+import { Badge, Card, EmptyState, IconButton, InputGroup, Kbd, PageHeader, Segmented, Select } from '@/components/ui';
 import { useKanbanStore } from '@/features/kanban/store';
 import { AnimatedDigits } from '@/features/timer/AnimatedDigits';
 import { PresetBar } from '@/features/timer/PresetBar';
@@ -220,7 +220,7 @@ export function TimerView() {
             </IconButton>
           </div>
           <p className="-mt-3 text-xs text-muted-foreground">
-            {primaryLabel} · <kbd className="rounded-sm border bg-muted px-1 font-mono text-[10px]">Space</kbd>
+            {primaryLabel} · <Kbd className="align-middle">Space</Kbd>
           </p>
 
           {/* intent */}

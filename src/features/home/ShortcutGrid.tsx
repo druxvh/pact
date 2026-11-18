@@ -1,11 +1,12 @@
 import { EyeOff, MoreHorizontal, Pencil, Pin, Plus, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
-import { confirm, DropdownContent, DropdownItem, DropdownMenu, DropdownSeparator, DropdownTrigger } from '@/components/ui';
+import { confirm, DropdownContent, DropdownItem, DropdownMenu, DropdownSeparator, DropdownTrigger, Skeleton } from '@/components/ui';
 import type { SearchableLink } from '@/features/home/OmniSearch';
 import { ShortcutDialog } from '@/features/home/ShortcutDialog';
 import { SiteIcon } from '@/features/home/SiteIcon';
 import { type Shortcut, useHomeStore } from '@/features/home/store';
+import { cn } from '@/lib/cn';
 import { getTopSites, openUrl, type TopSite } from '@/lib/ext';
 import { spring } from '@/lib/motion';
 import { notify } from '@/lib/toast';
@@ -69,10 +70,30 @@ export function useHomeLinks() {
     return [...pinned.map<Tile>((p) => ({ ...p, kind: 'pinned' })), ...fromTop.slice(0, Math.max(0, MAX_TILES - pinned.length))];
   }, [pinned, top, hiddenHosts]);
 
-  return { tiles, top, links: tiles as SearchableLink[] };
+  // Show the grid only once it knows what it will contain (most-visited answered, starters seeded): otherwise tiles pop in one
+  // by one and push the "Add" tile — and everything centred around the grid — to a new place after load.
+  const ready = loaded && (seeded || pinned.length > 0 || top.length > 0);
+
+  return { tiles, top, links: tiles as SearchableLink[], ready };
 }
 
-export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) {
+const PLACEHOLDER_KEYS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+
+/** Same footprint as a real row of tiles, so the page doesn't change height when the real ones arrive. */
+function ShortcutPlaceholder() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading shortcuts" className="flex max-w-[760px] flex-wrap justify-center gap-x-1 gap-y-2">
+      {PLACEHOLDER_KEYS.map((k) => (
+        <div key={k} className="flex w-[92px] flex-col items-center gap-2 px-1.5 pb-2 pt-3">
+          <Skeleton className="size-12" />
+          <Skeleton className="h-2.5 w-12" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ShortcutGrid({ tiles, top, ready = true }: { tiles: Tile[]; top: TopSite[]; ready?: boolean }) {
   const pinned = useHomeStore((s) => s.pinned);
   const removeShortcut = useHomeStore((s) => s.removeShortcut);
   const addShortcut = useHomeStore((s) => s.addShortcut);
@@ -96,11 +117,11 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
 
   return (
     <>
-      <ul className="flex max-w-[760px] flex-wrap justify-center gap-x-1 gap-y-2" aria-label="Shortcuts">
+      {!ready && <ShortcutPlaceholder />}
+      <ul className={cn('flex max-w-[760px] flex-wrap justify-center gap-x-1 gap-y-2', !ready && 'hidden')} aria-label="Shortcuts">
         {tiles.map((t, i) => (
           <motion.li
             key={t.id}
-            layout
             initial={{ opacity: 0, y: 10, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
@@ -181,12 +202,11 @@ export function ShortcutGrid({ tiles, top }: { tiles: Tile[]; top: TopSite[] }) 
 
         <li>
           <motion.button
-            layout
             type="button"
             onClick={openAdd}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
+            initial={{ opacity: 0, y: 10, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ ...spring.soft, delay: Math.min(tiles.length * 0.025, 0.3) }}
             className="group flex w-[92px] flex-col items-center gap-2 rounded-lg px-1.5 pb-2 pt-3 text-muted-foreground transition-[background-color,color,transform] duration-200 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]"
           >
             <span className="grid size-12 place-items-center rounded-lg border border-dashed border-foreground/25 transition-[border-color,background-color] duration-200 group-hover:border-brand/60 group-hover:bg-brand-soft group-hover:text-brand-text">

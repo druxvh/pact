@@ -1,15 +1,14 @@
-import { ArchiveRestore, Camera, Download, History, Trash2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ArchiveRestore, Camera, ChevronRight, Download, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Card, confirm, IconButton } from '@/components/ui';
+import { Badge, Button, confirm, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, IconButton } from '@/components/ui';
 import { ImportPreviewDialog } from '@/features/settings/ImportPreviewDialog';
 import { createSnapshot, deleteSnapshot, listSnapshots, snapshotFile, startRestoreSnapshot } from '@/lib/backup';
 import { describeCounts } from '@/lib/backup/describe';
 import type { SnapshotKind, SnapshotMeta } from '@/lib/backup/types';
 import { downloadText } from '@/lib/download';
 import { formatBytes, relativeTime } from '@/lib/format';
-import { fadeUp } from '@/lib/motion';
 import { notify } from '@/lib/toast';
+import { SettingsRow } from './ui';
 
 const KIND: Record<SnapshotKind, { label: string; tone: 'neutral' | 'brand' | 'warning' }> = {
   auto: { label: 'Daily', tone: 'neutral' },
@@ -17,7 +16,10 @@ const KIND: Record<SnapshotKind, { label: string; tone: 'neutral' | 'brand' | 'w
   safety: { label: 'Safety copy', tone: 'warning' },
 };
 
-function SnapshotRow({ meta, onChanged }: { meta: SnapshotMeta; onChanged: () => void }) {
+/** How many snapshots are shown in the row itself; the rest are behind "See all". */
+export const INLINE_SNAPSHOTS = 3;
+
+function SnapshotItem({ meta, onChanged, onRestore }: { meta: SnapshotMeta; onChanged: () => void; onRestore?: () => void }) {
   const kind = KIND[meta.kind];
   const [busy, setBusy] = useState(false);
 
@@ -45,19 +47,26 @@ function SnapshotRow({ meta, onChanged }: { meta: SnapshotMeta; onChanged: () =>
   };
 
   return (
-    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 py-2">
+      <div className="min-w-0 flex-1 basis-48">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-medium">
           {new Date(meta.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
           <Badge tone={kind.tone}>{kind.label}</Badge>
-          {meta.kind === 'safety' && <span className="text-xs font-normal text-muted-foreground">{meta.label}</span>}
         </p>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
+        <p className="line-clamp-2 text-xs text-muted-foreground" title={meta.kind === 'safety' ? meta.label : undefined}>
+          {meta.kind === 'safety' && meta.label ? `${meta.label} · ` : ''}
           {describeCounts(meta.counts, meta.hasWallpaper)} · {formatBytes(meta.bytes)} · {relativeTime(meta.createdAt)}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <Button variant="outline" size="sm" onClick={() => void startRestoreSnapshot(meta)}>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            onRestore?.();
+            void startRestoreSnapshot(meta);
+          }}
+        >
           <ArchiveRestore /> Restore
         </Button>
         <IconButton label="Download this snapshot" size="icon-sm" disabled={busy} onClick={() => void download()}>
@@ -71,11 +80,15 @@ function SnapshotRow({ meta, onChanged }: { meta: SnapshotMeta; onChanged: () =>
   );
 }
 
-/** Settings → Data safety: the rolling local snapshots, and the dialog that previews any restore or import. */
-export function DataSafetyCard() {
+/**
+ * Settings → Your data → Snapshots: the newest few in place, the rest behind "See all". Also hosts the dialog that previews
+ * any restore or import (it is shared with Import in the Backup row), so it must stay mounted while Settings is open.
+ */
+export function SnapshotRows() {
   const [snapshots, setSnapshots] = useState<SnapshotMeta[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [all, setAll] = useState(false);
 
   const refresh = useCallback(() => {
     listSnapshots()
@@ -101,42 +114,57 @@ export function DataSafetyCard() {
     }
   };
 
-  return (
-    <motion.div variants={fadeUp} id="data-safety" className="scroll-mt-6">
-      <Card className="gap-4 p-5">
-        <header className="flex items-start gap-3">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-text">
-            <History className="size-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold tracking-tight">Data safety</h2>
-            <p className="text-[13px] text-muted-foreground">
-              pact saves a snapshot of your notes, boards, timer history, Home and preferences — including your wallpaper picture — once a day when something
-              changed, and keeps the last 7 plus the ones you take. They live on this device only. Restoring (or importing a file) always shows a preview first
-              and saves a safety copy.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" loading={busy} onClick={() => void snapshotNow()} className="shrink-0">
-            <Camera /> Snapshot now
-          </Button>
-        </header>
+  const total = snapshots?.length ?? 0;
+  const newest = snapshots?.[0];
+  const summary = failed
+    ? 'Snapshots aren’t available in this browser right now.'
+    : snapshots === null
+      ? 'Loading…'
+      : newest
+        ? `${total} saved, latest ${relativeTime(newest.createdAt)} · daily (last 7) plus yours, on this device.`
+        : 'None yet — the first is taken automatically once there is something to save.';
 
-        {failed && <p className="text-[13px] text-destructive-text">Snapshots aren’t available in this browser right now.</p>}
-        {snapshots === null && !failed && <p className="text-[13px] text-muted-foreground">Loading…</p>}
-        {snapshots?.length === 0 && (
-          <p className="text-[13px] text-muted-foreground">
-            No snapshots yet — the first one is taken automatically the next time you open pact with something worth saving.
-          </p>
+  return (
+    <>
+      <SettingsRow label="Snapshots" description={summary}>
+        <Button variant="outline" size="sm" loading={busy} onClick={() => void snapshotNow()}>
+          <Camera /> Snapshot now
+        </Button>
+        {total > INLINE_SNAPSHOTS && (
+          <Button variant="ghost" size="sm" onClick={() => setAll(true)}>
+            See all {total}
+            <ChevronRight />
+          </Button>
         )}
-        {snapshots && snapshots.length > 0 && (
-          <ul className="divide-y divide-border">
-            {snapshots.map((m) => (
-              <SnapshotRow key={m.id} meta={m} onChanged={refresh} />
-            ))}
-          </ul>
-        )}
-      </Card>
+      </SettingsRow>
+
+      {snapshots && snapshots.length > 0 && (
+        <ul className="divide-y divide-border/60 pl-3">
+          {snapshots.slice(0, INLINE_SNAPSHOTS).map((m) => (
+            <SnapshotItem key={m.id} meta={m} onChanged={refresh} />
+          ))}
+        </ul>
+      )}
+
+      <Dialog open={all} onOpenChange={setAll}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>All snapshots</DialogTitle>
+            <DialogDescription>
+              Restoring (or importing a file) always shows a preview first and saves a safety copy. Daily snapshots keep the last 7; the others stay until you
+              delete them.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="max-h-[min(30rem,calc(100dvh-10rem))] overflow-y-auto py-2">
+            <ul className="divide-y divide-border/70">
+              {(snapshots ?? []).map((m) => (
+                <SnapshotItem key={m.id} meta={m} onChanged={refresh} onRestore={() => setAll(false)} />
+              ))}
+            </ul>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
       <ImportPreviewDialog />
-    </motion.div>
+    </>
   );
 }

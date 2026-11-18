@@ -40,7 +40,8 @@ export function DialogContent({
           {!hideClose && (
             <D.Close
               render={
-                <IconButton label="Close" size="icon-sm" className="absolute right-3 top-3" tooltip={false}>
+                // top-4.5 centres the 28px button on the first line of the title (DialogHeader: pt-5, 24px line)
+                <IconButton label="Close" size="icon-sm" className="absolute right-3 top-4.5" tooltip={false}>
                   <X />
                 </IconButton>
               }

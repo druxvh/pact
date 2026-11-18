@@ -1,3 +1,5 @@
+import { expandUrlTemplate, hasPlaceholder, usesClipboard } from '@/lib/omnibox/templates';
+
 /** Search-in-a-site shortcuts: `!yt lofi`, `lofi !yt`, or Tab after `yt` to scope the whole box to YouTube. */
 export type Bang = {
   id: string;
@@ -8,6 +10,12 @@ export type Bang = {
   url: string;
   /** Where "just open it" goes. Also what the brand icon is looked up from. */
   home: string;
+  /**
+   * A quicklink the user made (see `features/commands`): `url` is then a template with `{query}` / `{clipboard}` instead
+   * of `%s`, and `icon` is the icon they picked (`emoji:🍵` / `icon:rocket`) — empty for the site's favicon.
+   */
+  custom?: boolean;
+  icon?: string;
 };
 
 export const BANGS: readonly Bang[] = [
@@ -75,11 +83,47 @@ for (const b of BANGS) for (const t of b.triggers) if (!BY_TRIGGER.has(t)) BY_TR
 
 export const BANG_BY_ID = Object.fromEntries(BANGS.map((b) => [b.id, b])) as Record<string, Bang>;
 
-export const findBang = (trigger: string): Bang | undefined => BY_TRIGGER.get(trigger.trim().toLowerCase());
+/**
+ * The user's own searchable quicklinks, merged into every lookup below (chips, `!alias`, completion). The built-in table
+ * always wins: a custom alias equal to a built-in trigger is simply never found (creating one is refused up front).
+ */
+let customBangs: readonly Bang[] = [];
+let customByTrigger = new Map<string, Bang>();
+let customById = new Map<string, Bang>();
 
-/** The URL that searches `bang` for `query` (or just opens the site when there's nothing to search for). */
-export function bangUrl(bang: Bang, query: string): string {
+/** Replace the user's quicklink bangs (the commands store calls this whenever its quicklinks change). */
+export function setCustomBangs(list: readonly Bang[]): void {
+  customBangs = list;
+  customByTrigger = new Map();
+  customById = new Map();
+  for (const b of list) {
+    customById.set(b.id, b);
+    for (const t of b.triggers) if (!customByTrigger.has(t)) customByTrigger.set(t, b);
+  }
+}
+
+export const getCustomBangs = (): readonly Bang[] => customBangs;
+
+export const bangById = (id: string): Bang | undefined => BANG_BY_ID[id] ?? customById.get(id);
+
+export const findBang = (trigger: string): Bang | undefined => {
+  const t = trigger.trim().toLowerCase();
+  return BY_TRIGGER.get(t) ?? customByTrigger.get(t);
+};
+
+/** Does opening this bang need the clipboard's text (a custom `{clipboard}` address)? */
+export const bangNeedsClipboard = (bang: Bang): boolean => Boolean(bang.custom) && usesClipboard(bang.url);
+
+/**
+ * The URL that searches `bang` for `query` (or just opens the site when there's nothing to search for). A custom bang's
+ * template is filled in the same way; its `{clipboard}` needs the text that was read from the clipboard.
+ */
+export function bangUrl(bang: Bang, query: string, clipboard = ''): string {
   const q = query.trim();
+  if (bang.custom) {
+    if (!q && hasPlaceholder(bang.url, 'query')) return bang.home;
+    return expandUrlTemplate(bang.url, { query: q, clipboard });
+  }
   return q ? bang.url.replace('%s', encodeURIComponent(q)) : bang.home;
 }
 
@@ -88,12 +132,12 @@ export type ParsedBang = { bang: Bang; rest: string; style: 'prefix' | 'suffix' 
 /** `!yt lofi` → YouTube / "lofi"; `lofi !yt` → the same; `!yt` → YouTube / "". Unknown bangs are left alone (`!important`). */
 export function parseBang(input: string): ParsedBang | null {
   const text = input.trim();
-  const pre = /^!([a-z0-9]+)(?:\s+([\s\S]*))?$/i.exec(text);
+  const pre = /^!([a-z0-9][a-z0-9-]*)(?:\s+([\s\S]*))?$/i.exec(text);
   if (pre) {
     const bang = findBang(pre[1] ?? '');
     if (bang) return { bang, rest: (pre[2] ?? '').trim(), style: 'prefix' };
   }
-  const suf = /^([\s\S]+?)\s+!([a-z0-9]+)$/i.exec(text);
+  const suf = /^([\s\S]+?)\s+!([a-z0-9][a-z0-9-]*)$/i.exec(text);
   if (suf) {
     const bang = findBang(suf[2] ?? '');
     if (bang) return { bang, rest: (suf[1] ?? '').trim(), style: 'suffix' };
@@ -101,13 +145,24 @@ export function parseBang(input: string): ParsedBang | null {
   return null;
 }
 
+/** `gh react` where `gh` is one of the user's own quicklink aliases: the alias, then the text that fills `{query}`. */
+export function parseCustomAlias(input: string): { bang: Bang; rest: string } | null {
+  const m = /^([a-z0-9][a-z0-9-]*)\s+([\s\S]+)$/i.exec(input.trim());
+  const bang = m ? customByTrigger.get((m[1] ?? '').toLowerCase()) : undefined;
+  // a built-in trigger of the same name keeps meaning "plain text" (`gh react` is only a chip when `gh` is the user's own)
+  if (!m || !bang || BY_TRIGGER.has((m[1] ?? '').toLowerCase())) return null;
+  return { bang, rest: (m[2] ?? '').trim() };
+}
+
 /**
- * What Tab should turn into a chip: `!yt lofi` (any bang), or a bare `yt`/`youtube`/`gh`… typed with two or more
- * letters. Returns the bang plus whatever text follows it.
+ * What Tab should turn into a chip: `!yt lofi` (any bang), a bare `yt`/`youtube`/`gh`… typed with two or more
+ * letters, or the user's own alias followed by text (`jira PACT-12`). Returns the bang plus whatever text follows it.
  */
 export function chipFor(input: string): { bang: Bang; rest: string } | null {
   const parsed = parseBang(input);
   if (parsed) return { bang: parsed.bang, rest: parsed.rest };
+  const own = parseCustomAlias(input);
+  if (own) return own;
   const bare = input.trim().toLowerCase();
   if (bare.length >= 2 && !/\s/.test(bare)) {
     const bang = findBang(bare);
@@ -116,7 +171,7 @@ export function chipFor(input: string): { bang: Bang; rest: string } | null {
   return null;
 }
 
-/** Bangs whose trigger or name starts with `prefix` — for typing `!y…` or `youtu…`. */
+/** Built-in bangs whose trigger or name starts with `prefix` — for typing `!y…` or `youtu…`. (The user's own are offered by the commands provider.) */
 export function bangsMatching(prefix: string): Bang[] {
   const p = prefix.trim().toLowerCase();
   if (!p) return [];

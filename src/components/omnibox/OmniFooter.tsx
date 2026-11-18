@@ -27,16 +27,36 @@ export function OmniFooter({ primaryLabel, hints }: { primaryLabel: string | nul
         </span>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-3.5">
-        {hints.map((h, i) => (
-          <span key={h.label} className={i < 2 ? 'flex items-center gap-1.5' : 'hidden items-center gap-1.5 sm:flex'}>
-            <span className="flex items-center gap-0.5">
-              {h.keys.map((k) => (
-                <Kbd key={k}>{k}</Kbd>
-              ))}
+        {hints.map((h, i) => {
+          const body = (
+            <>
+              <span className="flex items-center gap-0.5">
+                {h.keys.map((k) => (
+                  <Kbd key={k}>{k}</Kbd>
+                ))}
+              </span>
+              <span className="hidden md:inline">{h.label}</span>
+            </>
+          );
+          const cls = i < 2 ? 'flex items-center gap-1.5' : 'hidden items-center gap-1.5 sm:flex';
+          // A hint that does something (Actions) is also a button, so the panel is reachable with the mouse; focus stays in the input.
+          return h.run ? (
+            <button
+              key={h.label}
+              type="button"
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={h.run}
+              className={`${cls} rounded-sm transition-colors hover:text-foreground`}
+            >
+              {body}
+            </button>
+          ) : (
+            <span key={h.label} className={cls}>
+              {body}
             </span>
-            <span className="hidden md:inline">{h.label}</span>
-          </span>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

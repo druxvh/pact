@@ -23,7 +23,7 @@
   --popover-foreground: oklch(0.15 0 0);
   --muted: oklch(0.96 0 0);
   --muted-foreground: oklch(0.46 0 0);
-  --subtle-foreground: oklch(0.54 0 0);
+  --subtle-foreground: oklch(0.5 0 0);
   --secondary: oklch(0.945 0 0);
   --secondary-foreground: oklch(0.2 0 0);
   --accent: oklch(0 0 0 / 5.5%);
@@ -34,7 +34,7 @@
 
   --brand: oklch(0.705 0.213 47.6);
   --brand-foreground: oklch(0.16 0.03 50);
-  --brand-text: oklch(0.553 0.195 38.4);
+  --brand-text: oklch(0.52 0.19 38.4);
   --brand-soft: oklch(0.705 0.213 47.6 / 12%);
   --brand-glow: oklch(0.705 0.213 47.6 / 32%);
 
@@ -114,6 +114,20 @@
   --font-mono: var(--pact-font-mono, 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace);
 }
 
+/* Corner roundness is a preference (Settings → Appearance → Roundness), so — like the fonts — these are NOT `inline`: the
+   utilities (`rounded-sm|md|lg`) reference the variables, and lib/appearance/radius.ts overrides them on <html>. The values
+   here are the stock "Medium" step; keep them equal to RADIUS_SCALE.md (a test does). */
+@theme {
+  --radius-xs: calc(var(--radius) - 6px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  /* House rule: nothing is rounder than rounded-lg. xl/2xl/3xl are aliases so a stray class can't exceed it. */
+  --radius-xl: var(--radius-lg);
+  --radius-2xl: var(--radius-lg);
+  --radius-3xl: var(--radius-lg);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -150,15 +164,6 @@
   --color-warning: var(--warning);
   --color-warning-text: var(--warning-text);
   --color-warning-soft: var(--warning-soft);
-
-  --radius-xs: calc(var(--radius) - 6px);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  /* House rule: nothing is rounder than rounded-lg. xl/2xl/3xl are aliases so a stray class can't exceed it. */
-  --radius-xl: var(--radius);
-  --radius-2xl: var(--radius);
-  --radius-3xl: var(--radius);
 
   --shadow-xs: var(--elev-1);
   --shadow-sm: var(--elev-1);
@@ -239,12 +244,21 @@
     text-rendering: optimizeLegibility;
     font-feature-settings: var(--pact-font-features, 'cv11', 'ss01');
     height: 100%;
+    overflow: hidden;
   }
 
+  /* The app fills the window and scrolls inside its own panes. A fixed body leaves the *document* nothing to scroll, so a
+     stray scrollIntoView / focus() can never slide the whole shell up (see lib/scroll.ts). */
   body {
     margin: 0;
+    position: fixed;
+    inset: 0;
+    width: 100%;
     height: 100%;
     overflow: hidden;
+    /* `clip` (unlike `hidden`) isn't a scroll container at all, so script can't move it either — e.g. an off-screen sr-only
+       input inside the page can't give the body something to scroll. */
+    overflow: clip;
     overscroll-behavior: none;
     font-family: var(--font-sans);
     font-size: 14px;
@@ -255,6 +269,7 @@
 
   #root {
     height: 100%;
+    overflow: clip;
   }
 
   button:not(:disabled),
@@ -470,12 +485,12 @@
   font-size: 0.88em;
   background: var(--muted);
   padding: 0.15em 0.4em;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .prose-pact pre {
   background: var(--muted);
   padding: 0.85em 1em;
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow-x: auto;
   margin: 1em 0;
 }
@@ -511,7 +526,7 @@
   font-weight: 600;
 }
 .prose-pact img {
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   margin: 1em 0;
 }
 

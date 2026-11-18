@@ -84,7 +84,13 @@ async function pull(userId: string): Promise<void> {
     error = created.error;
   }
   if (error || !data) {
-    notify.error('Couldn’t load your profile', 'You can keep working; we’ll retry when you reload.');
+    // Opened offline (or the network dropped): that's not a problem to report — retry quietly once we're back online.
+    const offline = (typeof navigator !== 'undefined' && navigator.onLine === false) || /failed to fetch|network|load failed/i.test(error?.message ?? '');
+    if (offline) {
+      window.addEventListener('online', () => useAuthStore.getState().user?.id === userId && void pull(userId), { once: true });
+    } else {
+      notify.error('Couldn’t load your profile', 'You can keep working; we’ll retry when you reload.');
+    }
     useProfileSync.setState({ ready: true });
     return;
   }

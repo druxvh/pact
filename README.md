@@ -45,9 +45,11 @@ Requires Bun 1.x and a Chromium browser (Chrome 116+). A Firefox build exists to
 | **Tools** | Calculator, unit converter, colour + contrast, text tools, encoders, password generator, QR codes, image compressor, random picker — and PDF tools: **merge**, **split** (ranges, every N pages, page by page; zip download), **organize pages** (rearrange / rotate / delete / extract), **crop**, **sign** (draw, type or upload), **watermark**, **compress**, **images → PDF** — all on-device, in a Web Worker with progress and a real Cancel | `g o` |
 | **Chat** | Two tabs. **Communities**: invite-only Discord-style groups (channels, replies, reactions, memes/GIFs/video, link previews, roles, moderation and safety tools). **Direct messages**: DMs and small groups (still the local demo backend). | `g c` |
 | **VibeParty** | Synced YouTube playback, chat, reactions and a shared up-vote queue | `g p` |
-| **Settings** | Profile, theme, accent colour, fonts, wallpapers, Home layouts and widgets, animations, backup & restore | `g s` |
+| **Discover** | News and articles from 60+ curated sources across 12 topics (BBC, NPR, The Guardian, The Verge, Ars Technica, NASA, Quanta, Polygon…) or any RSS/Atom feed you add. A top story, topic chips, grid/list, search, an in-app reader with distraction-free typography, a reading list, and keyboard control (<kbd>J</kbd>/<kbd>K</kbd>, <kbd>↵</kbd>, <kbd>O</kbd>, <kbd>S</kbd>, <kbd>/</kbd>). Opens instantly from the last visit and refreshes in the background. Needs an account | `g d` |
+| **Camera** | A camera studio opened with `!cam` or the palette, from anywhere (guests too): photos with self-timer, grid, aspect crop, 8 filters and brightness/contrast; short videos with optional mic; a filmstrip of your latest 24 captures with download and copy. Everything stays on this device, and the camera is on only while the window is open | `!cam` |
+| **Settings** | Profile (photo, unique @username), Appearance (theme, accent, roundness, font, wallpaper), Home (layout, clock, page, widgets), Commands, Your data (backup, snapshots) and About. Everything bigger than a row (colour list, font list, wallpaper gallery, widgets, snapshots) opens in a popover or dialog | `g s` |
 
-Everywhere: `⌘K` / `Ctrl+K` command palette (the same engine as the Home search box: answers, bangs, jump, create, search notes/tasks/chats), `?` for every shortcut, `C` for quick capture, `pact <page>` in the address bar. In the omnibox, `⌘K` or `→` shows actions for the highlighted result, `⌘↵` runs the secondary action, <kbd>Tab</kbd> completes or makes a site chip, and what you pick is remembered and can be pinned (stored on this device; it is fully offline — bangs only navigate when you press Enter). Light and dark themes, reduced-motion support, keyboard-first.
+Everywhere: `⌘K` / `Ctrl+K` always means *take me to the omnibox*: on Home it focuses the big search box (selecting what's in it), on every other page it opens the same search as an overlay, and pressing it again closes the overlay. `?` lists every shortcut, `C` is quick capture, and `pact <page>` works in the address bar. In the omnibox, `⌘/` or `→` shows actions for the highlighted result, `⌘↵` runs the secondary action, <kbd>Tab</kbd> completes or makes a site chip, and what you pick is remembered and can be pinned (stored on this device; it is fully offline — bangs only navigate when you press Enter). Light and dark themes, reduced-motion support, keyboard-first.
 
 **Quick capture** — the toolbar button (and the shortcut, `Alt+Shift+N` / `⌘⇧Y` by default; rebind at `chrome://extensions/shortcuts`) opens a small sheet: type, <kbd>Tab</kbd> flips Note/Task, `⌘↵` saves. It writes straight to the same stores as the new tab (guests: Home's Quick note); notes upload the next time a pact tab is open. The popup never opens a Supabase session.
 
@@ -57,6 +59,7 @@ Everything below lives in **Settings → Appearance / Home** and is stored on yo
 
 **Appearance**
 - **Accent colour** — 16 presets or any colour you pick. One choice re-themes every button, highlight, focus ring, brand-coloured text and the **pact logo and tab icon** in both light and dark. The colour is adjusted (not rejected) so text stays at WCAG AA contrast; the stock orange adds no overrides at all.
+- **Roundness** — None, Small, Medium (the default) or Large, with an icon for each. One setting re-shapes every button, card, input, popover and avatar; dots, switches and badges stay round and the pact logo keeps its own shape. Applied before first paint, like the accent.
 - **Fonts** — 33 free families: 23 sans-serif (Geist, Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Nunito, DM Sans, Manrope, Plus Jakarta Sans, Outfit, Work Sans, Source Sans 3, Raleway, Space Grotesk, Sora, Figtree, Rubik, IBM Plex Sans, Lexend, Bricolage Grotesque, Instrument Sans), 4 serif (Playfair Display, Merriweather, Lora, Source Serif 4) and 6 monospace for code and numbers (Geist Mono, JetBrains Mono, Fira Code, Source Code Pro, Roboto Mono, IBM Plex Mono), plus your system fonts. All are bundled via Fontsource (Latin subset) and loaded only when you use them — still no network requests.
 - **Wallpaper** — solid colours, gradients (presets or your own two colours and angle), mesh gradients, or your own image (downscaled to WebP and kept in IndexedDB). Cards turn into frosted glass over a wallpaper. A **Dim** layer is set per theme, and pact picks the smallest dim that keeps even muted text readable (4.5:1) and tells you when a wallpaper can't be made legible.
 
@@ -65,6 +68,15 @@ Everything below lives in **Settings → Appearance / Home** and is stored on yo
 - **Clock** — digital, compact, analog or none; seconds, date and greeting are independent switches; 12h/24h/auto.
 - **Show or hide** the search box, keyboard hints and shortcuts.
 - **Widgets** (reorderable): *Main focus* (one intention per day, a streak, "Start a focus session"; also for guests), *Today* (overdue / due-today / in-progress tasks — tick them off or add one), *Focus* (minutes today and streak), *Pinned notes*, *Quick note* (saves as a real note), *Quote of the day* (bundled, no network) and *Countdown* to a date you choose. They only read what's already in pact — there's deliberately no weather or news widget, since that would need a network request.
+
+### Your own commands
+
+Settings → Commands (or "Manage commands" in the omnibox) lets you add your own shortcuts to the search box, Raycast-style. They live on this device (`pact-commands`), work for guests and are included in backups.
+
+- **Quicklinks** — a name, an optional alias, an http(s) address with `{query}` and/or `{clipboard}`, and an icon. Type `alias text`, `!alias text`, or the alias then <kbd>Tab</kbd> for a site chip.
+- **Snippets** — text with `{date}`, `{time}`, `{datetime}` and `{clipboard}`; Enter copies it.
+- **Aliases** — a short name for any page, tool or action (`t` → Focus).
+- Aliases are lowercase letters, digits and dashes and must be unique across your commands and the built-in bang triggers. Limit 100; JSON import and export; nothing is sent anywhere.
 
 ## Accounts and cloud sync (Supabase)
 
@@ -109,7 +121,22 @@ Chat → **Communities** is a private, invite-only space for a group (a class, a
 
 **Deleting** a community (or a channel) also deletes its uploaded files from Storage, so nothing is left behind in the bucket (admin only; files are removed first, because once the community is gone no one is a member any more and Storage's rules would refuse). Files from a message its author deleted themselves, and from people who left, stay until the community is deleted.
 
-To enable: apply the migrations in `supabase/migrations` in order, deploy the Edge Functions `link-preview` and `gif-search` (`supabase/functions/*`), and sign in. GIF search additionally needs a KLIPY API key (klipy.com) set as the function secret `KLIPY_API_KEY` (Dashboard → Edge Functions → Secrets, or `supabase secrets set KLIPY_API_KEY=…`); without it everything else works and the picker says GIF search isn't set up yet. Not yet built: a "new messages" divider and a browser-level (OS) notification when the tab is hidden.
+To enable: apply the migrations in `supabase/migrations` in order, deploy the Edge Functions `link-preview`, `gif-search` and `feeds` (`supabase/functions/*`), and sign in. GIF search additionally needs a KLIPY API key (klipy.com) set as the function secret `KLIPY_API_KEY` (Dashboard → Edge Functions → Secrets, or `supabase secrets set KLIPY_API_KEY=…`); without it everything else works and the picker says GIF search isn't set up yet. Not yet built: a "new messages" divider and a browser-level (OS) notification when the tab is hidden.
+
+## Discover
+
+Discover is a calm place to read: news, blogs and science from many sources, inside pact. **For you** is made of the sources and topics you follow (a starter set on day one); each topic has its own tab, and **Reading list** keeps stories you saved. Click a story to read it in pact when the publisher shares the full text, otherwise you get the summary and a button to the original. Hide a source from a story's ⋯ menu; add any RSS or Atom feed under **Sources** (it's checked before it is added).
+
+- Feeds are read by the `feeds` Edge Function, not by your browser (browsers can't read arbitrary feeds cross-origin, and this keeps your IP address from every publisher). It needs a signed-in user, fetches https only, refuses private/internal addresses at every redirect, reads at most 1.5 MB per feed with a 6 s timeout, and caches in memory for 10 minutes. Nothing is stored on the server.
+- Article text is never inserted as HTML: it is parsed inertly and rebuilt from an allow-list (no scripts, styles, frames, forms, handlers or tracking pixels).
+- The last response is cached on this device so the page paints at once; saved stories, followed sources, hidden sources and read marks are included in backups (the cache is not) and are cleared when a different account signs in.
+- Developing without a backend: open the app with `?mock=1` (also `?mock=offline`, `error`, `empty`, `slow`) to use built-in sample articles; `https://example.com/hostile.xml` is a sample feed full of hostile markup.
+
+Deploy: `supabase functions deploy feeds` (no secrets).
+
+## Camera
+
+`!cam` (or `cam`, `camera`, `selfie`, or "Open camera" in the palette) opens the camera studio. It asks the browser for camera access the first time — no manifest permission is needed — and the microphone only when you record a video with sound on. Photos and videos are saved in this browser's IndexedDB (the latest 24, up to 1 GB), never uploaded, and removed if a different account signs in or you erase your data. The camera and mic turn off when you close the studio, leave the tab for 30 seconds, or close pact.
 
 ## VibeParty
 
@@ -158,7 +185,7 @@ src/
   entrypoints/    newtab (the app), capture (toolbar popup), privacy (policy page), party-host (offscreen VibeParty host), background (alarms, omnibox, router), vibeparty.content
   app/            shell: sidebar, top bar, command palette, onboarding, error boundaries, routes
   components/ui/  design system on Base UI: Button, Dialog, Select, Segmented, Tooltip, …
-  features/       home · notes · kanban · timer · tools · chat · party · settings   (one folder each)
+  features/       home · notes · kanban · timer · tools · discover · chat · party · camera · commands · settings   (one folder each)
   store/          cross-cutting Zustand stores + demoServer.ts (the simulated backend)
   lib/            small, tested helpers: hotkeys, fuzzy search, url, motion presets, extension facade, appearance/ (accent, fonts, wallpaper, favicon), omnibox/ (answer engine, bangs, ranking), backup/ (snapshots, import preview), supabase/ (client, auth, profile, avatar)
   styles/         Tailwind v4 theme (OKLCH tokens, light/dark) in globals.css
@@ -171,7 +198,7 @@ Notable decisions: hash routing with lazy-loaded pages (prefetched when idle); e
 
 ## Data, privacy and permissions
 
-pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes, your profile (including a photo you upload), communities and live VibeParty traffic go to your Supabase project; link previews and GIF search go through its Edge Functions. On youtube.com, the video's own watch page (read for its title) and thumbnails for the queue are fetched. There is no analytics or advertising. The full policy is [PRIVACY.md](PRIVACY.md) (also in Settings → About).
+news feeds go through the `feeds` Edge Function; pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes, your profile (including a photo you upload), communities and live VibeParty traffic go to your Supabase project; link previews and GIF search go through its Edge Functions. On youtube.com, the video's own watch page (read for its title) and thumbnails for the queue are fetched. There is no analytics or advertising. The full policy is [PRIVACY.md](PRIVACY.md) (also in Settings → About).
 
 | Permission | Why |
 | --- | --- |

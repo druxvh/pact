@@ -5,12 +5,14 @@ import '@/store/useThemeStore';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { startNotesSync } from '@/features/notes/sync/engine';
 import { startAppearance } from '@/lib/appearance/apply';
+import { installAsyncErrorGuard } from '@/lib/asyncErrors';
 import { startAutoSnapshots } from '@/lib/backup';
 import { installSpotlight } from '@/lib/spotlight';
 import { startAuth } from '@/lib/supabase/auth';
 import { startProfileSync } from '@/lib/supabase/profile';
 import App from './App';
 
+installAsyncErrorGuard();
 installSpotlight();
 void startAppearance();
 startProfileSync();

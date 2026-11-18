@@ -37,7 +37,7 @@ export function ConvertTool() {
 
   return (
     <div className="space-y-6">
-      <div className="no-scrollbar -mx-1 overflow-x-auto px-1 pb-1">
+      <div className="no-scrollbar -mx-1 -mt-1 overflow-x-auto px-1 pb-1 pt-1">
         <Segmented aria-label="Category" value={categoryId} onValueChange={setCategoryId} options={CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} />
       </div>
 

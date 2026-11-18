@@ -16,6 +16,7 @@ const loaders: Record<Section, () => Promise<{ default: ComponentType }>> = {
   kanban: () => import('@/features/kanban/KanbanView').then((m) => ({ default: m.KanbanView })),
   timer: () => import('@/features/timer/TimerView').then((m) => ({ default: m.TimerView })),
   tools: () => import('@/features/tools/ToolsView').then((m) => ({ default: m.ToolsView })),
+  discover: () => import('@/features/discover/DiscoverView').then((m) => ({ default: m.DiscoverView })),
   chat: () => import('@/features/chat/ChatView').then((m) => ({ default: m.ChatView })),
   party: () => import('@/features/party/PartyView').then((m) => ({ default: m.PartyView })),
   settings: () => import('@/features/settings/SettingsView').then((m) => ({ default: m.SettingsView })),

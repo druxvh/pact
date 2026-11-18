@@ -8,6 +8,13 @@ import { cn } from '@/lib/cn';
 import type { OmniResult } from '@/lib/omnibox/types';
 
 export function ResultIcon({ result }: { result: OmniResult }) {
+  if (result.emoji) {
+    return (
+      <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-base leading-none">
+        {result.emoji}
+      </span>
+    );
+  }
   if (result.site) return <SiteIcon url={result.site.url} title={result.site.title} size={32} />;
   const Icon = result.icon;
   return (
@@ -67,6 +74,14 @@ export function ResultRow({ result, id, selected, layoutId, enter, onHover, onAc
         </span>
         <span className="relative flex shrink-0 items-center gap-1.5">
           {result.locked && <Lock aria-hidden="true" className="size-3.5 text-subtle-foreground" />}
+          {result.hint && (
+            <span
+              title="Your alias"
+              className="max-w-24 truncate rounded-sm border bg-background/60 px-1.5 py-px font-mono text-[11px] leading-4 text-muted-foreground"
+            >
+              {result.hint}
+            </span>
+          )}
           {!selected && result.kbd?.map((k) => <Kbd key={k}>{k}</Kbd>)}
           {onRemove && (
             <button

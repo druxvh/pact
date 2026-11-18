@@ -27,12 +27,12 @@ describe('claimLocalData', () => {
 
   it('a different account never inherits the previous account’s data', async () => {
     await claimLocalData('user-a');
-    for (const k of ['pact-user', 'pact-notes', 'pact-kanban', 'pact-timer', 'pact-chat', 'pact-home-layout', 'pact-sync-notes'])
+    for (const k of ['pact-user', 'pact-notes', 'pact-kanban', 'pact-timer', 'pact-chat', 'pact-home-layout', 'pact-commands', 'pact-sync-notes'])
       localStorage.setItem(k, 'private');
     localStorage.setItem('pact-theme', 'keep'); // browser preferences aren't personal data
     localStorage.setItem('pact-home', 'keep'); // shortcuts are guest features
     expect(await claimLocalData('user-b')).toBe(false); // caller must reload
-    for (const k of ['pact-user', 'pact-notes', 'pact-kanban', 'pact-timer', 'pact-chat', 'pact-home-layout', 'pact-sync-notes'])
+    for (const k of ['pact-user', 'pact-notes', 'pact-kanban', 'pact-timer', 'pact-chat', 'pact-home-layout', 'pact-commands', 'pact-sync-notes'])
       expect(localStorage.getItem(k)).toBeNull();
     expect(localStorage.getItem('pact-theme')).toBe('keep');
     expect(localStorage.getItem('pact-home')).toBe('keep');

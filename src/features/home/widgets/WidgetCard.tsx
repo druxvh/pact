@@ -20,7 +20,7 @@ export function WidgetCard({
 }) {
   return (
     <Card
-      className={cn('h-full min-h-40 gap-0 p-4', className)}
+      className={cn('h-full min-h-40 gap-0 p-4', '[&>header]:min-h-6', className)}
       title={
         <span className="flex items-center gap-2">
           <Icon className="size-4 text-brand-text" aria-hidden="true" />

@@ -1,21 +1,22 @@
 /**
  * Turns the appearance settings into live CSS.
  *
- * One <style id="pact-appearance"> holds the accent tokens, font variables and wallpaper variables. A copy is cached
+ * One <style id="pact-appearance"> holds the accent tokens, font variables, corner-radius variables and wallpaper variables. A copy is cached
  * in localStorage (`pact-appearance-boot`) which public/theme-init.js applies before first paint, so your accent,
- * font and colour/gradient wallpaper are in place the moment the tab appears — no orange-then-blue flash.
+ * font, roundness and colour/gradient wallpaper are in place the moment the tab appears — no orange-then-blue flash.
  */
 import type { AppearanceState } from '@/store/useAppearanceStore';
 import { accentCss } from './accent';
 import { currentFaviconHref, STOCK_ICON, setFavicon } from './favicon';
 import { ensureFont, fontCss } from './fontLoader';
 import { fontById, fontVarsCss } from './fonts';
+import { radiusCss } from './radius';
 import { type Dim, type Wallpaper, wallpaperBackground } from './wallpaper';
 
 export const BOOT_KEY = 'pact-appearance-boot';
 const STYLE_ID = 'pact-appearance';
 
-type Snapshot = Pick<AppearanceState, 'accent' | 'font' | 'monoFont' | 'wallpaper' | 'dim'>;
+type Snapshot = Pick<AppearanceState, 'accent' | 'font' | 'monoFont' | 'radius' | 'wallpaper' | 'dim'>;
 
 /** `color` = painted by CSS on <body> (instant); `image` = painted by the <WallpaperLayer> component. */
 export const wallpaperMode = (wp: Wallpaper): 'color' | 'image' | '' => (wp.kind === 'none' ? '' : wp.kind === 'image' ? 'image' : 'color');
@@ -30,7 +31,7 @@ export function wallpaperVarsCss(wp: Wallpaper, dim: Dim): string {
 }
 
 export function appearanceCss(s: Snapshot): string {
-  return accentCss(s.accent) + fontVarsCss(s.font, s.monoFont) + wallpaperVarsCss(s.wallpaper, s.dim);
+  return accentCss(s.accent) + fontVarsCss(s.font, s.monoFont) + radiusCss(s.radius) + wallpaperVarsCss(s.wallpaper, s.dim);
 }
 
 function styleEl(): HTMLStyleElement {
@@ -90,6 +91,7 @@ export async function startAppearance(): Promise<void> {
       state.accent !== prev.accent ||
       state.font !== prev.font ||
       state.monoFont !== prev.monoFont ||
+      state.radius !== prev.radius ||
       state.wallpaper !== prev.wallpaper ||
       state.dim !== prev.dim
     ) {

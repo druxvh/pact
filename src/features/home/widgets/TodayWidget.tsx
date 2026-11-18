@@ -59,8 +59,10 @@ export function TodayWidget() {
                     aria-label={`Mark “${task.title}” as done`}
                     onClick={() => updateTask(task.id, { columnId: 'done' })}
                     className={cn(
-                      'group grid size-5 shrink-0 place-items-center rounded-md border border-input transition-colors',
+                      'group relative grid size-5 shrink-0 place-items-center rounded-md border border-input transition-colors',
                       'hover:border-brand hover:bg-brand-soft',
+                      // the box stays 20px; the tap target grows to 32px
+                      "after:absolute after:-inset-1.5 after:content-['']",
                     )}
                   >
                     <Check className="size-3 text-brand-text opacity-0 transition-opacity group-hover:opacity-100" />

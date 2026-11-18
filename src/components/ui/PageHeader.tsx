@@ -26,7 +26,7 @@ export function PageHeader({
         )}
         <div className="min-w-0">
           <h1 className="truncate text-lg font-semibold leading-tight tracking-tight">{title}</h1>
-          {description && <p className="truncate text-[13px] text-muted-foreground">{description}</p>}
+          {description && <p className="text-[13px] text-muted-foreground sm:truncate">{description}</p>}
         </div>
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

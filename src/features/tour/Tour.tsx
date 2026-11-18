@@ -8,6 +8,7 @@ import { useTourStore } from '@/features/tour/store';
 import { cn } from '@/lib/cn';
 import { MOD_KEY } from '@/lib/hotkeys';
 import { spring } from '@/lib/motion';
+import { scrollToElement } from '@/lib/scroll';
 import { useProfileSync } from '@/lib/supabase/profile';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -41,7 +42,7 @@ function useAutoStart() {
   const requested = useTourStore((s) => s.requested);
   const completed = useTourStore((s) => s.completed);
   const active = useTourStore((s) => s.active);
-  const blocked = useUiStore((s) => s.paletteOpen || s.shortcutsOpen || s.signInOpen || s.captureOpen);
+  const blocked = useUiStore((s) => s.paletteOpen || s.shortcutsOpen || s.signInOpen || s.captureOpen || s.cameraOpen);
   const start = useTourStore((s) => s.start);
   const markSeen = useTourStore((s) => s.markSeen);
 
@@ -132,7 +133,7 @@ function TourOverlay() {
       return;
     }
     const target = step.target;
-    findAnchor(target)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    scrollToElement(findAnchor(target), { block: 'nearest' });
     let raf = 0;
     const tick = () => {
       const el = findAnchor(target);
