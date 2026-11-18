@@ -92,6 +92,15 @@ export const isSocialKind = (v: unknown): v is SocialKind => typeof v === 'strin
 
 const HANDLE = /^[A-Za-z0-9._-]{1,40}$/;
 
+/** Does this text start with the platform's own web address (as in `instagram.com` or `instagram.com/alice`)? */
+function namesHost(p: Platform, text: string): boolean {
+  try {
+    return p.host.test(new URL(`https://${text}`).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export type LinkResult = { ok: true; url: string } | { ok: false; error: string };
 
 /** Turn what someone typed (a handle, "instagram.com/x", a full https address) into the address we store — or say what's wrong. */
@@ -100,7 +109,8 @@ export function normalizeLink(kind: SocialKind, input: string): LinkResult {
   let raw = input.trim();
   if (!raw) return { ok: false, error: 'Enter a link or username' };
   if (/^@/.test(raw)) raw = raw.slice(1);
-  if (p.handle && HANDLE.test(raw) && !raw.includes('.')) raw = p.handle(raw);
+  // "sam.okafor" is an Instagram name (dots are allowed in them), "instagram.com" is an address: tell them apart by whether it names the platform's own host.
+  if (p.handle && HANDLE.test(raw) && !namesHost(p, raw)) raw = p.handle(raw);
   else if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) raw = `https://${raw}`;
   let u: URL;
   try {
@@ -114,7 +124,7 @@ export function normalizeLink(kind: SocialKind, input: string): LinkResult {
   if (u.port && u.port !== '443') return { ok: false, error: 'Unusual ports aren’t allowed' };
   u.port = '';
   u.hash = '';
-  if (!p.host.test(u.hostname.toLowerCase())) return { ok: false, error: kind === 'website' ? 'Enter a valid web address' : `That isn’t a ${p.label} link` };
+  if (!p.host.test(u.hostname.toLowerCase())) return { ok: false, error: kind === 'website' ? 'Enter a valid web address' : `That link isn’t from ${p.label}` };
   const url = u.toString();
   if (url.length > MAX_URL) return { ok: false, error: 'That link is too long' };
   return { ok: true, url };

@@ -15,6 +15,14 @@ describe('normalizeLink', () => {
     expect(ok('youtube', '@alicetv')).toBe('https://youtube.com/@alicetv');
     expect(ok('github', 'alice')).toBe('https://github.com/alice');
   });
+  it('treats names with dots as handles, but a bare platform address as an address', () => {
+    expect(ok('instagram', 'sam.okafor')).toBe('https://instagram.com/sam.okafor');
+    expect(ok('instagram', '@sam.okafor_')).toBe('https://instagram.com/sam.okafor_');
+    expect(ok('tiktok', 'sam.okafor')).toBe('https://tiktok.com/@sam.okafor');
+    expect(ok('instagram', 'instagram.com')).toBe('https://instagram.com/');
+    expect(ok('x', 'twitter.com')).toBe('https://twitter.com/');
+    expect(normalizeLink('instagram', 'sam.okafor/extra').ok).toBe(false); // not a handle, and not Instagram's address either
+  });
   it('accepts addresses with or without the scheme, upgrades http, drops the fragment', () => {
     expect(ok('instagram', 'instagram.com/alice')).toBe('https://instagram.com/alice');
     expect(ok('facebook', 'http://www.facebook.com/alice#top')).toBe('https://www.facebook.com/alice');

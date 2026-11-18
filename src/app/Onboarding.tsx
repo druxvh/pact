@@ -27,7 +27,7 @@ import { useUsernameAvailability } from '@/lib/supabase/username';
 import { notify } from '@/lib/toast';
 import { loadSampleWorkspace } from '@/store/demoServer';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
-import { normalizeUsername, useUserStore } from '@/store/useUserStore';
+import { normalizeUsername, useUserStore, validateUsername } from '@/store/useUserStore';
 
 type Start = 'sample' | 'empty';
 
@@ -65,6 +65,7 @@ export function Onboarding() {
   const nameRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<0 | 1>(0);
   const [name, setName] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
   const [username, setUsername] = useState('');
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [role, setRole] = useState('');
@@ -86,7 +87,9 @@ export function Onboarding() {
   const usernameStatus = useUsernameAvailability(normalizeUsername(username), me.username);
   const takenError = usernameStatus === 'taken' ? 'That username is taken — try another' : null;
   const error = profileStepError(name, username) ?? takenError ?? (usernameStatus === 'checking' ? 'Checking that username…' : null);
-  const showUsernameError = usernameTouched && username !== '' ? (profileStepError(name, username) ?? takenError) : null;
+  // Each field explains only its own problem — and only once there is something to say (an empty form isn't an error yet).
+  const showUsernameError = usernameTouched && username !== '' ? (validateUsername(normalizeUsername(username)) ?? takenError) : null;
+  const showNameError = nameTouched && !name.trim();
 
   const finish = () => {
     const displayName = name.trim() || 'You';
@@ -139,7 +142,15 @@ export function Onboarding() {
                     maxLength={40}
                     placeholder="Your name"
                     autoComplete="name"
+                    onBlur={() => setNameTouched(true)}
+                    aria-invalid={showNameError ? true : undefined}
+                    aria-describedby={showNameError ? 'ob-name-error' : undefined}
                   />
+                  {showNameError && (
+                    <p id="ob-name-error" role="alert" className="mt-1 text-xs text-destructive-text">
+                      Tell us what to call you
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="ob-username">Username</Label>
