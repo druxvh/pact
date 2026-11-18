@@ -215,9 +215,9 @@ await t('people who share a community see each other’s public profile; outside
   eq((await as(db, bob, `select id from public.profiles where id='${alice}'`)).length, 1);
   eq((await as(db, dave, `select id from public.profiles where id='${alice}'`)).length, 0);
   eq((await as(db, dave, `select id from public.profiles where id='${dave}'`)).length, 1);
-  await as(db, alice, `insert into public.profile_private (id, contact_email) values ('${alice}', 'alice@private.test')`);
-  eq((await as(db, bob, `select * from public.profile_private`)).length, 0);
-  eq((await as(db, alice, `select contact_email from public.profile_private`))[0].contact_email, 'alice@private.test');
+  // the email is the sign-in's (set by the sign-up trigger), readable only by its owner
+  eq((await as(db, bob, `select * from public.profile_private where id='${alice}'`)).length, 0);
+  eq((await as(db, alice, `select contact_email from public.profile_private where id='${alice}'`))[0].contact_email, 'alice@x.test');
   const cols = (await db.query(`select column_name from information_schema.columns where table_schema='public' and table_name='profiles'`)).rows.map((r) => r.column_name);
   if (cols.includes('contact_email')) throw new Error('email column still on profiles');
 });
@@ -699,7 +699,7 @@ await t('moderators can see who a banned person is (public profile only) — nob
   eq((await as(db, bn.cat, `select 1 from public.profiles where id='${bn.ann}'`)).length, 0); // a plain member shares no community with them any more
   eq((await as(db, lookalike.owner, `select 1 from public.profiles where id='${bn.ann}'`)).length, 0); // an admin elsewhere
   eq((await as(db, lookalike.spy, `select 1 from public.profiles where id='${bn.mod}'`)).length, 0);
-  eq((await as(db, bn.mod, `select 1 from public.profile_private`)).length, 0); // and never an email
+  eq((await as(db, bn.mod, `select 1 from public.profile_private where id <> '${bn.mod}'`)).length, 0); // and never anyone else's email
 });
 await t('lifting: the admin any ban, a moderator only their own, nobody their own ban; the person can then rejoin', async () => {
   eq((await as(db, bn.ann, `delete from public.community_bans where user_id='${bn.ann}' returning 1`)).length, 0);
