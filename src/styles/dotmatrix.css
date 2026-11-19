@@ -1,0 +1,173 @@
+/* ───────────────────────────── Style: Dot Matrix ─────────────────────────────
+   Black, white and one red dot — inspired by Nothing's design language: flat, technical, dot-matrix type, dotted rules and a dot-grid
+   page texture. Keyed on <html data-style="dotmatrix"> (written by lib/appearance/apply.ts and public/theme-init.js); nothing
+   here applies to the Default style. The style's *bundle* (red accent #D71921, Space Grotesk + Space Mono, small corners) is
+   applied by the appearance store, so the accent still flows through the normal accent pipeline (including its text-safe red:
+   `--brand-text`, never the raw `--brand`, is what text uses). Rename the style in lib/appearance/themeStyle.ts.
+
+   Specificity note: the accent pipeline writes `html:root{…}` / `html.dark{…}` (0,1,1) after this file; anything here that must
+   beat it (flat shadows, status colours) uses `html[data-style]:root` / `html.dark[data-style]` (0,2,1). Unlayered CSS also beats
+   Tailwind's `@layer utilities`, which is how the rules below can override a utility class. */
+
+/* ───── Palette: white surfaces + black ink (light), black surfaces + white ink (dark) ───── */
+html[data-style='dotmatrix']:root {
+  --background: #f3f3f3;
+  --foreground: #050505;
+  --card: #ffffff;
+  --card-foreground: #050505;
+  --popover: #ffffff;
+  --popover-foreground: #050505;
+  --muted: #eeeeee;
+  --muted-foreground: #575757;
+  --subtle-foreground: #666666;
+  --secondary: #eeeeee;
+  --secondary-foreground: #050505;
+  --accent: rgb(0 0 0 / 7%);
+  --accent-foreground: #050505;
+  --border: rgb(0 0 0 / 22%);
+  --input: rgb(0 0 0 / 32%);
+  --scrollbar-thumb: rgb(0 0 0 / 28%);
+
+  --dm-dot: rgb(0 0 0 / 18%);
+
+  /* Quieter tints than the default 12 % / 15 %: red text on a pink tint of itself loses contrast fast (4.2:1 at 12 %), so the soft
+     fills (selected tab, soft buttons, icon tiles) stay faint enough that red text keeps ≥ 4.5:1 on them — a test checks it. */
+  --brand-soft: color-mix(in oklab, var(--brand) 4%, transparent);
+
+  /* One colour: warnings and errors are the signal red, "good" is plain ink. */
+  --destructive: #d71921;
+  --destructive-foreground: #ffffff;
+  --destructive-text: #c8101e;
+  --destructive-soft: rgb(215 25 33 / 10%);
+  --success: #050505;
+  --success-text: #050505;
+  --success-soft: rgb(0 0 0 / 8%);
+  --warning: #d71921;
+  --warning-text: #c8101e;
+  --warning-soft: rgb(215 25 33 / 10%);
+
+  /* Flat: no drop shadows, no coloured glow, no ambient wash. (`0 0 #0000` stays valid inside a shadow list.) */
+  --elev-1: 0 0 #0000;
+  --elev-2: 0 0 #0000;
+  --elev-3: 0 0 #0000;
+  --elev-pop: 0 0 #0000;
+  --elev-brand: 0 0 #0000;
+  --ambient-1: transparent;
+  --ambient-2: transparent;
+}
+
+html.dark[data-style='dotmatrix'] {
+  --background: #040404;
+  --foreground: #ffffff;
+  --card: #0d0d0d;
+  --card-foreground: #ffffff;
+  --popover: #121212;
+  --popover-foreground: #ffffff;
+  --muted: #181818;
+  --muted-foreground: #a3a3a3;
+  --subtle-foreground: #8a8a8a;
+  --secondary: #181818;
+  --secondary-foreground: #ffffff;
+  --accent: rgb(255 255 255 / 9%);
+  --accent-foreground: #ffffff;
+  --border: rgb(255 255 255 / 20%);
+  --input: rgb(255 255 255 / 30%);
+  --scrollbar-thumb: rgb(255 255 255 / 24%);
+
+  --dm-dot: rgb(255 255 255 / 15%);
+
+  --brand-soft: color-mix(in oklab, var(--brand) 11%, transparent);
+
+  --destructive: #d71921;
+  --destructive-text: #ff6468;
+  --destructive-soft: rgb(215 25 33 / 18%);
+  --success: #ffffff;
+  --success-text: #ffffff;
+  --success-soft: rgb(255 255 255 / 10%);
+  --warning: #d71921;
+  --warning-text: #ff6468;
+  --warning-soft: rgb(215 25 33 / 18%);
+
+  --elev-1: 0 0 #0000;
+  --elev-2: 0 0 #0000;
+  --elev-3: 0 0 #0000;
+  --elev-pop: 0 0 #0000;
+  --elev-brand: 0 0 #0000;
+  --ambient-1: transparent;
+  --ambient-2: transparent;
+}
+
+/* ───── Page: a fine dot grid on the plain background (a wallpaper, if you chose one, replaces it) ───── */
+html[data-style='dotmatrix']:not([data-wallpaper]) body {
+  background-image: radial-gradient(circle at center, var(--dm-dot) 0.9px, transparent 1.3px);
+  background-size: 18px 18px;
+  background-position: 9px 9px;
+}
+html[data-style='dotmatrix'] .bg-ambient,
+html[data-style='dotmatrix'] .bg-dots,
+html[data-style='dotmatrix'] [data-glow] {
+  display: none;
+}
+
+/* ───── Dot-matrix type: big numbers only (Doto is a 5×7 grid — unreadable small). Hooks: [data-display]. ───── */
+html[data-style='dotmatrix'] [data-display] {
+  font-family: var(--pact-font-display, var(--font-mono));
+  font-weight: 700;
+  letter-spacing: 0;
+  font-variation-settings: 'ROND' 100;
+  font-feature-settings: normal;
+}
+
+/* the dot-matrix colon is a full monospace cell, so its slot grows from the proportional-font width to match */
+html[data-style='dotmatrix'] [data-display] [data-colon] {
+  width: 0.6em;
+  padding-bottom: 0;
+}
+
+/* ───── Dotted rules: separators, bar edges, rules ───── */
+html[data-style='dotmatrix'] .divide-y > :not(:last-child),
+html[data-style='dotmatrix'] .border-b {
+  border-bottom-style: dotted;
+}
+html[data-style='dotmatrix'] .border-t {
+  border-top-style: dotted;
+}
+html[data-style='dotmatrix'] .border-r {
+  border-right-style: dotted;
+}
+html[data-style='dotmatrix'] .border-l {
+  border-left-style: dotted;
+}
+html[data-style='dotmatrix'] hr {
+  border-style: dotted;
+}
+
+/* ───── Flat controls: the red is a flat dot, not a glossy button ───── */
+html[data-style='dotmatrix'] :is(button, a).bg-brand:not([class*='ring']) {
+  box-shadow: none;
+}
+html[data-style='dotmatrix'] [class*='drop-shadow'] {
+  filter: none;
+}
+
+/* ───── The pact mark becomes a flat red dot with the white "p." in it ───── */
+html[data-style='dotmatrix'] [data-logo] rect {
+  rx: 64px;
+  ry: 64px;
+  fill: var(--brand);
+}
+html[data-style='dotmatrix'] [data-logo] rect + rect {
+  display: none;
+}
+
+/* ───── Timer ring: one flat red stroke ───── */
+html[data-style='dotmatrix'] #timer-ring stop:last-child {
+  stop-color: var(--brand);
+}
+
+/* ───── Identity tiles (avatars, community icons) are generated from a hue — in one-colour land they become graphite. A photo on top
+   still shows, since only the tile behind it changes. (Matches the inline gradient those components paint; if one of them
+   changes its markup the tile simply stays coloured.) ───── */
+html[data-style='dotmatrix'] .text-white[style*='linear-gradient(135deg, oklch('] {
+  background: linear-gradient(135deg, #3d3d3d, #1f1f1f) !important;
+}

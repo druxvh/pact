@@ -10,15 +10,5 @@
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    ".wxt/wxt.d.ts",
-    "entrypoints/**/*",
-    "components/**/*",
-    "lib/**/*",
-    "store/**/*",
-    "types/**/*",
-    "assets/**/*",
-    "wxt.config.ts",
-    "tailwind.config.ts"
-  ]
+  "include": [".wxt/wxt.d.ts", "src/**/*", "server/**/*", "wxt.config.ts"]
 }

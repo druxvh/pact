@@ -1,0 +1,61 @@
+/* ───────────────────────────── Style wallpaper ─────────────────────────────
+   The layer <StyleWallpaper> (features/stylewall) paints behind the app while a theme style's animated wallpaper is on. See
+   src/features/stylewall/README.md for the contract; the variables below are what a style's own CSS may set (on
+   `html[data-style='…']` or `html[data-wallpaper='style']`). All optional.
+
+     --sw-card           opacity of `.bg-card` surfaces over the scene (globals.css reads it)         default 76%
+     --sw-blur           backdrop blur of those surfaces                                              default 14px
+     --sw-scrim          0…1 of the page colour laid over the whole scene (on top of the Dim slider)  default 0
+     --sw-scrim-edge     0…1 extra page colour toward the edges (a vignette)                          default 0
+     --sw-canvas-opacity opacity of the canvas                                                        default 1
+     --sw-bg             what shows behind the canvas before its first frame                          default var(--background)
+*/
+html[data-wallpaper='style'] {
+  --sw-card: 76%;
+}
+
+.stylewall {
+  position: fixed;
+  inset: 0;
+  z-index: -20;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--sw-bg, var(--background));
+}
+.stylewall > canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.9s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.stylewall[data-ready] > canvas {
+  opacity: var(--sw-canvas-opacity, 1);
+}
+/* The legibility scrim: the user's Dim slider (--wp-dim) and the style's own --sw-scrim, combined as 1 − (1 − a)(1 − b), plus an optional edge vignette. */
+.stylewall-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--background);
+  opacity: calc(1 - (1 - var(--wp-dim, 0)) * (1 - var(--sw-scrim, 0)));
+}
+/* The optional edge vignette, a sibling (a child would fade with the scrim's own opacity). */
+.stylewall-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 90% 90% at 50% 50%,
+    transparent 40%,
+    color-mix(in oklab, var(--background) calc(var(--sw-scrim-edge, 0) * 100%), transparent) 100%
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .stylewall > canvas {
+    transition: none;
+  }
+}
+html[data-motion='reduced'] .stylewall > canvas {
+  transition: none;
+}

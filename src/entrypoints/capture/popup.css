@@ -1,0 +1,13 @@
+/*
+ * The toolbar popup sizes itself to its content, so undo the new-tab page's "fill the window, never scroll" base rules
+ * (unlayered CSS beats the @layer base ones in globals.css).
+ */
+html,
+body,
+#root {
+  height: auto;
+}
+body {
+  overflow: visible;
+  min-width: 400px;
+}

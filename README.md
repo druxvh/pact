@@ -1,11 +1,269 @@
-# Office Hub Dashboard
+# pact
 
-Chrome new tab extension built with WXT, React, Tailwind, Zustand, and Supabase.
+A new-tab extension for **teams, classes and friends**: notes, a kanban board, a focus timer, tiny private tools, chat — and a *watch YouTube together* mode — on the page you already open a hundred times a day.
 
-## Commands
+Local-first, no accounts, no tracking. Built with WXT, React 19, Tailwind v4, Base UI and Motion.
+
+## What's real and what's a demo
+
+| Area | State |
+| --- | --- |
+| Home, Notes, Kanban, Focus, Tools, Settings | **Real.** Stored on your device (local storage / IndexedDB). Notes also sync to your account when you sign in (below); the rest stays on the device. Back up, preview and restore from Settings → Your data. |
+| Communities | **Real**, Supabase-backed: invite-only groups with channels, moderation and safety tools (below). |
+| VibeParty (watch together) | **Real.** Local parties work between YouTube tabs in one browser; signed-in people can join the same party from anywhere through Supabase Realtime — no server to run. |
+| Now playing | **Real, optional, off by default.** The song playing in a music tab (Spotify, YouTube Music, SoundCloud, Apple Music, Deezer, Tidal) is read in the browser — no Spotify/OAuth — and shown on Home; shared only if you sign in and choose who sees it. Needs `supabase/pending-setup.sql` for sharing. The demo friends in Direct messages have made-up tracks. |
+| Activity | **Real, optional, needs an account.** 24-hour notes (a short line and/or a song), hearts on notes and on the song someone is listening to, public comments under notes, and a small real inbox of likes / comments / replies. Who sees your notes is your setting (default: people in your communities). Needs `supabase/pending-setup.sql`; until it is applied the feature quietly shows nothing. The demo friends in Direct messages are still simulated; activity messages are real. |
+| Chat & friends | **A working UI over a simulated backend.** pact has no server for people yet, so friends are bots that reply, show typing indicators and "accept" requests. All of that lives in one file — `src/store/demoServer.ts` — so swapping in a real realtime backend doesn't touch any view. |
+
+## Quick start
 
 ```bash
 bun install
-bun run dev
-bun run build
+bun run dev        # WXT opens a dev browser with the extension loaded, with hot reload
 ```
+
+To load a production build by hand: `bun run build`, then open `chrome://extensions`, enable *Developer mode*, *Load unpacked* → `.output/chrome-mv3`.
+
+Requires Bun 1.x and a Chromium browser (Chrome 116+). A Firefox build exists too — see [Browsers](#browsers).
+
+| Script | What it does |
+| --- | --- |
+| `bun run dev` / `dev:firefox` | Dev browser with hot reload |
+| `bun run build` / `build:firefox` | Production bundle in `.output/` |
+| `bun run zip` / `zip:firefox` | Store-ready archive (leaves the pinned manifest `key` out — see [Stable extension ID](#stable-extension-id)) |
+| `bun run check` | Typecheck (TypeScript 7) + Biome + tests — run before committing |
+| `bun run test` / `test:watch` | Vitest |
+| `bun run lint` / `lint:fix` | Biome |
+| `bun run test:db` | Row-level-security and trigger tests against the real migrations in a local PostgreSQL (PGlite) |
+
+## What's inside
+
+| Page | Highlights | Go there |
+| --- | --- | --- |
+| **Home** | A search box that is also a calculator and converter (`15% of 240`, `10 km in mi`, `time in tokyo`, `days until dec 25`, colours, `uuid`, `roll d20`, `password 20`), searches sites with bangs (`!yt lofi`, or `yt` then <kbd>Tab</kbd> for a site chip) and captures (`timer 25`, `note: …`, `task: …`; sign-in required). Brand-icon shortcuts, most-visited sites, a choice of clocks and optional widgets (see below) | `g h` |
+| **Notes** | Notebooks, Markdown editor with live preview, tick checkboxes in the preview, autosave, pins, undo | `g n` |
+| **Kanban** | Drag-and-drop with live reordering, priorities, due dates, task details, filters, progress | `g k` |
+| **Focus** | Pomodoro that survives navigation and closed tabs (alarms + notification), session history and streaks. **Your own timers**: name, length (1–120 min) and an icon or any emoji, one tap away; the icon follows the session into the ring, the top-bar pill and history | `g t` |
+| **Tools** | Calculator, unit converter, colour + contrast, text tools, encoders, password generator, QR codes, image compressor, random picker — and PDF tools: **merge**, **split** (ranges, every N pages, page by page; zip download), **organize pages** (rearrange / rotate / delete / extract), **crop**, **sign** (draw, type or upload), **watermark**, **compress**, **images → PDF** — all on-device, in a Web Worker with progress and a real Cancel | `g o` |
+| **Chat** | Two tabs. **Communities**: invite-only Discord-style groups (channels, replies, reactions, memes/GIFs/video, link previews, roles, moderation and safety tools). **Direct messages**: DMs and small groups (still the local demo backend). | `g c` |
+| **VibeParty** | Synced YouTube playback, chat, reactions and a shared up-vote queue | `g p` |
+| **Discover** | News and articles from 60+ curated sources across 12 topics (BBC, NPR, The Guardian, The Verge, Ars Technica, NASA, Quanta, Polygon…) or any RSS/Atom feed you add. A top story, topic chips, grid/list, search, an in-app reader with distraction-free typography, a reading list, and keyboard control (<kbd>J</kbd>/<kbd>K</kbd>, <kbd>↵</kbd>, <kbd>O</kbd>, <kbd>S</kbd>, <kbd>/</kbd>). Opens instantly from the last visit and refreshes in the background. Needs an account | `g d` |
+| **Camera** | A camera studio opened with `!cam` or the palette, from anywhere (guests too): photos with self-timer, grid, aspect crop, 8 filters and brightness/contrast; short videos with optional mic; a filmstrip of your latest 24 captures with download and copy. Everything stays on this device, and the camera is on only while the window is open | `!cam` |
+| **Settings** | Profile (photo, unique @username), Appearance (theme, accent, roundness, font, wallpaper), Home (layout, clock, page, widgets), Commands, Your data (backup, snapshots) and About. Everything bigger than a row (colour list, font list, wallpaper gallery, widgets, snapshots) opens in a popover or dialog | `g s` |
+
+Everywhere: `⌘K` / `Ctrl+K` always means *take me to the omnibox*: on Home it focuses the big search box (selecting what's in it), on every other page it opens the same search as an overlay, and pressing it again closes the overlay. `?` lists every shortcut, `C` is quick capture, and `pact <page>` works in the address bar. In the omnibox, `⌘/` or `→` shows actions for the highlighted result, `⌘↵` runs the secondary action, <kbd>Tab</kbd> completes or makes a site chip, and what you pick is remembered and can be pinned (stored on this device; it is fully offline — bangs only navigate when you press Enter). Light and dark themes, reduced-motion support, keyboard-first.
+
+**Quick capture** — the toolbar button (and the shortcut, `Alt+Shift+N` / `⌘⇧Y` by default; rebind at `chrome://extensions/shortcuts`) opens a small sheet: type, <kbd>Tab</kbd> flips Note/Task, `⌘↵` saves. It writes straight to the same stores as the new tab (guests: Home's Quick note); notes upload the next time a pact tab is open. The popup never opens a Supabase session.
+
+## Make it yours
+
+Everything below lives in **Settings → Appearance / Home** and is stored on your device.
+
+**Appearance**
+- **Accent colour** — 16 presets or any colour you pick. One choice re-themes every button, highlight, focus ring, brand-coloured text and the **pact logo and tab icon** in both light and dark. The colour is adjusted (not rejected) so text stays at WCAG AA contrast; the stock orange adds no overrides at all.
+- **Roundness** — None, Small, Medium (the default) or Large, with an icon for each. One setting re-shapes every button, card, input, popover and avatar; dots, switches and badges stay round and the pact logo keeps its own shape. Applied before first paint, like the accent.
+- **Fonts** — 33 free families: 23 sans-serif (Geist, Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Nunito, DM Sans, Manrope, Plus Jakarta Sans, Outfit, Work Sans, Source Sans 3, Raleway, Space Grotesk, Sora, Figtree, Rubik, IBM Plex Sans, Lexend, Bricolage Grotesque, Instrument Sans), 4 serif (Playfair Display, Merriweather, Lora, Source Serif 4) and 6 monospace for code and numbers (Geist Mono, JetBrains Mono, Fira Code, Source Code Pro, Roboto Mono, IBM Plex Mono), plus your system fonts. All are bundled via Fontsource (Latin subset) and loaded only when you use them — still no network requests.
+- **Wallpaper** — solid colours, gradients (presets or your own two colours and angle), mesh gradients, or your own image (downscaled to WebP and kept in IndexedDB). Cards turn into frosted glass over a wallpaper. A **Dim** layer is set per theme, and pact picks the smallest dim that keeps even muted text readable (4.5:1) and tells you when a wallpaper can't be made legible.
+
+**Home**
+- **Layouts** — Classic, Minimal, Dashboard, Zen and Focus. Change anything and it becomes *Custom*.
+- **Clock** — digital, compact, analog or none; seconds, date and greeting are independent switches; 12h/24h/auto.
+- **Show or hide** the search box, keyboard hints and shortcuts.
+- **Widgets** (reorderable): *Main focus* (one intention per day, a streak, "Start a focus session"; also for guests), *Today* (overdue / due-today / in-progress tasks — tick them off or add one), *Focus* (minutes today and streak), *Pinned notes*, *Quick note* (saves as a real note), *Quote of the day* (bundled, no network) and *Countdown* to a date you choose, and *Now playing* (the song in a music tab, with a switch to share it; also for guests, on-device — see [Now playing](#now-playing)). They only read what's already in pact — there's deliberately no weather or news widget, since that would need a network request.
+
+### Your own commands
+
+Settings → Commands (or "Manage commands" in the omnibox) lets you add your own shortcuts to the search box, Raycast-style. They live on this device (`pact-commands`), work for guests and are included in backups.
+
+- **Quicklinks** — a name, an optional alias, an http(s) address with `{query}` and/or `{clipboard}`, and an icon. Type `alias text`, `!alias text`, or the alias then <kbd>Tab</kbd> for a site chip.
+- **Snippets** — text with `{date}`, `{time}`, `{datetime}` and `{clipboard}`; Enter copies it.
+- **Aliases** — a short name for any page, tool or action (`t` → Focus).
+- Aliases are lowercase letters, digits and dashes and must be unique across your commands and the built-in bang triggers. Limit 100; JSON import and export; nothing is sent anywhere.
+
+## Accounts and cloud sync (Supabase)
+
+pact works as a **guest** with no account: Home with search, shortcuts (your local bookmarks) and recent/most-visited sites. Everything else needs sign-in with **GitHub or Google** (no password). An emailed one-time code exists too, but is off until you set up custom SMTP (see Setup step 3).
+
+- **Notes** sync to your account, local-first: they're instant and work offline, upload in the background, and appear live on your other devices (Realtime). When the same note was edited in two places, **both versions are kept**: the newer stays, the other becomes `Title (conflict copy, <date>)` in the same notebook (and you get one notice). An edit is never lost to a deletion elsewhere. A note over the server's size limit is set aside as local-only (flagged in the sync badge) instead of blocking everything else. A small cloud icon in the top bar shows whether everything is saved.
+- Tasks, timer history, chat and settings still live on this device for now (they're hidden from guests, and a *different* account signing in on the same browser never inherits them).
+- **Profile**: a display name, an **@username** (unique, checked while you type, chosen once in the welcome form and then fixed — the database refuses to change it), an **email** that is simply the one your sign-in provided (read-only), an optional **profile photo** (cropped on-device to 256×256 WebP; stored in a public `avatars` bucket as a *path*, never a URL), and up to **five social links** (Instagram, Facebook, X, Snapchat, Pinterest, LinkedIn, GitHub, YouTube, TikTok, Threads, Reddit, Twitch, Discord, Telegram or a website; https only, and the address must really be on that platform). Hover a name or avatar in Communities or DMs to see a **profile card** with all of it, like X or Discord.
+- Security: Row Level Security on every table (you can only ever read your own rows), only the publishable key ships in the extension, PKCE sign-in through `chrome.identity`. The schema is in `supabase/migrations/`.
+
+**Setup**
+1. Apply `supabase/migrations/20261116000000_profiles_and_notes.sql` to your project (SQL editor, or the Supabase CLI / MCP).
+2. Authentication → Providers: enable **GitHub** and **Google** (callback URL: `https://<project-ref>.supabase.co/auth/v1/callback`).
+3. **Email code sign-in (optional, off by default):** needs custom SMTP (Authentication → Emails → SMTP Settings; Supabase's built-in mailer is rate-limited and templates can't be edited without it). Then edit the *Magic Link* and *Confirm signup* templates so they contain `{{ .Token }}` (e.g. `<p>Your pact code: <strong>{{ .Token }}</strong></p>`) and set `WXT_EMAIL_SIGN_IN=true`.
+4. Authentication → URL Configuration → **Redirect URLs**: add `https://kkjbfallganmejcadkcdhppaokcnkefp.chromiumapp.org/*` (the pinned extension ID — see below; also shown under "Trouble signing in?" on the sign-in screen).
+5. Put `WXT_SUPABASE_URL` and `WXT_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (see `.env.example`) and rebuild.
+6. Apply the later migrations in `supabase/migrations/` too (communities, activity, profile photos, safety, party realtime). If the automated migration tool refuses a file, paste it into the SQL editor (`supabase/pending-setup.sql` is such a paste-ready copy). Realtime → Settings → **Allow public access must be OFF**.
+
+### Stable extension ID
+
+`wxt.config.ts` pins a manifest `key` (a public key; the private half was discarded), so the extension ID is always `kkjbfallganmejcadkcdhppaokcnkefp` — in dev, in a built folder and on every machine — and the sign-in redirect above keeps working. Changing it moves the extension to a new storage area (local data under the old ID isn't carried over). To use the Chrome Web Store's ID instead, set `WXT_EXTENSION_KEY` to the public key shown under *Package → View public key* in the developer dashboard; `bun run zip` leaves the key out (`WXT_OMIT_KEY=1`) so the store can assign its own.
+
+### Data safety
+
+Settings → Your data: **Export/Import** a backup (JSON, includes your wallpaper picture up to 3 MB; older backups still import) always opens a **preview** first — what's inside, Merge vs Replace, and a concrete diff ("2 notes new · 1 would overwrite newer local edits · 1 identical") — and nothing is applied until you confirm. **Rolling snapshots** are kept on this device: one a day when something changed (last 7), plus manual ones and automatic safety copies before a restore, import, sample load or sign-out. Account switches and *Erase everything* delete them. If the app is opened offline with a stored session, it stays usable and says so in the sync badge.
+
+## Communities
+
+Chat → **Communities** is a private, invite-only space for a group (a class, a team, friends). You get in with an invite code or link; nobody can browse or find a community they weren't invited to.
+
+- **Channels** (`#general` to start; the admin adds more), **replies**, **emoji reactions**, **images, GIFs and short video** (up to 25 MB, six per message), and **link previews**.
+- **GIF search:** the **GIF** button in the composer searches (or browses trending) GIFs and posts the pick as a picture. It goes through the `gif-search` Edge Function so the provider key never ships in the extension. A GIF is posted as a link to the provider's own copy (not re-hosted); moderators can hide or strip it like any link.
+- **Unread counts:** a badge on each community in the sidebar and on each channel, cleared when you read the channel. Read state is stored per person on the server, so it follows you across devices; scrolling up into history, or being on a phone's channel list, doesn't count as reading. Joining late never makes the old history "unread".
+- **Typing indicators:** "Ana is typing…" under the messages. These are ephemeral Realtime broadcasts on a private per-community topic (only members can listen or send) and are never stored.
+- **Roles:** the **admin** (the creator) appoints **moderators** (sub-admins). Moderators can *hide* a message (members then see only "a moderator hid this message"; the original is kept for moderators and can be restored), *remove links* from a message, create invites, and remove or ban ordinary members. Only the admin manages channels, roles and the community itself (moderators may also set a channel's slowmode).
+- **Safety tools:** per-channel **slowmode** (5 s – 6 h; moderators and the admin are exempt; enforced with the server's clock); **timeouts** (60 s – 28 days — the person can read but not post or react, and can't leave and rejoin to dodge it; the admin can time out moderators, moderators only members); a **ban list** for moderators (who, why, by whom, with Unban); **admin transfer** (the old admin becomes a moderator, in one transaction — a community always has exactly one admin, and it no longer disappears if its original creator deletes their account). An admin can't leave without transferring.
+- **Notifications:** the Chat badge in the sidebar and the tab title `(3) …` include communities (muted ones excluded), a new message in a channel you're not viewing becomes one in-app notification, and only replies to you and @mentions of your username toast. Per-community **mute** in the community menu.
+- **Invites** can expire, have a use limit, and be revoked; codes are always generated (never chosen), guessing them is rate-limited, and banned people can't rejoin. A ban removes the membership in the same statement; only the admin, or the moderator who issued a ban, can lift it.
+- **Hardened against abuse** (each has a regression test in `supabase/tests/rls.mjs`): moderation records can't be forged or planted (originals are written only by a SECURITY DEFINER trigger), every moderation time and `created_at` is stamped by the server, UPDATE grants are per column (no forced joins), a hidden or deleted message's attachment can no longer be opened by ordinary members, and there are caps (50 channels, 50 open invites, 20 reactions per message, 300 uploads per person per community).
+- **Privacy:** members can read each other's public profile (name, @username, role, bio) — never an email. Files are in a private bucket behind short-lived links. Link previews are fetched by the server, so your browser never contacts the linked site just to show a card (and a server-side guard refuses internal/private addresses).
+- Everything is enforced by the database (Row Level Security), not just the UI: `supabase/migrations/*_communities.sql`. `bun run test:db` runs 100+ checks of those rules (communities, safety, profiles, party) against the real migrations in a local PostgreSQL.
+
+**Deleting** a community (or a channel) also deletes its uploaded files from Storage, so nothing is left behind in the bucket (admin only; files are removed first, because once the community is gone no one is a member any more and Storage's rules would refuse). Files from a message its author deleted themselves, and from people who left, stay until the community is deleted.
+
+To enable: apply the migrations in `supabase/migrations` in order, deploy the Edge Functions `link-preview`, `gif-search` and `feeds` (`supabase/functions/*`), and sign in. GIF search additionally needs a KLIPY API key (klipy.com) set as the function secret `KLIPY_API_KEY` (Dashboard → Edge Functions → Secrets, or `supabase secrets set KLIPY_API_KEY=…`); without it everything else works and the picker says GIF search isn't set up yet. Not yet built: a "new messages" divider and a browser-level (OS) notification when the tab is hidden.
+
+## Discover
+
+Discover is a calm place to read: news, blogs and science from many sources, inside pact. **For you** is made of the sources and topics you follow (a starter set on day one); each topic has its own tab, and **Reading list** keeps stories you saved. Click a story to read it in pact when the publisher shares the full text, otherwise you get the summary and a button to the original. Hide a source from a story's ⋯ menu; add any RSS or Atom feed under **Sources** (it's checked before it is added).
+
+- Feeds are read by the `feeds` Edge Function, not by your browser (browsers can't read arbitrary feeds cross-origin, and this keeps your IP address from every publisher). It needs a signed-in user, fetches https only, refuses private/internal addresses at every redirect, reads at most 1.5 MB per feed with a 6 s timeout, and caches in memory for 10 minutes. Nothing is stored on the server.
+- Article text is never inserted as HTML: it is parsed inertly and rebuilt from an allow-list (no scripts, styles, frames, forms, handlers or tracking pixels).
+- The last response is cached on this device so the page paints at once; saved stories, followed sources, hidden sources and read marks are included in backups (the cache is not) and are cleared when a different account signs in.
+- Developing without a backend: open the app with `?mock=1` (also `?mock=offline`, `error`, `empty`, `slow`) to use built-in sample articles; `https://example.com/hostile.xml` is a sample feed full of hostile markup.
+
+Deploy: `supabase functions deploy feeds` (no secrets).
+
+## Camera
+
+`!cam` (or `cam`, `camera`, `selfie`, or "Open camera" in the palette) opens the camera studio. It asks the browser for camera access the first time — no manifest permission is needed — and the microphone only when you record a video with sound on. Photos and videos are saved in this browser's IndexedDB (the latest 24, up to 1 GB), never uploaded, and removed if a different account signs in or you erase your data. The camera and mic turn off when you close the studio, leave the tab for 30 seconds, or close pact.
+
+## VibeParty
+
+Open the **VibeParty** page, pick or generate a room code, press **Open YouTube & join**. pact reuses a YouTube tab you already have (or opens one) and shows a panel on the page: people in the room, chat, reactions, and a queue.
+
+- **Sync** — play, pause and seek propagate; small drift is corrected by nudging speed ±5 %, larger drift by seeking. Playback speed is held at 1× during a party.
+- **Ads** — an ad on your side never reaches the room; your player sits it out and catches up afterwards.
+- **Queue** — add links (titles and thumbnails are fetched from YouTube itself), up-vote, and the most-voted video plays next for everyone when the current one ends.
+- **Different video?** If someone switches video you get a "Go to it" banner (or turn on *Follow automatically*).
+- **Watch together** — on any YouTube watch page there's a "Watch together" button next to Like/Share: one click starts a party for that video, copies an invite (`…/watch?v=…&pact=<CODE>`) and opens the panel. Friends paste the link (or the code) and are *offered* to join — never joined automatically.
+- **Codes are passwords.** Room codes (`amber-lofi-k7q2x9dm`) carry ~52 bits from `crypto.getRandomValues`. Anyone with the code can join (signed-in people only for live parties).
+
+### Local vs live
+
+| | Local (guests) | Live (signed in) |
+| --- | --- | --- |
+| Setup | none | none — Supabase Realtime, nothing to host |
+| Who can join | YouTube tabs in **this browser** | anyone with the code, anywhere |
+| Where the room lives | the extension | one private Realtime channel per room (`party:<code>`); one member's browser acts as the hub and the role migrates if they leave |
+
+Live parties need the migration `20261118000200_party_realtime.sql` (it only lets signed-in users listen and announce on `party:<code>` topics) and Realtime → Settings → *Allow public access* **OFF**. The connection is owned by a hidden **offscreen document** (`offscreen` permission, no install warning) that shares the signed-in session, so a party keeps running with every pact tab closed.
+
+### How it works (for contributors)
+
+```
+YouTube tab ──content script──▶ background (thin router) ──▶ offscreen host (PartyController)
+ overlay + sync engine + button   holds no state                    │
+                                                                    └── Supabase Realtime ── other members
+                                                                        (Presence: roster + hub claim; Broadcast: playback, chat, queue)
+```
+
+- **No clock ever crosses a hop.** `mediaTime` always means "as of when this message was created"; a receiver anchors it to *its own* clock minus measured latency. Two machines with different system clocks stay in sync (there's a test with a one-hour skew).
+- `room.ts` is a pure state machine; `hub.ts` applies it for the whole room (the relay's old job, now run by one member, elected by smallest client id and replaceable if it stops answering); `realtime-client.ts` is the transport with backoff and a stable per-browser identity (so a reconnect reclaims its own presence entry instead of being refused); `sanitize.ts` validates and size-caps everything crossing a trust boundary. Firefox MV2 runs the same host in the persistent background page.
+- The overlay is plain DOM in a shadow root (a framework would cost ~140 kB on every YouTube load) and renders user content with `textContent` only. Keystrokes typed in the panel can't trigger YouTube's hotkeys.
+
+### Known limits
+
+- **Not yet verified on live youtube.com or against real Realtime.** It is covered by 200+ unit/integration tests (two simulated browsers against a faithful fake Realtime server) and an in-browser harness — but do a two-browser smoke test before shipping. An abrupt hub crash costs up to ~15 s of room-wide sync; playback error across the room is ~100–300 ms. YouTube's DOM can change; the selectors it relies on (`#movie_player video`, `.ad-showing`, the Like/Share row) live in `sync-engine.ts` and `watch-button.ts` (which falls back to a floating button).
+- The panel isn't visible in browser fullscreen (the browser only paints the fullscreen element) — theater mode keeps it.
+- Shorts and YouTube Music aren't targeted.
+
+## Now playing
+
+People see what others are listening to, live — from the browser itself, no Spotify API or OAuth (Spotify caps new apps at 5 users).
+
+- **Turn it on:** Settings → Profile → *Detect music in this browser* (or *Turn on* on the Now playing widget). The browser asks once for access to the six music sites (`open.spotify.com`, `music.youtube.com`, `soundcloud.com`, `music.apple.com`, `www.deezer.com`, `tidal.com`). They are **optional** host permissions, so installing pact asks for none of them; the content script is registered at runtime only after you say yes, and removed when you turn it off.
+- **What is read:** the page's own Media Session (`navigator.mediaSession`) — title, artist, album, cover address, playing/paused — plus, where known, the link to the track. Nothing else on the page, never a tab address or title. Chrome lets a content script read it from its isolated world (checked), so no script is injected into the page.
+- **Where it shows:** Home's *Now playing* widget (your track, play/pause, a pause-sharing button), a small equalizer badge on the avatar of anyone who is listening, and a *Listening now* row on profile cards in Communities and Direct messages.
+- **Sharing:** *Share with* = Nobody (default) / My communities / Everyone, an account setting (`profiles.now_playing_visibility`). Only with sharing on is anything sent: the track goes to `public.now_playing` (one row per person) when it changes and every ~30 s while it plays; pausing, stopping, closing the tab, turning sharing off or signing out removes it, and *Nobody* deletes it in the database. Others only ever see a row updated in the last 2 minutes, and a viewer also treats an old row as "not listening" itself.
+- **Plumbing:** music tab → content script → service worker (`features/nowplaying/hub.ts` picks the most recently playing tab, debounces, heartbeats via `chrome.alarms`) → the same hidden host page VibeParty uses (Chromium: offscreen document; Firefox: the background page), which holds the Supabase session → `public.now_playing`. Viewers look up and subscribe **only to the people on screen** (`now_playing_for()` + Realtime filtered by id).
+- **Hostile input:** another person's track is text only (never HTML), control/invisible/bidi characters stripped, lengths capped, and cover/link addresses must be https on the service's own hosts — in the database (check constraints) and again in the client (`sources.ts`) before they reach an `<img>` or a link. Without that, a chosen cover address would let someone log the IP of everyone who looks at their card.
+- **Not verified:** the Media Session metadata of the six live players (needs logged-in accounts), and the browser's permission prompt itself. See the checklist below.
+
+## Activity
+
+Short notes that last a day, hearts, comments and replies — between people who can see each other. The UI is `src/features/activity/` (the contract is `types.ts` + `api.ts`; `supabaseApi.ts` is the real backend, `memoryApi.ts` a stand-in for tests and the dev harness); every rule lives in the database: `supabase/migrations/20261120000000_activity.sql`.
+
+- **Notes:** one per person (`public.status_notes`): up to 60 characters of text and/or one song you attach. Posting again replaces it with a new id and a fresh 24 hours; the server stamps `created_at` / `expires_at` (a client can't), and an expired note is invisible at once (policies compare with the server's clock) and deleted by the next note anyone posts — taking its comments and hearts with it. At most 10 postings an hour.
+- **Who sees them:** `profiles.notes_visibility` = Nobody / My communities (default) / Everyone, enforced by RLS exactly like Now playing's setting. *Nobody* deletes your note in the database. Hearts on a **song** follow the existing `now_playing_visibility` instead (the song has to be one the person can see, and playing now).
+- **Hearts** (`public.activity_likes`): one per person per note or song, never on yourself, only on things you may see, at most 60 an hour. Only the person who hearted and the owner can read a heart row; everyone else gets **counts** from `activity_engagement()` / `activity_feed()` (no names). The snapshot the owner is told about is built by the database — from the note, or from the song the owner is playing right now — so it can't differ from what was hearted, whatever the client sent.
+- **Comments** (`public.activity_comments`): public to whoever can see the note, 200 characters, deleted by their author or the note's owner and with the note; at most 30 an hour.
+- **Activity messages** (`public.activity_messages`): the real inbox. A `like` or `comment` message exists only because a trigger wrote it for a real like / comment (a client can't forge one, can't name the sender, can't touch the text); a like notifies once, however often it is taken back and given again. A client may write only a `reply` (500 characters, at most 30 an hour) to someone whose note or song it can see, or who wrote first. Only the recipient can mark one read (the server stamps when) or delete it.
+- **Hostile input:** text is plain (control / invisible / bidi characters refused), snapshots and songs must carry https addresses on the music service's own hosts (the same allow-list as Now playing), and everything that comes back is cleaned again in the client (`supabaseRows.ts`) and only ever rendered as text.
+- **Live updates:** `status_notes`, `activity_messages` and `activity_likes` are in the Realtime publication (RLS decides who is sent what); engagement counts and comments are simply refetched.
+- **Tests:** `bun supabase/tests/activity.mjs` (about 100 checks as different users against the real migration: the visibility matrix, expiry by the server's clock, forged messages, allow-lists, rate limits, isolation, cleanup, idempotency) and `src/features/activity/supabaseApi.test.ts` (requests, cleaning of hostile rows, error mapping, the Realtime lifecycle, against a fake client).
+- **Not verified:** real Realtime delivery (publication membership and filters are set up but only a live project proves them), and the two-account experience end to end. See the checklist below.
+
+## Architecture
+
+```
+src/
+  entrypoints/    newtab (the app), capture (toolbar popup), privacy (policy page), party-host (offscreen host: VibeParty + Now playing publisher), background (alarms, omnibox, router), vibeparty.content, nowplaying.content (registered at runtime)
+  app/            shell: sidebar, top bar, command palette, onboarding, error boundaries, routes
+  components/ui/  design system on Base UI: Button, Dialog, Select, Segmented, Tooltip, …
+  features/       home · notes · kanban · timer · tools · discover · chat · party · camera · commands · nowplaying · activity · settings   (one folder each)
+  store/          cross-cutting Zustand stores + demoServer.ts (the simulated backend)
+  lib/            small, tested helpers: hotkeys, fuzzy search, url, motion presets, extension facade, appearance/ (accent, fonts, wallpaper, favicon), omnibox/ (answer engine, bangs, ranking), backup/ (snapshots, import preview), supabase/ (client, auth, profile, avatar)
+  styles/         Tailwind v4 theme (OKLCH tokens, light/dark) in globals.css
+  dev/            kitchen.html (design-system gallery) and the harnesses — never shipped
+supabase/         migrations, Edge Functions (link-preview, gif-search) and the PGlite rule tests (tests/)
+PRIVACY.md        the privacy policy (also bundled as an offline page)
+```
+
+Notable decisions: hash routing with lazy-loaded pages (prefetched when idle); every store is versioned with a real `migrate` and synced across open tabs; the timer stores an absolute end time so it survives navigation; the extension API is wrapped by `lib/ext.ts` so pages also run (degraded) as a plain web page during development; permissions are kept to what's used.
+
+## Data, privacy and permissions
+
+news feeds go through the `feeds` Edge Function; pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes, your profile (including a photo you upload), communities, live VibeParty traffic and — if you use Activity — your 24-hour notes, hearts, comments and replies go to your Supabase project; link previews and GIF search go through its Edge Functions. On youtube.com, the video's own watch page (read for its title) and thumbnails for the queue are fetched. There is no analytics or advertising. The full policy is [PRIVACY.md](PRIVACY.md) (also in Settings → About).
+
+| Permission | Why |
+| --- | --- |
+| `storage` | VibeParty remembers your display name and panel preferences; party state survives service-worker restarts |
+| `topSites` | "Most visited" tiles on Home |
+| `identity` | "Sign in with GitHub / Google" (`launchWebAuthFlow`); no email or profile permission is requested |
+| `favicon` | Private, local site icons (Chromium-only; Firefox falls back to letter tiles) |
+| `search` | Search with *your* default search engine |
+| `alarms`, `notifications` | The focus timer fires even if every pact tab is closed |
+| `offscreen` | Keeps a live VibeParty connected while no pact tab is open — and publishes your Now playing track if you share it (a hidden page, only while one of them runs; no install warning) |
+| `scripting` | Now playing registers its music-tab script at runtime, only after you turn it on (no install warning; Chromium) |
+| host `www.youtube.com` | The VibeParty panel, and finding an open YouTube tab to start a party in |
+| *optional* hosts `open.spotify.com`, `music.youtube.com`, `soundcloud.com`, `music.apple.com`, `www.deezer.com`, `tidal.com` | Now playing, only after you turn it on in Settings: read the title/artist/cover of the track playing there. Not asked at install |
+
+A wallpaper image is stored in this browser's IndexedDB and **is** part of a Settings backup (capped at 3 MB, shrunk if larger).
+
+## Quality
+
+- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (1,100+ tests) plus 250+ database-rule checks (`bun run test:db`): answer parsers and the omnibox engine, stores and their migrations, the notes sync model (two devices against a fake server), backups, PDF engine/worker protocol/zip writer, communities, Now playing, Activity, and for VibeParty the room rules, hub election, transport against a fake Realtime server, sync engine (against a fake `<video>`) and overlay.
+- Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, contrast verified numerically for the brand colour — including every accent you can pick.
+
+## Browsers
+
+- **Chrome / Edge / Brave** (MV3, Chrome 116+): primary target.
+- **Firefox** (`bun run build:firefox`, MV2): builds and `web-ext lint` reports no errors. Before publishing to AMO, set `browser_specific_settings.gecko.id` and declare data collection (`none`) in `wxt.config.ts`; Firefox ignores the `favicon` permission.
+- Safari isn't tested.
+
+## Before you publish
+
+- [ ] Apply the pending migrations (see `supabase/pending-setup.sql`), set the `KLIPY_API_KEY` secret, turn Realtime "Allow public access" **off**, and add the pinned redirect URL to Supabase.
+- [ ] Run a two-browser VibeParty smoke test on real YouTube (live party through Realtime, Watch-together button, invite link).
+- [ ] Now playing against the real services: play something on each of the six players and check the title/artist/cover show up on Home (the per-player track-link selectors in `features/nowplaying/reader.ts` are best effort), then share with a second account and check the badge, the profile card row and the deletion on pause.
+- [ ] Activity with two real accounts: post a note, heart it and comment from the other account, and check the owner's inbox gets one message each (and that a second heart after taking it back doesn't add another); change *who can see my notes* and check a stranger loses it at once; check live delivery through Realtime (new message, note appearing, heart count) — the publication and filters are untested against a real project.
+- [ ] Decide what "friends" means for real: the Chat page needs a backend (auth, storage, realtime). `src/store/demoServer.ts` is the seam.
+- [ ] Store listing: screenshots, a public URL for `PRIVACY.md` (finish its `TODO(owner)` placeholders first: date, legal name, contact), permission justifications (table above).
+- [ ] Add an end-to-end test that loads the built extension (Playwright + a persistent Chromium context).
+
+## Roadmap
+
+Real accounts and presence · persistent chat history · opt-in encrypted cloud sync · shared notebooks and boards that actually sync · push notifications for messages · localisation.
