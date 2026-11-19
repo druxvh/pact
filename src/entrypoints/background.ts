@@ -1,5 +1,7 @@
 import { browser } from 'wxt/browser';
-import { initVibePartyBackground } from '@/features/party/vibeparty/background';
+import { initNowPlayingBackground } from '@/features/nowplaying/background';
+import type { PublishResult } from '@/features/nowplaying/protocol';
+import { createHostBridge, initVibePartyBackground } from '@/features/party/vibeparty/background';
 import { registerTimerBackground } from '@/features/timer/background';
 
 /** Section keywords for the `pact <keyword>` omnibox shortcut. */
@@ -71,6 +73,14 @@ export default defineBackground({
   main() {
     registerTimerBackground();
     registerOmnibox();
-    initVibePartyBackground();
+    // VibeParty and "Now playing" share one long-lived page (the offscreen document on Chromium) that holds the Supabase session.
+    const host = createHostBridge();
+    const nowPlaying = initNowPlayingBackground({
+      publish: async (track) => (await host.send<PublishResult>({ type: 'nowplaying-host:publish', track })) ?? 'error',
+      clear: async () => {
+        await host.send({ type: 'nowplaying-host:clear' });
+      },
+    });
+    initVibePartyBackground(host, { keepHost: nowPlaying.keepsHost });
   },
 });

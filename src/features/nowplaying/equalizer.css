@@ -1,0 +1,73 @@
+/*
+ * The little "music is playing" bars used by the avatar badge, the profile card row and the Home widget.
+ * Three bars that bounce out of step; static when the person turned animations off (the component then renders data-state="still").
+ * Colour is `currentColor`, so the parent decides it (ink on the brand badge, brand text elsewhere).
+ */
+.np-eq {
+  --np-h: 10px;
+  --np-w: 2px;
+  --np-gap: 1.5px;
+  display: inline-flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--np-gap);
+  height: var(--np-h);
+}
+.np-eq[data-size='xs'] {
+  --np-h: 6px;
+  --np-w: 1.5px;
+  --np-gap: 1px;
+}
+.np-eq[data-size='md'] {
+  --np-h: 14px;
+  --np-w: 3px;
+  --np-gap: 2px;
+}
+.np-eq > i {
+  display: block;
+  width: var(--np-w);
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: 50% 100%;
+  transform: scaleY(0.6);
+}
+.np-eq[data-state='live'] > i {
+  animation: np-eq-bounce 0.95s ease-in-out infinite;
+}
+.np-eq[data-state='live'] > i:nth-child(1) {
+  animation-duration: 0.85s;
+  animation-delay: -0.25s;
+}
+.np-eq[data-state='live'] > i:nth-child(2) {
+  animation-duration: 1.1s;
+  animation-delay: -0.6s;
+}
+.np-eq[data-state='live'] > i:nth-child(3) {
+  animation-duration: 0.95s;
+  animation-delay: -0.1s;
+}
+.np-eq[data-state='still'] > i:nth-child(1) {
+  transform: scaleY(0.5);
+}
+.np-eq[data-state='still'] > i:nth-child(2) {
+  transform: scaleY(1);
+}
+.np-eq[data-state='still'] > i:nth-child(3) {
+  transform: scaleY(0.72);
+}
+/* paused: the same shape, dimmed */
+.np-eq[data-dim] {
+  opacity: 0.55;
+}
+
+@keyframes np-eq-bounce {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}

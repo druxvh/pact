@@ -51,6 +51,7 @@ describe('radiusCss', () => {
 
   it('is part of the generated appearance stylesheet (and therefore of the first-paint cache)', () => {
     const base = {
+      style: 'default' as const,
       accent: { kind: 'preset', id: 'orange' } as const,
       font: 'geist',
       monoFont: 'geist-mono',

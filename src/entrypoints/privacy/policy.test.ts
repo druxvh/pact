@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { COMMENT_MAX, MESSAGE_MAX, NOTE_MAX, NOTE_TTL_HOURS } from '@/features/activity/types';
+import { MUSIC_PAGE_HOSTS } from '@/features/nowplaying/sources';
 import { PrivacyPage } from './PrivacyPage';
 import { headingsOf, policyMarkdown, slug, titleOf } from './policy';
 
@@ -43,6 +45,63 @@ describe('the policy text', () => {
     }
     expect(policyMarkdown).toMatch(/never sell/i);
     expect(policyMarkdown).toMatch(/No analytics/);
+  });
+
+  it('declares the optional music-site access Now playing asks for — every host, and that it is optional and off by default', () => {
+    for (const host of MUSIC_PAGE_HOSTS) expect(policyMarkdown, host).toContain(`\`${host}\``);
+    expect(policyMarkdown).toMatch(/Now playing \(optional, off by default\)/);
+    expect(policyMarkdown).toMatch(/Optional access to/);
+    expect(policyMarkdown).toMatch(/Not requested at install/);
+  });
+
+  it('says honestly what Now playing reads, when it is sent, who sees it, how long it exists and how to turn it off', () => {
+    const section = /\*\*Now playing \(optional, off by default\)\.\*\*[\s\S]*?\n\*\*Link previews\./.exec(policyMarkdown)?.[0] ?? '';
+    expect(section.length).toBeGreaterThan(1500);
+    for (const phrase of [
+      'track title, artist, album',
+      'never sends the address or title of any tab',
+      'Nothing is sent to us',
+      'My communities',
+      'Everyone',
+      'about every 30 seconds',
+      'no history',
+      '2 minutes',
+      'Turn it off',
+      'Cover',
+    ]) {
+      expect(section, phrase).toContain(phrase);
+    }
+    expect(policyMarkdown).toContain('`scripting`');
+  });
+
+  it('says honestly what Activity stores: notes for 24 hours, hearts, comments, the inbox — who sees them, how long they last, how to turn it off', () => {
+    const section = /\*\*Activity \(24-hour notes, hearts, comments and replies\)\.\*\*[\s\S]*?\n## 4\./.exec(policyMarkdown)?.[0] ?? '';
+    expect(section.length).toBeGreaterThan(2500);
+    for (const phrase of [
+      `${NOTE_MAX} characters`,
+      `${COMMENT_MAX} characters`,
+      `${MESSAGE_MAX} characters`,
+      `${NOTE_TTL_HOURS} hours`,
+      'deleted from our database',
+      'My communities',
+      'Everyone',
+      'Nobody',
+      'Only the person who gave a heart and the owner',
+      'activity message',
+      'until the person who received them deletes them, or until either account is deleted',
+      'only place a song someone was listening to can be kept',
+      'still keeps no history',
+      'plain text',
+      'set by the server',
+      'Turn it off',
+    ]) {
+      expect(section, phrase).toContain(phrase);
+    }
+    // the retention list and the choices list agree with it
+    expect(policyMarkdown).toMatch(/An Activity note lasts 24 hours/);
+    expect(policyMarkdown).toMatch(/Share less, or nothing, in Activity/);
+    // and the places that said "notes" or "direct messages" before Activity existed no longer mislead
+    expect(policyMarkdown).toMatch(/Likes, comments and replies from \*Activity\* are different/);
   });
 
   it('describes the capture popup and the main focus data it now stores on the device', () => {

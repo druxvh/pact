@@ -16,6 +16,7 @@ import {
   Segmented,
 } from '@/components/ui';
 import { useChatStore } from '@/features/chat/store';
+import { PersonAvatar } from '@/features/nowplaying/PersonAvatar';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
 import { acceptIncoming, declineIncoming, requestFriend } from '@/store/demoServer';
@@ -115,7 +116,7 @@ export function FriendsDialog({ open, onOpenChange, onOpenChat }: { open: boolea
                   {suggestions.length === 0 && <li className="px-2 py-3 text-[13px] text-muted-foreground">You’ve added everyone — nice!</li>}
                   {suggestions.map((p) => (
                     <li key={p.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-                      <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
+                      <PersonAvatar userId={p.id} name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] font-medium">{p.displayName}</p>
                         <p className="truncate text-xs text-muted-foreground">
@@ -209,7 +210,7 @@ export function FriendsDialog({ open, onOpenChange, onOpenChat }: { open: boolea
                     animate={{ opacity: 1 }}
                     className="flex items-center gap-3 rounded-lg px-2 py-1.5"
                   >
-                    <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
+                    <PersonAvatar userId={p.id} name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{p.displayName}</p>
                       <p className="truncate text-xs text-muted-foreground">@{p.username}</p>

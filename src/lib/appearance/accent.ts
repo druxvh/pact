@@ -60,13 +60,15 @@ const SURFACE = {
 const WHITE = c(0.985, 0, 0);
 const TEXT_TARGET = 5.0; // a hair over AA so brand-soft tints don't tip it under
 
+/** Surfaces brand-coloured text must stay readable on, per theme. A theme style with its own palette hands in its own (themeStyle.ts). */
+export type TextSurfaces = { light: readonly Oklch[]; dark: readonly Oklch[] };
+
 export type AccentTokens = Record<
   '--brand' | '--brand-foreground' | '--brand-text' | '--brand-soft' | '--brand-glow' | '--ring' | '--elev-brand' | '--ambient-1' | '--ambient-2',
   string
 >;
 
-function textColor(brand: Oklch, theme: ThemeName): Oklch {
-  const surfaces = SURFACE[theme];
+function textColor(brand: Oklch, theme: ThemeName, surfaces: readonly Oklch[] = SURFACE[theme]): Oklch {
   const ok = (col: Oklch) => surfaces.every((s) => contrast(col, s) >= TEXT_TARGET);
   let col = fitToGamut(brand);
   const step = theme === 'light' ? -0.005 : 0.005;
@@ -74,11 +76,11 @@ function textColor(brand: Oklch, theme: ThemeName): Oklch {
   return col;
 }
 
-export function deriveAccent(brand: Oklch, theme: ThemeName): AccentTokens {
+export function deriveAccent(brand: Oklch, theme: ThemeName, surfaces?: readonly Oklch[]): AccentTokens {
   const b = fitToGamut(brand);
   const ink = c(0.16, 0.03, b.h);
   const foreground = contrast(ink, b) >= contrast(WHITE, b) ? ink : WHITE;
-  const text = textColor(b, theme);
+  const text = textColor(b, theme, surfaces);
   const dark = theme === 'dark';
   return {
     '--brand': oklchCss(b),
@@ -110,10 +112,17 @@ const block = (selector: string, tokens: AccentTokens) =>
     .map(([k, v]) => `${k}:${v}`)
     .join(';')}}`;
 
-/** CSS that re-themes the whole app, or '' for the stock orange. `html:root` / `html.dark` outrank the base tokens. */
-export function accentCss(choice: AccentChoice): string {
-  if (choice.kind === 'preset' && choice.id === DEFAULT_ACCENT_ID) return '';
-  return block('html:root', deriveAccent(baseColor(choice, 'light'), 'light')) + block('html.dark', deriveAccent(baseColor(choice, 'dark'), 'dark'));
+/**
+ * CSS that re-themes the whole app, or '' for the stock orange. `html:root` / `html.dark` outrank the base tokens.
+ * A theme style with its own surfaces passes them, so the accent's text colour is checked against *those* (and even the stock
+ * orange is derived, since the stock tokens were only verified on the stock surfaces).
+ */
+export function accentCss(choice: AccentChoice, surfaces?: TextSurfaces): string {
+  if (!surfaces && choice.kind === 'preset' && choice.id === DEFAULT_ACCENT_ID) return '';
+  return (
+    block('html:root', deriveAccent(baseColor(choice, 'light'), 'light', surfaces?.light)) +
+    block('html.dark', deriveAccent(baseColor(choice, 'dark'), 'dark', surfaces?.dark))
+  );
 }
 
 /** A representative swatch colour for the picker. */

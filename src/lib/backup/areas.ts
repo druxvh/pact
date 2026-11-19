@@ -11,7 +11,9 @@ import { TOPIC_IDS } from '@/features/discover/catalog';
 import { CUSTOM_FEED_CAP, capList, FOLLOW_CAP, READ_CAP, SAVED_CAP } from '@/features/discover/logic';
 import { ACCENT_PRESETS } from '@/lib/appearance/accent';
 import { fontById } from '@/lib/appearance/fonts';
+import { OMNI_EFFECT_IDS } from '@/lib/appearance/omniEffect';
 import { RADIUS_IDS } from '@/lib/appearance/radius';
+import { THEME_STYLE_IDS } from '@/lib/appearance/themeStyle';
 import { IMAGE_ASSET_ID, MESHES } from '@/lib/appearance/wallpaper';
 import {
   arr,
@@ -563,6 +565,7 @@ const settings: AreaSpec = {
     showTopSites: bool,
     sounds: bool,
     motion: oneOf('system', 'full', 'reduced'),
+    activityFeed: oneOf('auto', 'on', 'off'),
   })),
 };
 
@@ -606,20 +609,26 @@ const knownFont: Parser<string> = (v) => (typeof v === 'string' && fontById(v) ?
 
 const appearance: AreaSpec = {
   id: 'appearance',
-  label: 'Appearance (accent, fonts, roundness, wallpaper)',
+  label: 'Appearance (style, accent, fonts, roundness, search bar effect, wallpaper)',
   key: 'pact-appearance',
-  version: 3,
+  version: 4,
   mergeable: false,
   colls: [],
   parse: stateParser((strict) => {
     const dim01 = num({ min: 0, max: 80 });
     return {
+      // both end up in an attribute / class that selects CSS, so only the known ids ever get through; an older file simply has none (Default, no effect)
+      style: oneOf(...THEME_STYLE_IDS),
       accent,
       font: knownFont,
       monoFont: knownFont,
       // ends up in CSS variables, so only the four known steps ever get through; an older file simply has none (the stock look)
       radius: oneOf(...RADIUS_IDS),
+      omniEffect: oneOf(...OMNI_EFFECT_IDS),
       wallpaper,
+      // the style's own animated wallpaper: an on/off and which plate (the store coerces an unknown plate to the style's first)
+      styleWallpaper: bool,
+      plate: str({ max: 40 }),
       // v1 kept one number for both themes; the store's migrate upgrades it
       dim: (v, c) =>
         strict
@@ -801,6 +810,8 @@ export const NOT_BACKED_UP: Readonly<Record<string, string>> = {
   'pact-party-host': 'live VibeParty room state — ephemeral',
   'pact-discover-cache': 'the last fetched articles in Discover — a cache, rebuilt from the feeds on the next visit',
   'pact-camera': 'camera choices (device id, mirror, filter…) — specific to this computer’s cameras',
+  'pact-nowplaying':
+    'Now playing choices — detecting needs browser permissions that a restore can’t grant, and who may see your track is the account’s setting (read from the server)',
 };
 
 /** Sanitise one persisted value from our own storage before it goes into a file or snapshot (secrets removed, nothing else touched). */

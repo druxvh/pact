@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SiteLink } from '@/app/paletteSources';
 import { OmniField } from '@/components/omnibox/OmniField';
+import { OmniFx } from '@/components/omnibox/OmniFx';
 import { OmniLeadIcon } from '@/components/omnibox/OmniLeadIcon';
 import { OmniPanel, useEntrance } from '@/components/omnibox/OmniList';
 import { useOmnibox } from '@/components/omnibox/useOmnibox';
@@ -11,6 +12,7 @@ import { cn } from '@/lib/cn';
 import { modCombo, useHotkeys } from '@/lib/hotkeys';
 import { spring } from '@/lib/motion';
 import { registerHomeOmnibox, startAutoFocus } from '@/lib/omnibox/focus';
+import { useAppearanceStore } from '@/store/useAppearanceStore';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 
 export type SearchableLink = SiteLink;
@@ -84,6 +86,7 @@ function TypingPlaceholder({ phrases }: { phrases: readonly string[] }) {
  */
 export function OmniSearch({ links }: { links: SearchableLink[] }) {
   const signedIn = useAuthStore(selectSignedIn);
+  const effect = useAppearanceStore((s) => s.omniEffect);
   const [focused, setFocused] = useState(false);
   // Focusing on load (below) must not throw suggestions at you; the box opens once you click, type or press `/`.
   const [engaged, setEngaged] = useState(false);
@@ -136,86 +139,89 @@ export function OmniSearch({ links }: { links: SearchableLink[] }) {
 
   return (
     <div className="relative w-full max-w-[680px]">
-      {/* biome-ignore lint/a11y/useSemanticElements: <form role=search> works everywhere we support; the <search> element only landed in Chrome 118 (we target 116+) */}
-      <form
-        ref={formRef}
-        role="search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          omni.activate(omni.selected);
-        }}
-        onPointerDown={() => setEngaged(true)}
-        className={cn(
-          'relative flex h-14 items-center rounded-lg border bg-card/80 shadow-md backdrop-blur-md',
-          'transition-[border-color,box-shadow,transform] duration-300 ease-out-expo',
-          'focus-within:scale-[1.012] focus-within:border-ring focus-within:shadow-[0_0_0_4px_var(--brand-soft),var(--elev-3)]',
-        )}
-      >
-        <span className="pointer-events-none absolute left-4 grid size-5 place-items-center">
-          <OmniLeadIcon omni={omni} size="size-[18px]" />
-        </span>
-
-        <OmniField
-          omni={omni}
-          inputRef={inputRef}
-          label="Search the web, calculate, or enter a URL"
-          expanded={open}
-          className="h-full pl-12 pr-24"
-          inputClassName="text-[15px]"
-          overlay={
-            omni.scope ? (
-              <span className="pointer-events-none absolute inset-0 flex items-center text-[15px] text-subtle-foreground">Search {omni.scope.name}</span>
-            ) : (
-              <TypingPlaceholder phrases={signedIn ? SIGNED_IN_PLACEHOLDERS : PLACEHOLDERS} />
-            )
-          }
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            setFocused(false);
-            setEngaged(false);
+      {/* The focus "pop" is on this wrapper (not the form) so the effect around the box grows with it. */}
+      <OmniFx effect={effect} className="transition-transform duration-300 ease-out-expo focus-within:scale-[1.012]">
+        {/* biome-ignore lint/a11y/useSemanticElements: <form role=search> works everywhere we support; the <search> element only landed in Chrome 118 (we target 116+) */}
+        <form
+          ref={formRef}
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            omni.activate(omni.selected);
           }}
-          onKeyDown={(e) => {
-            setEngaged(true);
-            if (e.key === 'Escape' && !e.defaultPrevented) blur();
-          }}
-        />
+          onPointerDown={() => setEngaged(true)}
+          className={cn(
+            'relative flex h-14 items-center rounded-lg border bg-card/80 shadow-md backdrop-blur-md',
+            'transition-[border-color,box-shadow] duration-300 ease-out-expo',
+            'focus-within:border-ring focus-within:shadow-[0_0_0_4px_var(--brand-soft),var(--elev-3)]',
+          )}
+        >
+          <span className="pointer-events-none absolute left-4 grid size-5 place-items-center">
+            <OmniLeadIcon omni={omni} size="size-[18px]" />
+          </span>
 
-        <div className="absolute right-2 flex items-center gap-1.5">
-          <AnimatePresence initial={false}>
-            {typed ? (
-              <motion.button
-                key="clear"
-                type="button"
-                aria-label="Clear search"
-                initial={{ opacity: 0, scale: 0.7 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.7 }}
-                transition={spring.snappy}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  omni.reset();
-                  inputRef.current?.focus();
-                }}
-                className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <X className="size-4" />
-              </motion.button>
-            ) : (
-              <motion.span key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="hidden sm:flex">
-                <Kbd>/</Kbd>
-              </motion.span>
-            )}
-          </AnimatePresence>
-          <button
-            type="submit"
-            aria-label="Search"
-            disabled={!typed}
-            className="grid size-9 place-items-center rounded-lg bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] transition-[transform,filter,opacity] duration-150 hover:brightness-110 active:scale-90 disabled:opacity-40"
-          >
-            <ArrowUpRight className="size-[18px]" />
-          </button>
-        </div>
-      </form>
+          <OmniField
+            omni={omni}
+            inputRef={inputRef}
+            label="Search the web, calculate, or enter a URL"
+            expanded={open}
+            className="h-full pl-12 pr-24"
+            inputClassName="text-[15px]"
+            overlay={
+              omni.scope ? (
+                <span className="pointer-events-none absolute inset-0 flex items-center text-[15px] text-subtle-foreground">Search {omni.scope.name}</span>
+              ) : (
+                <TypingPlaceholder phrases={signedIn ? SIGNED_IN_PLACEHOLDERS : PLACEHOLDERS} />
+              )
+            }
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+              setFocused(false);
+              setEngaged(false);
+            }}
+            onKeyDown={(e) => {
+              setEngaged(true);
+              if (e.key === 'Escape' && !e.defaultPrevented) blur();
+            }}
+          />
+
+          <div className="absolute right-2 flex items-center gap-1.5">
+            <AnimatePresence initial={false}>
+              {typed ? (
+                <motion.button
+                  key="clear"
+                  type="button"
+                  aria-label="Clear search"
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.7 }}
+                  transition={spring.snappy}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    omni.reset();
+                    inputRef.current?.focus();
+                  }}
+                  className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </motion.button>
+              ) : (
+                <motion.span key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="hidden sm:flex">
+                  <Kbd>/</Kbd>
+                </motion.span>
+              )}
+            </AnimatePresence>
+            <button
+              type="submit"
+              aria-label="Search"
+              disabled={!typed}
+              className="grid size-9 place-items-center rounded-lg bg-brand text-brand-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.28)] transition-[transform,filter,opacity] duration-150 hover:brightness-110 active:scale-90 disabled:opacity-40"
+            >
+              <ArrowUpRight className="size-[18px]" />
+            </button>
+          </div>
+        </form>
+      </OmniFx>
 
       <AnimatePresence>
         {open && (

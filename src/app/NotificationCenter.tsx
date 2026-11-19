@@ -1,7 +1,10 @@
-import { Bell, BellOff, CheckCheck, MessageCircleMore, Timer, UserPlus, Users, X } from 'lucide-react';
+import { Bell, BellOff, CheckCheck, Heart, MessageCircle, MessageCircleMore, Timer, UserPlus, Users, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Badge, Button, IconButton, Popover, PopoverContent, PopoverTrigger } from '@/components/ui';
+import { useActivityMessage } from '@/features/activity/notices';
+import { TrackArt } from '@/features/nowplaying/TrackArt';
+import { parseTrack } from '@/features/nowplaying/track';
 import { cn } from '@/lib/cn';
 import { relativeTime } from '@/lib/format';
 import { spring } from '@/lib/motion';
@@ -18,7 +21,10 @@ const ICONS: Record<NotificationKind, React.ComponentType<{ className?: string }
 
 function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void }) {
   const dismiss = useNotificationStore((s) => s.dismiss);
-  const Icon = ICONS[n.kind ?? 'system'];
+  // A note / song activity entry (a like, a comment, a private reply): a heart or a speech bubble, with the song's cover when there is one.
+  const activity = useActivityMessage(n.key);
+  const thumb = parseTrack(activity?.context?.track);
+  const Icon = activity ? (activity.kind === 'like' ? Heart : MessageCircle) : ICONS[n.kind ?? 'system'];
   return (
     <motion.li
       layout
@@ -36,14 +42,28 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
           !n.read && 'bg-brand-soft/60',
         )}
       >
-        <span
-          className={cn(
-            'mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg',
-            n.read ? 'bg-muted text-muted-foreground' : 'bg-brand-soft text-brand-text',
-          )}
-        >
-          <Icon className="size-4" />
-        </span>
+        {thumb ? (
+          <span className="relative mt-0.5 shrink-0">
+            <TrackArt track={thumb} size={32} />
+            <span
+              className={cn(
+                'absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-sm bg-popover',
+                n.read ? 'text-muted-foreground' : 'text-brand-text',
+              )}
+            >
+              <Icon className={cn('size-3', activity?.kind === 'like' && 'fill-current')} />
+            </span>
+          </span>
+        ) : (
+          <span
+            className={cn(
+              'mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg',
+              n.read ? 'bg-muted text-muted-foreground' : 'bg-brand-soft text-brand-text',
+            )}
+          >
+            <Icon className={cn('size-4', activity?.kind === 'like' && 'fill-current')} />
+          </span>
+        )}
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
             <span className="truncate text-[13px] font-medium">{n.title}</span>

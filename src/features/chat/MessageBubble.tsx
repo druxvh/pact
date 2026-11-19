@@ -1,7 +1,7 @@
 import { Copy, CornerUpLeft, Disc3, Smile, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
-import { Avatar, IconButton, Popover, PopoverContent, PopoverTrigger } from '@/components/ui';
+import { IconButton, Popover, PopoverContent, PopoverTrigger } from '@/components/ui';
 import { AttachmentView } from '@/features/chat/AttachmentView';
 import { EmojiPicker } from '@/features/chat/EmojiPicker';
 import { QUICK_REACTIONS } from '@/features/chat/emoji-data';
@@ -9,6 +9,7 @@ import { Linkified } from '@/features/chat/Linkified';
 import { PersonHover } from '@/features/chat/PersonHover';
 import type { RunPosition } from '@/features/chat/rows';
 import type { Message } from '@/features/chat/types';
+import { PersonAvatar } from '@/features/nowplaying/PersonAvatar';
 import { findRoomCode } from '@/features/party/roomCode';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/cn';
@@ -64,7 +65,7 @@ export function MessageBubble({ message: m, sender, position, showName, replyTar
           {showAvatar && sender && (
             <PersonHover person={sender}>
               <span className="inline-flex">
-                <Avatar name={sender.displayName} src={sender.avatarUrl} size="md" />
+                <PersonAvatar userId={sender.id} name={sender.displayName} src={sender.avatarUrl} size="md" />
               </span>
             </PersonHover>
           )}

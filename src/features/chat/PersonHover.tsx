@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { type ProfileCardData, ProfileHover } from '@/components/ProfileCard';
+import { useListening } from '@/features/nowplaying/hooks';
 import type { SocialLink } from '@/lib/socialLinks';
 import type { Person } from '@/types/user';
 import { DEMO_LINKS } from './demoLinks';
@@ -35,8 +36,9 @@ export function PersonHover({
   side?: 'top' | 'right' | 'bottom' | 'left';
   align?: 'start' | 'center' | 'end';
 }) {
+  const listening = useListening(person?.id);
   return (
-    <ProfileHover person={personCard(person ?? NOBODY)} disabled={!person} {...rest}>
+    <ProfileHover person={{ ...personCard(person ?? NOBODY), listening, userId: person?.id }} disabled={!person} {...rest}>
       {children}
     </ProfileHover>
   );

@@ -39,9 +39,9 @@ describe('the main focus widget in layouts', () => {
 
 describe('what a guest sees', () => {
   it('is only widgets that live on this device — nothing that reads tasks, notes or the timer', () => {
-    expect(GUEST_WIDGETS).toEqual(['mainFocus', 'quickNote']);
-    expect(visibleWidgets(['today', 'focus', 'pinned'], false)).toEqual(['mainFocus', 'quickNote']);
-    expect(visibleWidgets([], false)).toEqual(['mainFocus', 'quickNote']);
+    expect(GUEST_WIDGETS).toEqual(['mainFocus', 'quickNote', 'nowPlaying']);
+    expect(visibleWidgets(['today', 'focus', 'pinned'], false)).toEqual(['mainFocus', 'quickNote', 'nowPlaying']);
+    expect(visibleWidgets([], false)).toEqual(['mainFocus', 'quickNote', 'nowPlaying']);
   });
 
   it('a signed-in person sees exactly what they chose, in their order', () => {
@@ -51,6 +51,6 @@ describe('what a guest sees', () => {
 
   it('returns copies, so callers can’t mutate the shared guest list', () => {
     visibleWidgets([], false).push('quote');
-    expect(GUEST_WIDGETS).toEqual(['mainFocus', 'quickNote']);
+    expect(GUEST_WIDGETS).toEqual(['mainFocus', 'quickNote', 'nowPlaying']);
   });
 });

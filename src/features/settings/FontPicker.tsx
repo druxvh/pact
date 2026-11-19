@@ -13,6 +13,8 @@ const GROUPS: Array<{ title: string; match: (f: FontDef) => boolean }> = [
   { title: 'Sans-serif', match: (f) => f.category === 'sans' },
   { title: 'Serif', match: (f) => f.category === 'serif' },
   { title: 'System', match: (f) => f.category === 'system' },
+  // only ever shown while a style has set one (a style may choose a monospace interface font) — the list itself never offers these
+  { title: 'Set by the style', match: (f) => f.category === 'mono' },
 ];
 
 const SAMPLE = {
@@ -78,8 +80,11 @@ function FontPanel() {
   const current = slot === 'sans' ? font : monoFont;
   const pick = slot === 'sans' ? setFont : setMonoFont;
   const q = query.trim().toLowerCase();
-  const fonts = (slot === 'sans' ? interfaceFonts() : monoFonts()).filter((f) => !q || f.label.toLowerCase().includes(q));
   const chosen = fontById(current);
+  const listed = slot === 'sans' ? interfaceFonts() : monoFonts();
+  // A style can set an interface font the list doesn't offer; keep it visible (and selected) instead of showing nothing picked.
+  const offered = chosen && !listed.includes(chosen) ? [...listed, chosen] : listed;
+  const fonts = offered.filter((f) => !q || f.label.toLowerCase().includes(q));
 
   return (
     <Panel align="end" className="w-[min(22rem,calc(100vw-1.5rem))] space-y-2.5" initialFocus={search}>

@@ -1,0 +1,97 @@
+/*
+ * Activity: the heart's pop and burst, and the note bubble's hover growth.
+ * Colours are `currentColor` / tokens, so every style (Default, Dot Matrix, Ultramarine, Dusk) and both themes get their own heart.
+ * Motion is skipped — not just shortened — when the person turned animations off: the components then render `data-motion="off"`.
+ */
+
+/* ── heart ── */
+.act-heart {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+.act-heart > svg {
+  grid-area: 1 / 1;
+  transition: transform 0.18s var(--ease-spring), fill 0.12s linear;
+}
+.act-heart[data-liked] > svg {
+  fill: currentColor;
+}
+.act-heart[data-motion='on'][data-pop] > svg {
+  animation: act-heart-pop 0.42s var(--ease-spring);
+}
+/* six tiny dots fly outward from the heart when it is liked (documented rounded-full dots) */
+.act-heart > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+.act-heart[data-motion='on'][data-burst] > i {
+  animation: act-heart-burst 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+@keyframes act-heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.38);
+  }
+  70% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes act-heart-burst {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(-4px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-15px) scale(0.3);
+  }
+}
+
+/* ── note bubble ── */
+.act-bubble {
+  /* sized by its text (an absolutely placed box would otherwise wrap at the width of the avatar it sits on) */
+  width: max-content;
+  max-width: var(--act-bubble-w, 5.5rem);
+  transition: max-width 0.16s var(--ease-out-quart), box-shadow 0.16s;
+}
+/* hovering the avatar (or focusing the bubble) shows the whole note, wrapped */
+.act-bubble-host:hover .act-bubble,
+.act-bubble:focus-visible {
+  max-width: 13rem;
+  white-space: normal;
+  z-index: 30;
+}
+.act-bubble-host:hover .act-bubble [data-clip],
+.act-bubble:focus-visible [data-clip] {
+  display: block;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.act-bubble[data-motion='off'] {
+  transition: none;
+}
+
+/*
+ * A row whose avatar carries a note bubble has more room above the avatar than the text beside it; the text stays level with the
+ * avatar (its lower edge) instead of drifting up to the middle of the taller row. Rows opt in with `act-row`.
+ */
+.act-row:has(.act-bubble-host) {
+  align-items: flex-end;
+}

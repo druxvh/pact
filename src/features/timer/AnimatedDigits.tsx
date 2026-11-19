@@ -26,6 +26,7 @@ export function AnimatedDigits({ value, className, running }: { value: string; c
   return (
     <span
       role="timer"
+      data-display
       aria-live="off"
       aria-label={value}
       // An inline line-height on purpose: the caller sets a `text-[…]` size, and tailwind-merge treats that as overriding any
@@ -35,8 +36,12 @@ export function AnimatedDigits({ value, className, running }: { value: string; c
     >
       {Array.from(value).map((ch, i) =>
         ch === ':' ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: positional by design — each slot is a fixed digit position
-          <span key={i} className={cn('w-[0.32em] pb-[0.08em] text-center text-brand-text/80', running && 'animate-pulse [animation-duration:1.4s]')}>
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: positional by design — each slot is a fixed digit position
+            key={i}
+            data-colon
+            className={cn('w-[0.32em] pb-[0.08em] text-center text-brand-text/80', running && 'animate-pulse [animation-duration:1.4s]')}
+          >
             :
           </span>
         ) : (

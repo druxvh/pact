@@ -1,6 +1,8 @@
 import { Lock, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Input, Label, Textarea } from '@/components/ui';
+import { ActivitySettings } from '@/features/activity/ActivitySettings';
+import { NowPlayingSettings } from '@/features/nowplaying/NowPlayingSettings';
 import { AvatarEditor } from '@/features/settings/AvatarEditor';
 import { SocialLinksEditor } from '@/features/settings/SocialLinksEditor';
 import { notify } from '@/lib/toast';
@@ -89,6 +91,8 @@ export function ProfileSection() {
           </Button>
         </div>
       </div>
+      <NowPlayingSettings />
+      <ActivitySettings />
     </SettingsSection>
   );
 }

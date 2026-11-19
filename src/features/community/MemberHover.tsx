@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { type ProfileCardData, ProfileHover } from '@/components/ProfileCard';
+import { useListening } from '@/features/nowplaying/hooks';
 import { roleLabel } from './permissions';
 import type { Profile, Role } from './types';
 
@@ -45,8 +46,9 @@ export function MemberHover({
   side?: 'top' | 'right' | 'bottom' | 'left';
   align?: 'start' | 'center' | 'end';
 }) {
+  const listening = useListening(profile?.id);
   return (
-    <ProfileHover person={memberCard(profile ?? NOBODY, role, joinedAt)} disabled={!profile} {...rest}>
+    <ProfileHover person={{ ...memberCard(profile ?? NOBODY, role, joinedAt), listening, userId: profile?.id }} disabled={!profile} {...rest}>
       {children}
     </ProfileHover>
   );

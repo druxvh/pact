@@ -2,6 +2,10 @@ import { PreviewCard } from '@base-ui/react/preview-card';
 import { type ReactElement, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SocialIcon } from '@/components/SocialIcon';
 import { Avatar } from '@/components/ui';
+import { PersonActivity } from '@/features/activity/PersonActivity';
+import { ListeningRow } from '@/features/nowplaying/ListeningRow';
+import { PersonAvatar } from '@/features/nowplaying/PersonAvatar';
+import type { Track } from '@/features/nowplaying/track';
 import { cn } from '@/lib/cn';
 import { linkLabel, PLATFORMS, type SocialLink, sanitizeLinks } from '@/lib/socialLinks';
 
@@ -17,16 +21,37 @@ export type ProfileCardData = {
   badge?: string;
   /** Extra line under the bio (e.g. "Member since Nov 2026"). */
   meta?: string;
+  /** What they are listening to right now, if they let you see it (features/nowplaying) — shown as a "Listening now" row. Optional. */
+  listening?: Track | null;
+  /**
+   * Their account id (or a simulated person's id). With it the card also shows their note and lets you heart / comment / reply
+   * (features/activity), and the avatar carries their note bubble. Without it the card is display-only, as before.
+   */
+  userId?: string;
 };
 
-/** The card itself: banner, avatar, name, @username, role, bio and up to five social links. Pure display. */
+/** The card itself: banner, avatar, name, @username, role, bio, what they're listening to, and up to five social links. Pure display. */
 export function ProfileCard({ person, footer, className }: { person: ProfileCardData; footer?: ReactNode; className?: string }) {
   const links: SocialLink[] = sanitizeLinks(person.links);
   return (
     <div className={cn('w-72 max-w-full overflow-hidden', className)}>
       <div aria-hidden="true" className="h-14 bg-gradient-to-br from-brand/35 via-brand-soft to-transparent" />
       <div className="px-4 pb-4">
-        <Avatar name={person.name} src={person.avatarUrl} size="xl" className="-mt-8 size-16 border-4 border-popover text-xl" />
+        {person.userId ? (
+          // (the pull-up margin is on the wrapper, so the note bubble sits above the avatar rather than 32px down it)
+          <div className="-mt-8 w-fit">
+            <PersonAvatar
+              userId={person.userId}
+              note="bubble"
+              name={person.name}
+              src={person.avatarUrl}
+              size="xl"
+              className="size-16 border-4 border-popover text-xl"
+            />
+          </div>
+        ) : (
+          <Avatar name={person.name} src={person.avatarUrl} size="xl" className="-mt-8 size-16 border-4 border-popover text-xl" />
+        )}
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <p className="max-w-full truncate text-[15px] font-semibold leading-tight tracking-tight">{person.name}</p>
           {person.badge && (
@@ -37,6 +62,11 @@ export function ProfileCard({ person, footer, className }: { person: ProfileCard
         {person.role && <p className="mt-1.5 truncate text-[13px] font-medium">{person.role}</p>}
         {person.bio && <p className="mt-1.5 line-clamp-4 whitespace-pre-line break-words text-[13px] leading-relaxed text-muted-foreground">{person.bio}</p>}
         {person.meta && <p className="mt-2 text-xs text-subtle-foreground">{person.meta}</p>}
+        {person.userId ? (
+          <PersonActivity userId={person.userId} name={person.name} listening={person.listening} />
+        ) : (
+          person.listening && <ListeningRow track={person.listening} className="mt-3" />
+        )}
         {links.length > 0 && (
           <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Links">
             {links.map((l) => (
@@ -135,7 +165,7 @@ export function ProfileHover({
       <PreviewCard.Trigger render={children} delay={350} closeDelay={150} tabIndex={focusable && !off ? 0 : undefined} />
       <PreviewCard.Portal>
         <PreviewCard.Positioner side={side} align={align} sideOffset={8} collisionPadding={12} className="z-50">
-          <PreviewCard.Popup className="popup-motion max-w-(--available-width) rounded-lg border bg-popover text-popover-foreground shadow-pop outline-none">
+          <PreviewCard.Popup className="popup-motion max-h-(--available-height) max-w-(--available-width) overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-pop outline-none">
             <ProfileCard person={person} footer={footer} />
           </PreviewCard.Popup>
         </PreviewCard.Positioner>

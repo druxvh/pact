@@ -1,4 +1,4 @@
-export { Avatar, AvatarGroup, type PresenceStatus } from './Avatar';
+export { Avatar, AvatarGroup, type AvatarProps, type PresenceStatus } from './Avatar';
 export { Badge } from './Badge';
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant, buttonClass } from './Button';
 export { Card, CardDescription, CardTitle } from './Card';

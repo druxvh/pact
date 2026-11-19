@@ -15,7 +15,7 @@
   } catch (e) {
     el.classList.add('dark');
   }
-  // Appearance (accent / font / corner roundness / colour wallpaper), cached by src/lib/appearance/apply.ts. Applied here, before first
+  // Appearance (style / accent / font / corner roundness / colour wallpaper), cached by src/lib/appearance/apply.ts. Applied here, before first
   // paint, so there is no flash of the default look. Keep the key in sync with BOOT_KEY.
   try {
     var boot = JSON.parse(localStorage.getItem('pact-appearance-boot') || 'null');
@@ -25,6 +25,10 @@
       style.textContent = (boot.fonts || '') + (boot.css || '');
       document.head.appendChild(style);
       if (boot.mode) el.dataset.wallpaper = boot.mode;
+      // The theme style switches on its CSS layer (html[data-style='…'] in src/styles).
+      // (A style that was renamed — Stoic → Ultramarine, Terminal → Dusk — keeps its place; the app then re-applies the successor's own bundle.)
+      var renamed = { stoic: 'ultramarine', terminal: 'dusk' };
+      if (boot.style) el.dataset.style = Object.prototype.hasOwnProperty.call(renamed, boot.style) ? renamed[boot.style] : boot.style;
       // The tab icon follows the accent too (src/lib/appearance/favicon.ts).
       if (boot.icon) {
         var link = document.querySelector('link[rel~="icon"]');

@@ -12,6 +12,7 @@
  * here: the `tabs` API (find / open / reload a YouTube tab, deliver messages to content scripts).
  */
 import { browser } from 'wxt/browser';
+import type { NowPlayingHostCommand } from '@/features/nowplaying/protocol.ts';
 import type { PartyHost } from './host.ts';
 import type { AppStatus, BackgroundToContent, HostCommand, OpenResult } from './protocol.ts';
 import { cleanName, cleanRoom, parseAppMessage, parseContentMessage } from './sanitize.ts';
@@ -27,8 +28,14 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type SendOptions = { /** false = don't start a host just for this (it would have nothing to say). */ create?: boolean };
 
+/**
+ * The host is the one long-lived page that holds the Supabase session, so it also carries "Now playing"'s publisher
+ * (src/features/nowplaying): that feature talks to it through this same bridge with its own `nowplaying-host:*` commands.
+ */
+export type AnyHostCommand = HostCommand | NowPlayingHostCommand;
+
 export type HostBridge = {
-  send<T = unknown>(cmd: HostCommand, options?: SendOptions): Promise<T | undefined>;
+  send<T = unknown>(cmd: AnyHostCommand, options?: SendOptions): Promise<T | undefined>;
   /** Stop the host (it has been idle). */
   close(): Promise<void>;
 };
@@ -71,7 +78,7 @@ function offscreenBridge(offscreen: OffscreenApi | undefined): HostBridge {
             url: HOST_PATH,
             reasons: ['LOCAL_STORAGE'],
             justification:
-              'Holds the watch-party connection. It needs the signed-in session, which is kept in this extension’s localStorage (not available to the service worker), and must stay alive while a party is running.',
+              'Holds the watch-party connection and publishes the optional “now playing” track. Both need the signed-in session, which is kept in this extension’s localStorage (not available to the service worker), and must stay alive while a party or a shared track is running.',
           });
         } catch (err) {
           // Another call created it a moment ago — fine; anything else is a real failure.
@@ -90,7 +97,7 @@ function offscreenBridge(offscreen: OffscreenApi | undefined): HostBridge {
   };
 
   return {
-    async send<T>(cmd: HostCommand, { create = true }: SendOptions = {}) {
+    async send<T>(cmd: AnyHostCommand, { create = true }: SendOptions = {}) {
       for (let attempt = 0; attempt < 2; attempt++) {
         if (!known) {
           if (!(create ? await ensure() : await exists())) {
@@ -126,8 +133,12 @@ function inProcessBridge(deliver: (tabId: number, msg: BackgroundToContent) => v
     return host;
   };
   return {
-    async send<T>(cmd: HostCommand) {
-      return (await get()).handle(cmd) as T | undefined;
+    async send<T>(cmd: AnyHostCommand) {
+      if (cmd.type.startsWith('nowplaying-host:')) {
+        const { pagePublisher } = await import('@/features/nowplaying/publisher-page.ts');
+        return (await pagePublisher().handle(cmd as NowPlayingHostCommand)) as T | undefined;
+      }
+      return (await get()).handle(cmd as HostCommand) as T | undefined;
     },
     async close() {},
   };
@@ -180,11 +191,15 @@ async function openParty(bridge: HostBridge, rawRoom: string, rawName: string): 
   return { ok: true, reusedTab: false };
 }
 
-export function initVibePartyBackground(): void {
+/** The one bridge to the host page. Decided at build time, so the Supabase client and the host never enter the service worker's bundle on Chromium. */
+export function createHostBridge(): HostBridge {
   const offscreen = (browser as unknown as { offscreen?: OffscreenApi }).offscreen;
+  return import.meta.env.MANIFEST_VERSION === 2 ? inProcessBridge(deliverToTab) : offscreenBridge(offscreen);
+}
+
+/** `keepHost`: something else (a track being shared) still needs the host page, so an idle party must not close it. */
+export function initVibePartyBackground(bridge: HostBridge = createHostBridge(), options: { keepHost?: () => boolean } = {}): void {
   const session = (browser.storage as { session?: typeof browser.storage.local }).session;
-  // Decided at build time, so the Supabase client and the host never enter the service worker's bundle on Chromium.
-  const bridge: HostBridge = import.meta.env.MANIFEST_VERSION === 2 ? inProcessBridge(deliverToTab) : offscreenBridge(offscreen);
   const extensionOrigin = new URL(getUrl('/newtab.html')).origin;
 
   let wanted: boolean | undefined;
@@ -224,6 +239,7 @@ export function initVibePartyBackground(): void {
       if (fromExtension) {
         void bridge.send<AppStatus>({ type: 'vibeparty-host:status' }, { create: false }).then(async (status) => {
           if (status && !status.idle) return;
+          if (options.keepHost?.()) return; // a shared "now playing" track still needs this page
           await setWanted(false);
           await bridge.close();
         });

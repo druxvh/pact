@@ -5,7 +5,8 @@
  *
  * This file is pure data + CSS builders (so it is unit-testable); `fontLoader.ts` resolves the actual file URLs.
  */
-export type FontCategory = 'sans' | 'serif' | 'mono' | 'system';
+/** `display` faces (dot-matrix Doto) are only for big text a theme style opts into — never offered as the interface or code font. */
+export type FontCategory = 'sans' | 'serif' | 'mono' | 'system' | 'display';
 
 export type FontDef = {
   id: string;
@@ -17,9 +18,13 @@ export type FontDef = {
   pkg?: string;
   /** 'variable' fonts ship one file covering every weight; 'static' fonts one file per weight. */
   source?: 'variable' | 'static';
+  /** Which Fontsource variable file: `wght` (weight axis only, the default) or `full` (every axis — Doto's `ROND` roundness needs it). */
+  axes?: 'wght' | 'full';
   weights?: readonly number[];
   /** OpenType features to switch on (Geist's stylistic sets look wrong on other families). */
   features?: string;
+  /** Which generic family to fall back to while it loads, when the category alone would pick the wrong one (a serif display face). */
+  fallback?: 'sans' | 'serif' | 'mono';
   /** Already loaded by globals.css. */
   builtIn?: boolean;
 };
@@ -72,6 +77,7 @@ export const FONTS: readonly FontDef[] = [
   v('lexend', 'Lexend', 'sans'),
   v('bricolage-grotesque', 'Bricolage Grotesque', 'sans'),
   v('instrument-sans', 'Instrument Sans', 'sans'),
+  v('mona-sans', 'Mona Sans', 'sans'),
   { id: 'system', label: 'System UI', category: 'system', family: '' },
   // — serif —
   v('playfair-display', 'Playfair Display', 'serif'),
@@ -85,19 +91,28 @@ export const FONTS: readonly FontDef[] = [
   v('source-code-pro', 'Source Code Pro', 'mono'),
   v('roboto-mono', 'Roboto Mono', 'mono'),
   s('ibm-plex-mono', 'IBM Plex Mono', 'mono', [400, 500, 600]),
+  s('space-mono', 'Space Mono', 'mono', [400, 700]),
   { id: 'system-mono', label: 'System mono', category: 'mono', family: '' },
+  // — display (a theme style's big type: clock digits, page titles) —
+  v('doto', 'Doto', 'display', { axes: 'full' }),
+  // A tall condensed grotesque with a light cut (200–700): Ultramarine's clock, page titles and micro-labels. Display only — at 13px it
+  // is too narrow to read in a paragraph.
+  v('oswald', 'Oswald', 'display', { fallback: 'sans' }),
+  // A soft, warm serif with an optical-size axis (the display cut at clock size, the text cut at 16px) and a SOFT axis the style turns up; "full" ships both.
+  v('fraunces', 'Fraunces', 'display', { axes: 'full', fallback: 'serif' }),
 ];
 
 export const DEFAULT_SANS = 'geist';
 export const DEFAULT_MONO = 'geist-mono';
 
 export const fontById = (id: string): FontDef | undefined => FONTS.find((f) => f.id === id);
-export const interfaceFonts = () => FONTS.filter((f) => f.category !== 'mono');
+export const interfaceFonts = () => FONTS.filter((f) => f.category !== 'mono' && f.category !== 'display');
 export const monoFonts = () => FONTS.filter((f) => f.category === 'mono');
 
 /** The CSS `font-family` value for a font, with fallbacks matched to its category. */
 export function fontStack(font: FontDef): string {
-  const fallback = font.category === 'serif' ? SERIF_FALLBACK : font.category === 'mono' ? MONO_FALLBACK : SANS_FALLBACK;
+  const kind = font.fallback ?? (font.category === 'mono' || font.category === 'display' ? 'mono' : font.category === 'serif' ? 'serif' : 'sans');
+  const fallback = kind === 'serif' ? SERIF_FALLBACK : kind === 'mono' ? MONO_FALLBACK : SANS_FALLBACK;
   return font.family ? `'${font.family}', ${fallback}` : fallback;
 }
 

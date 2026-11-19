@@ -187,7 +187,7 @@ export function SignInGate({ section }: { section: Section }) {
   return (
     <div className="grid h-full min-h-[60vh] place-items-center p-6">
       <div className="w-full max-w-sm space-y-5 text-center">
-        <div className="mx-auto grid size-11 place-items-center rounded-lg bg-brand-soft text-brand-text">
+        <div data-gate-icon className="mx-auto grid size-11 place-items-center rounded-lg bg-brand-soft text-brand-text">
           <Lock className="size-5" />
         </div>
         <div className="space-y-1.5">

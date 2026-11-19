@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 import { CAPTURE_COMMAND_KEYS } from './src/features/capture/defaults';
+import { MUSIC_MATCH_PATTERNS } from './src/features/nowplaying/sources';
 
 // A stable extension ID. Without a `key` Chrome derives the ID from the folder an unpacked extension is loaded from, so it
 // changes between dev / build / another machine — and the sign-in redirect (`https://<id>.chromiumapp.org/`, allow-listed in
@@ -31,10 +32,17 @@ export default defineConfig({
     //  notifications "focus session complete" when pact isn't focused
     //  identity      "Sign in with GitHub / Google" (chrome.identity.launchWebAuthFlow) — no email/profile access is requested
     //  offscreen     VibeParty's live connection lives in a hidden extension page (needs the signed-in session in localStorage and must
-    //                not be killed with the idle service worker). No install warning. Chromium only — Firefox runs it in the background page.
+    //                not be killed with the idle service worker); "Now playing" publishes from the same page. No install warning.
+    //                Chromium only — Firefox runs it in the background page.
+    //  scripting     "Now playing": registers the music-tab content script at RUNTIME, only after the person turns "Detect music in
+    //                this browser" on (scripting.registerContentScripts). No install warning. Chromium only (Firefox MV2 has its own API).
     // (`tabs` and `bookmarks` were requested before but never needed — removed.)
-    permissions: ['storage', 'topSites', 'favicon', 'search', 'alarms', 'notifications', 'identity', 'offscreen'],
+    permissions: ['storage', 'topSites', 'favicon', 'search', 'alarms', 'notifications', 'identity', 'offscreen', 'scripting'],
     // youtube.com: find an open YouTube tab to start a party in (tabs.query by URL) — nothing else needs it.
+    // The music players for "Now playing" (open.spotify.com, music.youtube.com, soundcloud.com, music.apple.com, www.deezer.com,
+    // tidal.com) are OPTIONAL host permissions, not listed here: the `build:manifestGenerated` hook below moves them there (WXT puts
+    // a runtime-registered content script's matches into the required ones). Nothing is asked at install; the browser asks once,
+    // when the person flips the switch in Settings, and they can take it back at chrome://extensions.
     host_permissions: ['https://www.youtube.com/*'],
     chrome_url_overrides: {
       newtab: 'newtab.html',
@@ -56,8 +64,21 @@ export default defineConfig({
     },
   },
   hooks: {
-    // Firefox MV2 has no `_execute_action`; its toolbar button is a `browser_action`.
     'build:manifestGenerated': (wxt, manifest) => {
+      // "Now playing": the content script is registered at runtime, so WXT lists its pages as REQUIRED host permissions. Make them
+      // optional instead — no install warning; the person grants them from Settings. (MV3: `optional_host_permissions`; Firefox MV2
+      // keeps hosts in `permissions`, so there they go to `optional_permissions`, and the Chromium-only `scripting` is dropped.)
+      const music = new Set(MUSIC_MATCH_PATTERNS);
+      const notMusic = (p: string) => !music.has(p);
+      if (manifest.host_permissions) manifest.host_permissions = manifest.host_permissions.filter(notMusic);
+      if (wxt.config.manifestVersion === 3) {
+        manifest.optional_host_permissions = [...MUSIC_MATCH_PATTERNS];
+      } else {
+        manifest.permissions = (manifest.permissions ?? []).filter((p) => notMusic(p) && p !== 'scripting');
+        manifest.optional_permissions = [...MUSIC_MATCH_PATTERNS];
+      }
+
+      // Firefox MV2 has no `_execute_action`; its toolbar button is a `browser_action`.
       if (wxt.config.manifestVersion !== 2 || !manifest.commands?._execute_action) return;
       manifest.commands._execute_browser_action = manifest.commands._execute_action;
       delete manifest.commands._execute_action;

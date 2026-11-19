@@ -2,6 +2,7 @@ import { Info, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { SettingsRow, SettingsSection } from '@/features/settings/ui';
 import { HelpRows } from '@/features/tour/HelpRows';
+import { ArtCredits } from '@/features/ultramarine/ArtCredits';
 import { appVersion } from '@/lib/ext';
 import { useUiStore } from '@/store/useUiStore';
 
@@ -25,6 +26,7 @@ export function AboutSection() {
         </Button>
       </SettingsRow>
       <HelpRows />
+      <SettingsRow label="Image credits" description={<ArtCredits />} className="items-start py-3" />
     </SettingsSection>
   );
 }

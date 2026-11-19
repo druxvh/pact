@@ -1,0 +1,27 @@
+/* ───────────────────────────── Search bar effects ─────────────────────────────
+   The effects themselves are drawn on a canvas (features/home/effects/*, mounted by components/omnibox/OmniFx.tsx); this is only the
+   plumbing. `.omni-fx` wraps the search box at exactly its size; the canvas around it is click-through and sized by the engine. */
+
+.omni-fx {
+  position: relative;
+}
+.omni-fx .fx-canvas {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* ⌘K: a strip along the underside of the field (inside the row, never over the results) */
+.omni-fx-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  pointer-events: none;
+  /* whatever rises from the line fades out before it reaches the text */
+  -webkit-mask-image: linear-gradient(to top, #000 45%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 45%, transparent 100%);
+}
+.omni-fx-line canvas {
+  position: absolute;
+  pointer-events: none;
+}

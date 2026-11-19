@@ -11,6 +11,8 @@
  * reaches the host through supabase-js's own cross-context sync, and token refreshes are coordinated by its lock.
  */
 import { browser } from 'wxt/browser';
+import { parseHostCommand as parseNowPlayingCommand } from '@/features/nowplaying/protocol.ts';
+import { pagePublisher } from '@/features/nowplaying/publisher-page.ts';
 import { supabase } from '@/lib/supabase/client';
 import { PartyHost, type PartyHostDeps } from './host.ts';
 import type { HostEvent } from './protocol.ts';
@@ -81,9 +83,17 @@ export function startHostPage(): PartyHost {
   const host = createPageHost((tabId, msg) => send({ type: 'vibeparty-host:deliver', tabId, msg }));
   host.start();
 
+  // The "Now playing" publisher lives in this page too (it needs the same session and the same long-lived page).
+  const publisher = pagePublisher();
+
   // Only the service worker (or another page of this extension) talks to the host; a content script never reaches it.
   browser.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id || sender.tab) return;
+    const nowPlaying = parseNowPlayingCommand(message);
+    if (nowPlaying) {
+      void publisher.handle(nowPlaying).then(sendResponse, () => sendResponse('error'));
+      return true; // async response
+    }
     const cmd = parseHostCommand(message);
     if (!cmd) return;
     const result = host.handle(cmd);
@@ -91,10 +101,10 @@ export function startHostPage(): PartyHost {
     return;
   });
 
-  // Keep the session fresh while a party runs, whether or not any pact page is open.
+  // Keep the session fresh while a party runs or a track is shared, whether or not any pact page is open.
   void supabase?.auth.startAutoRefresh().catch(() => {});
   setInterval(() => {
-    if (!host.controller.idle) void supabase?.auth.getSession().catch(() => {});
+    if (!host.controller.idle || publisher.active) void supabase?.auth.getSession().catch(() => {});
   }, SESSION_KEEPALIVE_MS);
 
   let idleSince: number | null = null;

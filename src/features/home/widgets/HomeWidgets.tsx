@@ -9,6 +9,7 @@ import { PinnedNotesWidget } from '@/features/home/widgets/PinnedNotesWidget';
 import { QuickNoteWidget } from '@/features/home/widgets/QuickNoteWidget';
 import { QuoteWidget } from '@/features/home/widgets/QuoteWidget';
 import { TodayWidget } from '@/features/home/widgets/TodayWidget';
+import { NowPlayingWidget } from '@/features/nowplaying/NowPlayingWidget';
 import { cn } from '@/lib/cn';
 import { fadeUp } from '@/lib/motion';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
@@ -17,6 +18,7 @@ const REGISTRY: Record<WidgetId, ComponentType> = {
   mainFocus: MainFocusWidget,
   today: TodayWidget,
   focus: FocusWidget,
+  nowPlaying: NowPlayingWidget,
   pinned: PinnedNotesWidget,
   quickNote: QuickNoteWidget,
   quote: QuoteWidget,

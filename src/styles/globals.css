@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/geist/wght.css';
 @import '@fontsource-variable/geist-mono/wght.css';
+@import './omnibox-effects.css';
+@import './stylewall.css';
+@import './dotmatrix.css';
+@import './ultramarine.css';
+@import './dusk.css';
 
 /* Class-based dark mode — the `dark` class lives on <html> (see lib/theme + theme-init.js). */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -548,7 +553,7 @@ html[data-wallpaper='color'] body {
   background-size: cover;
 }
 html[data-wallpaper] .bg-card {
-  background-color: color-mix(in oklab, var(--card) 82%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.15);
-  backdrop-filter: blur(14px) saturate(1.15);
+  background-color: color-mix(in oklab, var(--card) var(--sw-card, 82%), transparent);
+  -webkit-backdrop-filter: blur(var(--sw-blur, 14px)) saturate(1.15);
+  backdrop-filter: blur(var(--sw-blur, 14px)) saturate(1.15);
 }

@@ -107,7 +107,7 @@ export function Onboarding() {
   return (
     // The username is chosen here, once, and then fixed — so this can't be dismissed with Esc or a click outside.
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent size="md" hideClose initialFocus={nameRef}>
+      <DialogContent size="md" hideClose initialFocus={nameRef} data-welcome>
         <DialogHeader>
           <DialogTitle>{step === 0 ? 'Welcome to pact' : 'How do you want to start?'}</DialogTitle>
           <DialogDescription>

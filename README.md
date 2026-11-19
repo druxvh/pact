@@ -11,6 +11,8 @@ Local-first, no accounts, no tracking. Built with WXT, React 19, Tailwind v4, Ba
 | Home, Notes, Kanban, Focus, Tools, Settings | **Real.** Stored on your device (local storage / IndexedDB). Notes also sync to your account when you sign in (below); the rest stays on the device. Back up, preview and restore from Settings → Your data. |
 | Communities | **Real**, Supabase-backed: invite-only groups with channels, moderation and safety tools (below). |
 | VibeParty (watch together) | **Real.** Local parties work between YouTube tabs in one browser; signed-in people can join the same party from anywhere through Supabase Realtime — no server to run. |
+| Now playing | **Real, optional, off by default.** The song playing in a music tab (Spotify, YouTube Music, SoundCloud, Apple Music, Deezer, Tidal) is read in the browser — no Spotify/OAuth — and shown on Home; shared only if you sign in and choose who sees it. Needs `supabase/pending-setup.sql` for sharing. The demo friends in Direct messages have made-up tracks. |
+| Activity | **Real, optional, needs an account.** 24-hour notes (a short line and/or a song), hearts on notes and on the song someone is listening to, public comments under notes, and a small real inbox of likes / comments / replies. Who sees your notes is your setting (default: people in your communities). Needs `supabase/pending-setup.sql`; until it is applied the feature quietly shows nothing. The demo friends in Direct messages are still simulated; activity messages are real. |
 | Chat & friends | **A working UI over a simulated backend.** pact has no server for people yet, so friends are bots that reply, show typing indicators and "accept" requests. All of that lives in one file — `src/store/demoServer.ts` — so swapping in a real realtime backend doesn't touch any view. |
 
 ## Quick start
@@ -67,7 +69,7 @@ Everything below lives in **Settings → Appearance / Home** and is stored on yo
 - **Layouts** — Classic, Minimal, Dashboard, Zen and Focus. Change anything and it becomes *Custom*.
 - **Clock** — digital, compact, analog or none; seconds, date and greeting are independent switches; 12h/24h/auto.
 - **Show or hide** the search box, keyboard hints and shortcuts.
-- **Widgets** (reorderable): *Main focus* (one intention per day, a streak, "Start a focus session"; also for guests), *Today* (overdue / due-today / in-progress tasks — tick them off or add one), *Focus* (minutes today and streak), *Pinned notes*, *Quick note* (saves as a real note), *Quote of the day* (bundled, no network) and *Countdown* to a date you choose. They only read what's already in pact — there's deliberately no weather or news widget, since that would need a network request.
+- **Widgets** (reorderable): *Main focus* (one intention per day, a streak, "Start a focus session"; also for guests), *Today* (overdue / due-today / in-progress tasks — tick them off or add one), *Focus* (minutes today and streak), *Pinned notes*, *Quick note* (saves as a real note), *Quote of the day* (bundled, no network) and *Countdown* to a date you choose, and *Now playing* (the song in a music tab, with a switch to share it; also for guests, on-device — see [Now playing](#now-playing)). They only read what's already in pact — there's deliberately no weather or news widget, since that would need a network request.
 
 ### Your own commands
 
@@ -178,14 +180,40 @@ YouTube tab ──content script──▶ background (thin router) ──▶ off
 - The panel isn't visible in browser fullscreen (the browser only paints the fullscreen element) — theater mode keeps it.
 - Shorts and YouTube Music aren't targeted.
 
+## Now playing
+
+People see what others are listening to, live — from the browser itself, no Spotify API or OAuth (Spotify caps new apps at 5 users).
+
+- **Turn it on:** Settings → Profile → *Detect music in this browser* (or *Turn on* on the Now playing widget). The browser asks once for access to the six music sites (`open.spotify.com`, `music.youtube.com`, `soundcloud.com`, `music.apple.com`, `www.deezer.com`, `tidal.com`). They are **optional** host permissions, so installing pact asks for none of them; the content script is registered at runtime only after you say yes, and removed when you turn it off.
+- **What is read:** the page's own Media Session (`navigator.mediaSession`) — title, artist, album, cover address, playing/paused — plus, where known, the link to the track. Nothing else on the page, never a tab address or title. Chrome lets a content script read it from its isolated world (checked), so no script is injected into the page.
+- **Where it shows:** Home's *Now playing* widget (your track, play/pause, a pause-sharing button), a small equalizer badge on the avatar of anyone who is listening, and a *Listening now* row on profile cards in Communities and Direct messages.
+- **Sharing:** *Share with* = Nobody (default) / My communities / Everyone, an account setting (`profiles.now_playing_visibility`). Only with sharing on is anything sent: the track goes to `public.now_playing` (one row per person) when it changes and every ~30 s while it plays; pausing, stopping, closing the tab, turning sharing off or signing out removes it, and *Nobody* deletes it in the database. Others only ever see a row updated in the last 2 minutes, and a viewer also treats an old row as "not listening" itself.
+- **Plumbing:** music tab → content script → service worker (`features/nowplaying/hub.ts` picks the most recently playing tab, debounces, heartbeats via `chrome.alarms`) → the same hidden host page VibeParty uses (Chromium: offscreen document; Firefox: the background page), which holds the Supabase session → `public.now_playing`. Viewers look up and subscribe **only to the people on screen** (`now_playing_for()` + Realtime filtered by id).
+- **Hostile input:** another person's track is text only (never HTML), control/invisible/bidi characters stripped, lengths capped, and cover/link addresses must be https on the service's own hosts — in the database (check constraints) and again in the client (`sources.ts`) before they reach an `<img>` or a link. Without that, a chosen cover address would let someone log the IP of everyone who looks at their card.
+- **Not verified:** the Media Session metadata of the six live players (needs logged-in accounts), and the browser's permission prompt itself. See the checklist below.
+
+## Activity
+
+Short notes that last a day, hearts, comments and replies — between people who can see each other. The UI is `src/features/activity/` (the contract is `types.ts` + `api.ts`; `supabaseApi.ts` is the real backend, `memoryApi.ts` a stand-in for tests and the dev harness); every rule lives in the database: `supabase/migrations/20261120000000_activity.sql`.
+
+- **Notes:** one per person (`public.status_notes`): up to 60 characters of text and/or one song you attach. Posting again replaces it with a new id and a fresh 24 hours; the server stamps `created_at` / `expires_at` (a client can't), and an expired note is invisible at once (policies compare with the server's clock) and deleted by the next note anyone posts — taking its comments and hearts with it. At most 10 postings an hour.
+- **Who sees them:** `profiles.notes_visibility` = Nobody / My communities (default) / Everyone, enforced by RLS exactly like Now playing's setting. *Nobody* deletes your note in the database. Hearts on a **song** follow the existing `now_playing_visibility` instead (the song has to be one the person can see, and playing now).
+- **Hearts** (`public.activity_likes`): one per person per note or song, never on yourself, only on things you may see, at most 60 an hour. Only the person who hearted and the owner can read a heart row; everyone else gets **counts** from `activity_engagement()` / `activity_feed()` (no names). The snapshot the owner is told about is built by the database — from the note, or from the song the owner is playing right now — so it can't differ from what was hearted, whatever the client sent.
+- **Comments** (`public.activity_comments`): public to whoever can see the note, 200 characters, deleted by their author or the note's owner and with the note; at most 30 an hour.
+- **Activity messages** (`public.activity_messages`): the real inbox. A `like` or `comment` message exists only because a trigger wrote it for a real like / comment (a client can't forge one, can't name the sender, can't touch the text); a like notifies once, however often it is taken back and given again. A client may write only a `reply` (500 characters, at most 30 an hour) to someone whose note or song it can see, or who wrote first. Only the recipient can mark one read (the server stamps when) or delete it.
+- **Hostile input:** text is plain (control / invisible / bidi characters refused), snapshots and songs must carry https addresses on the music service's own hosts (the same allow-list as Now playing), and everything that comes back is cleaned again in the client (`supabaseRows.ts`) and only ever rendered as text.
+- **Live updates:** `status_notes`, `activity_messages` and `activity_likes` are in the Realtime publication (RLS decides who is sent what); engagement counts and comments are simply refetched.
+- **Tests:** `bun supabase/tests/activity.mjs` (about 100 checks as different users against the real migration: the visibility matrix, expiry by the server's clock, forged messages, allow-lists, rate limits, isolation, cleanup, idempotency) and `src/features/activity/supabaseApi.test.ts` (requests, cleaning of hostile rows, error mapping, the Realtime lifecycle, against a fake client).
+- **Not verified:** real Realtime delivery (publication membership and filters are set up but only a live project proves them), and the two-account experience end to end. See the checklist below.
+
 ## Architecture
 
 ```
 src/
-  entrypoints/    newtab (the app), capture (toolbar popup), privacy (policy page), party-host (offscreen VibeParty host), background (alarms, omnibox, router), vibeparty.content
+  entrypoints/    newtab (the app), capture (toolbar popup), privacy (policy page), party-host (offscreen host: VibeParty + Now playing publisher), background (alarms, omnibox, router), vibeparty.content, nowplaying.content (registered at runtime)
   app/            shell: sidebar, top bar, command palette, onboarding, error boundaries, routes
   components/ui/  design system on Base UI: Button, Dialog, Select, Segmented, Tooltip, …
-  features/       home · notes · kanban · timer · tools · discover · chat · party · camera · commands · settings   (one folder each)
+  features/       home · notes · kanban · timer · tools · discover · chat · party · camera · commands · nowplaying · activity · settings   (one folder each)
   store/          cross-cutting Zustand stores + demoServer.ts (the simulated backend)
   lib/            small, tested helpers: hotkeys, fuzzy search, url, motion presets, extension facade, appearance/ (accent, fonts, wallpaper, favicon), omnibox/ (answer engine, bangs, ranking), backup/ (snapshots, import preview), supabase/ (client, auth, profile, avatar)
   styles/         Tailwind v4 theme (OKLCH tokens, light/dark) in globals.css
@@ -198,7 +226,7 @@ Notable decisions: hash routing with lazy-loaded pages (prefetched when idle); e
 
 ## Data, privacy and permissions
 
-news feeds go through the `feeds` Edge Function; pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes, your profile (including a photo you upload), communities and live VibeParty traffic go to your Supabase project; link previews and GIF search go through its Edge Functions. On youtube.com, the video's own watch page (read for its title) and thumbnails for the queue are fetched. There is no analytics or advertising. The full policy is [PRIVACY.md](PRIVACY.md) (also in Settings → About).
+news feeds go through the `feeds` Edge Function; pact makes **no network requests of its own as a guest** (fonts and icons are bundled; site icons come from the browser's local favicon cache). Once you sign in, notes, your profile (including a photo you upload), communities, live VibeParty traffic and — if you use Activity — your 24-hour notes, hearts, comments and replies go to your Supabase project; link previews and GIF search go through its Edge Functions. On youtube.com, the video's own watch page (read for its title) and thumbnails for the queue are fetched. There is no analytics or advertising. The full policy is [PRIVACY.md](PRIVACY.md) (also in Settings → About).
 
 | Permission | Why |
 | --- | --- |
@@ -208,14 +236,16 @@ news feeds go through the `feeds` Edge Function; pact makes **no network request
 | `favicon` | Private, local site icons (Chromium-only; Firefox falls back to letter tiles) |
 | `search` | Search with *your* default search engine |
 | `alarms`, `notifications` | The focus timer fires even if every pact tab is closed |
-| `offscreen` | Keeps a live VibeParty connected while no pact tab is open (a hidden page, only while a party runs; no install warning) |
+| `offscreen` | Keeps a live VibeParty connected while no pact tab is open — and publishes your Now playing track if you share it (a hidden page, only while one of them runs; no install warning) |
+| `scripting` | Now playing registers its music-tab script at runtime, only after you turn it on (no install warning; Chromium) |
 | host `www.youtube.com` | The VibeParty panel, and finding an open YouTube tab to start a party in |
+| *optional* hosts `open.spotify.com`, `music.youtube.com`, `soundcloud.com`, `music.apple.com`, `www.deezer.com`, `tidal.com` | Now playing, only after you turn it on in Settings: read the title/artist/cover of the track playing there. Not asked at install |
 
 A wallpaper image is stored in this browser's IndexedDB and **is** part of a Settings backup (capped at 3 MB, shrunk if larger).
 
 ## Quality
 
-- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (1,100+ tests) plus 100+ database-rule checks (`bun run test:db`): answer parsers and the omnibox engine, stores and their migrations, the notes sync model (two devices against a fake server), backups, PDF engine/worker protocol/zip writer, communities, and for VibeParty the room rules, hub election, transport against a fake Realtime server, sync engine (against a fake `<video>`) and overlay.
+- **TypeScript 7** strict (`noUncheckedIndexedAccess`), **Biome 2** for lint + format, **Vitest 5** (1,100+ tests) plus 250+ database-rule checks (`bun run test:db`): answer parsers and the omnibox engine, stores and their migrations, the notes sync model (two devices against a fake server), backups, PDF engine/worker protocol/zip writer, communities, Now playing, Activity, and for VibeParty the room rules, hub election, transport against a fake Realtime server, sync engine (against a fake `<video>`) and overlay.
 - Accessibility: landmarks and real roles, labelled controls, focus management in dialogs, `prefers-reduced-motion`, contrast verified numerically for the brand colour — including every accent you can pick.
 
 ## Browsers
@@ -228,6 +258,8 @@ A wallpaper image is stored in this browser's IndexedDB and **is** part of a Set
 
 - [ ] Apply the pending migrations (see `supabase/pending-setup.sql`), set the `KLIPY_API_KEY` secret, turn Realtime "Allow public access" **off**, and add the pinned redirect URL to Supabase.
 - [ ] Run a two-browser VibeParty smoke test on real YouTube (live party through Realtime, Watch-together button, invite link).
+- [ ] Now playing against the real services: play something on each of the six players and check the title/artist/cover show up on Home (the per-player track-link selectors in `features/nowplaying/reader.ts` are best effort), then share with a second account and check the badge, the profile card row and the deletion on pause.
+- [ ] Activity with two real accounts: post a note, heart it and comment from the other account, and check the owner's inbox gets one message each (and that a second heart after taking it back doesn't add another); change *who can see my notes* and check a stranger loses it at once; check live delivery through Realtime (new message, note appearing, heart count) — the publication and filters are untested against a real project.
 - [ ] Decide what "friends" means for real: the Chat page needs a backend (auth, storage, realtime). `src/store/demoServer.ts` is the seam.
 - [ ] Store listing: screenshots, a public URL for `PRIVACY.md` (finish its `TODO(owner)` placeholders first: date, legal name, contact), permission justifications (table above).
 - [ ] Add an end-to-end test that loads the built extension (Playwright + a persistent Chromium context).

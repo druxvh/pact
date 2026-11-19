@@ -17,7 +17,7 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <div className={cn('flex flex-wrap items-end justify-between gap-3', className)}>
+    <div data-page-header className={cn('flex flex-wrap items-end justify-between gap-3', className)}>
       <div className="flex min-w-0 items-center gap-3">
         {Icon && (
           <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-text">

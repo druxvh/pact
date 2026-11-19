@@ -1,0 +1,557 @@
+/* ───────────────────────────── Style: Dusk ─────────────────────────────
+   Warm, quiet and a little luxurious: the last light of a sunset. Dark ("dusk") is a plum-black with rose and gold; light
+   ("dawn") is cream paper with the same rose and a deeper gold. Soft, generously rounded surfaces on 1px plum hairlines, a
+   faint warm edge on the top of every card, a fine film grain over the page, a serif (Fraunces, set soft) for the clock and page
+   titles, pill buttons and a dithered sunset painted behind the app (features/stylewall — the engine owns the canvas; this file
+   owns how the surfaces sit over it). Restraint is the point: one accent, no neon, no glow, no gradient washes.
+
+   Keyed on <html data-style="dusk"> (written by lib/appearance/apply.ts and public/theme-init.js); nothing here applies to the
+   other styles. The bundle (rose #DE5A84, Instrument Sans + Geist Mono, large roundness) is applied by the appearance store, so
+   the accent still flows through the normal pipeline: `--brand-text` (never the raw `--brand`) is what text uses, and the pipeline
+   checks it against THIS style's surfaces (themeStyle.ts `surfaces`). Rename the style in lib/appearance/themeStyle.ts.
+
+   Specificity: the accent pipeline writes `html:root{…}` / `html.dark{…}` (0,1,1) after this file; anything here that must beat
+   it uses `html[data-style='dusk']:root` / `html.dark[data-style='dusk']` (0,2,1). Unlayered CSS also beats Tailwind's
+   `@layer utilities`, which is how the rules below can override a utility class.
+
+   Motion: every animation here (the clock's breathing colon, the greeting glyph, the toggle spring) runs only under
+   `prefers-reduced-motion: no-preference` AND while the in-app Animations setting isn't "Reduced" (AppShell writes it to
+   <html data-motion>). Performance: the grain is ONE fixed, pointer-events:none layer painted once from a tiled SVG; there is no
+   page-wide filter and no backdrop-filter anywhere in this style (the wallpaper animates, so a blur behind a panel would be
+   recomputed on every frame). */
+
+/* ───── Palette: plum and rose (dark), cream and rose (light) ───── */
+html[data-style='dusk']:root {
+  --background: #faf4ed;
+  --foreground: #46415f;
+  --card: #fffaf3;
+  --card-foreground: #46415f;
+  --popover: #fffdf9;
+  --popover-foreground: #46415f;
+  --muted: #f2e9e1;
+  --muted-foreground: #5c5877;
+  --subtle-foreground: #635e7b;
+  --secondary: #ebe1d8;
+  --secondary-foreground: #3b3754;
+  --accent: rgb(110 80 130 / 7%);
+  --accent-foreground: #46415f;
+  --border: rgb(110 80 120 / 15%);
+  --input: rgb(90 62 104 / 62%);
+  --scrollbar-thumb: rgb(110 80 120 / 28%);
+
+  /* Focus is gold, whatever the accent: a second colour that is never confused with "selected" or "primary". */
+  --ring: #a8680f;
+
+  /* a quieter tint than the stock 12 % / 15 %: the accent's text on it has to stay ≥ 4.5:1 on every surface, whatever accent is picked */
+  --brand-soft: color-mix(in oklab, var(--brand) 5%, transparent);
+
+  /* Rosé Pine's other leaves, as dawn wears them. Fills and glyphs only — text uses the *-text tokens below. */
+  --du-rose: #c9506f;
+  --du-gold: #d89a3a;
+  --du-iris: #7b6a9e;
+  --du-foam: #4c9aa6;
+  --du-pine: #286983;
+  --du-sel: rgb(222 90 132 / 26%);
+  /* the warm edge along the top of a card, and the plum shadow under floating things */
+  --du-edge: rgb(255 255 255 / 85%);
+  --du-shade: 95 60 105;
+  --du-veil: rgb(105 66 92 / 30%);
+  --du-grain: rgb(70 50 90);
+  --du-grain-opacity: 0.05;
+  /* the page backdrop while no scene is painted (scene off in Settings, or a wallpaper you chose): a faint horizon */
+  --du-horizon: rgb(216 154 58 / 13%);
+  --du-sky: rgb(222 90 132 / 8%);
+
+  --destructive: #c4424f;
+  --destructive-foreground: #fff7f4;
+  --destructive-text: #a3333f;
+  --destructive-soft: rgb(196 66 79 / 11%);
+  --success: #3d9a7b;
+  --success-text: #1f6b57;
+  --success-soft: rgb(61 154 123 / 13%);
+  --warning: #d9992f;
+  --warning-text: #86550f;
+  --warning-soft: rgb(217 153 47 / 16%);
+
+  /* Soft, plum-tinted shadows with a white lip on top. Nothing is blurred more than 40px and nothing glows. */
+  --elev-1: 0 1px 0 var(--du-edge) inset, 0 1px 2px rgb(var(--du-shade) / 9%);
+  --elev-2: 0 1px 0 var(--du-edge) inset, 0 8px 20px -8px rgb(var(--du-shade) / 20%), 0 1px 2px rgb(var(--du-shade) / 7%);
+  --elev-3: 0 1px 0 var(--du-edge) inset, 0 18px 40px -14px rgb(var(--du-shade) / 28%), 0 2px 6px rgb(var(--du-shade) / 7%);
+  --elev-pop: 0 1px 0 var(--du-edge) inset, 0 26px 60px -18px rgb(var(--du-shade) / 36%), 0 0 0 1px rgb(var(--du-shade) / 9%);
+}
+
+html.dark[data-style='dusk'] {
+  --background: #191724;
+  --foreground: #e6e2f4;
+  --card: #1f1d2e;
+  --card-foreground: #e6e2f4;
+  --popover: #26233a;
+  --popover-foreground: #e6e2f4;
+  --muted: #2a273f;
+  --muted-foreground: #aca8c6;
+  --subtle-foreground: #a29ebd;
+  --secondary: #322e49;
+  --secondary-foreground: #e6e2f4;
+  --accent: rgb(224 222 244 / 7%);
+  --accent-foreground: #e6e2f4;
+  --border: rgb(214 184 232 / 12%);
+  --input: rgb(176 170 210 / 56%);
+  --scrollbar-thumb: rgb(214 184 232 / 24%);
+
+  --ring: #f6c177;
+
+  --brand-soft: color-mix(in oklab, var(--brand) 6%, transparent);
+
+  --du-rose: #eb6f92;
+  --du-gold: #f6c177;
+  --du-iris: #c4a7e7;
+  --du-foam: #9ccfd8;
+  --du-pine: #31748f;
+  --du-sel: rgb(235 111 146 / 34%);
+  --du-edge: rgb(255 236 220 / 6%);
+  --du-shade: 6 4 14;
+  --du-veil: rgb(6 4 14 / 62%);
+  --du-grain: rgb(255 240 250);
+  --du-grain-opacity: 0.035;
+  --du-horizon: rgb(246 193 119 / 9%);
+  --du-sky: rgb(235 111 146 / 7%);
+
+  --destructive: #c43f4c;
+  --destructive-foreground: #fff4f4;
+  --destructive-text: #f28b82;
+  --destructive-soft: rgb(196 63 76 / 20%);
+  --success: #4fb594;
+  --success-text: #8fd3b8;
+  --success-soft: rgb(79 181 148 / 15%);
+  --warning: #f6c177;
+  --warning-text: #f6c177;
+  --warning-soft: rgb(246 193 119 / 15%);
+
+  --elev-1: 0 1px 0 var(--du-edge) inset, 0 1px 2px rgb(var(--du-shade) / 45%);
+  --elev-2: 0 1px 0 var(--du-edge) inset, 0 8px 20px -8px rgb(var(--du-shade) / 60%);
+  --elev-3: 0 1px 0 var(--du-edge) inset, 0 18px 40px -12px rgb(var(--du-shade) / 70%);
+  --elev-pop: 0 1px 0 var(--du-edge) inset, 0 28px 64px -16px rgb(var(--du-shade) / 80%), 0 0 0 1px rgb(214 184 232 / 8%);
+}
+
+/* ───── Page: film grain over everything (one fixed layer, painted once), a horizon glow if no scene is behind ───── */
+html[data-style='dusk']::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  /* the noise is an alpha mask, so one tile serves both themes: plum specks on cream, warm-white specks on plum */
+  background: var(--du-grain);
+  opacity: var(--du-grain-opacity);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  -webkit-mask-size: 200px 200px;
+  mask-size: 200px 200px;
+}
+html[data-style='dusk'] .bg-ambient {
+  background-image:
+    radial-gradient(ellipse 90% 45% at 50% 108%, var(--du-horizon), transparent 70%),
+    radial-gradient(ellipse 70% 40% at 50% -8%, var(--du-sky), transparent 72%);
+}
+html[data-style='dusk'] .bg-dots,
+html[data-style='dusk'] [data-glow] {
+  display: none;
+}
+
+/* ───── Selection: rose ───── */
+html[data-style='dusk'] ::selection {
+  background: var(--du-sel);
+}
+
+/* ───── Type: Instrument Sans for the interface; Fraunces (soft, optical-size aware) for the clock, page titles and dialog titles ───── */
+html[data-style='dusk'] {
+  --du-display: var(--pact-font-display, ui-serif, Georgia, 'Times New Roman', serif);
+}
+html[data-style='dusk'] body {
+  letter-spacing: 0.002em;
+}
+
+/* Hooks: [data-display] (Home clock, timer digits). Lining, tabular figures; the optical-size axis follows the font size on its own. */
+html[data-style='dusk'] [data-display] {
+  font-family: var(--du-display);
+  font-weight: 330;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+  font-feature-settings: 'lnum', 'tnum';
+}
+html[data-style='dusk'] [data-display] [data-colon] {
+  width: 0.28em;
+  padding-bottom: 0.06em;
+}
+/* the seconds and the AM/PM tag beside the clock stay quiet */
+html[data-style='dusk'] [data-display] .uppercase {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
+  letter-spacing: 0.14em;
+}
+
+/* Page titles and dialog titles: the same serif at reading size */
+html[data-style='dusk'] [data-page-header] h1,
+html[data-style='dusk'] [role='dialog'] h2:first-of-type {
+  font-family: var(--du-display);
+  font-weight: 420;
+  letter-spacing: -0.018em;
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+}
+html[data-style='dusk'] [data-page-header] h1 {
+  font-size: 1.65rem;
+  line-height: 1.12;
+}
+html[data-style='dusk'] [role='dialog'] h2:first-of-type {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+/* Display numerals on the Home widgets (Focus today, countdown) and the quote of the day, the Discover hero headline and the note title */
+html[data-style='dusk'] [class*='text-4xl'].font-light,
+html[data-style='dusk'] input[class*='text-2xl'][class*='font-semibold'] {
+  font-family: var(--du-display);
+  font-weight: 360;
+  letter-spacing: -0.02em;
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+  font-feature-settings: 'lnum', 'tnum';
+}
+html[data-style='dusk'] figure > blockquote,
+html[data-style='dusk'] h2.text-balance {
+  font-family: var(--du-display);
+  font-weight: 400;
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+}
+html[data-style='dusk'] figure > blockquote {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+html[data-style='dusk'] h2.text-balance {
+  letter-spacing: -0.02em;
+}
+
+/* ───── The greeting: a small sun or moon before it (components/…/TimeGlyph, drawn only by this style) ───── */
+html[data-style='dusk'] [data-glyph] {
+  flex-shrink: 0;
+}
+html[data-style='dusk'] [data-glyph='sunrise'],
+html[data-style='dusk'] [data-glyph='sun'] {
+  color: var(--du-gold);
+}
+html[data-style='dusk'] [data-glyph='sunset'] {
+  color: var(--du-rose);
+}
+html[data-style='dusk'] [data-glyph='moon'] {
+  color: var(--du-iris);
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* the sun turns once in a minute, the horizon glyphs bob with the tide of the day, the moon rocks; all very slow */
+  html[data-style='dusk']:not([data-motion='reduced']) [data-glyph='sun'] svg {
+    animation: du-turn 60s linear infinite;
+  }
+  html[data-style='dusk']:not([data-motion='reduced']) :is([data-glyph='sunrise'], [data-glyph='sunset']) svg {
+    animation: du-bob 6s ease-in-out infinite;
+  }
+  html[data-style='dusk']:not([data-motion='reduced']) [data-glyph='moon'] svg {
+    animation: du-rock 8s ease-in-out infinite;
+  }
+  /* the clock's colon breathes (the stock one pulses at 2s) */
+  html[data-style='dusk']:not([data-motion='reduced']) [data-display] .animate-pulse {
+    animation: du-breathe 5.5s ease-in-out infinite;
+  }
+}
+html[data-style='dusk'][data-motion='reduced'] [data-display] .animate-pulse {
+  animation: none;
+}
+@keyframes du-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes du-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+@keyframes du-rock {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+@keyframes du-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ───── Surfaces: a faint warm lip along the top of a card, hairlines in plum ───── */
+html[data-style='dusk'] .bg-card:not([class*='shadow']) {
+  box-shadow: var(--elev-1);
+}
+
+/* ───── The sunset behind the app (features/stylewall paints it; this is how the page sits on it) ─────
+   Home is the hero: the sky shows, a little calmer than the raw scene. Every other page is work, so the scene steps back to a ghost
+   of itself (a heavy scrim) and the cards over it only need a light tint. No backdrop-filter anywhere: the scene animates, so a blur
+   behind a panel would be recomputed every frame. */
+html[data-style='dusk'] {
+  --sw-card: 86%;
+  --sw-blur: 0px;
+  --sw-scrim: 0.3;
+  --sw-scrim-edge: 0.18;
+}
+html.dark[data-style='dusk'] {
+  --sw-card: 82%;
+}
+html[data-style='dusk']:has(main:not([data-section='home'])) {
+  --sw-scrim: 0.82;
+  --sw-scrim-edge: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* the scene steps back (or forward) as you move between Home and the other pages */
+  html[data-style='dusk']:not([data-motion='reduced']) .stylewall-scrim {
+    transition: opacity 600ms var(--ease-out-quart);
+  }
+}
+html[data-style='dusk'][data-wallpaper] .bg-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Words that sit straight on the sky (no card behind them) get a plate, so the picture never costs them legibility: the greeting and
+   the hint line become soft pills of the page colour, the shortcut labels too; the clock itself is set firmer and gets a whisper of shade. */
+html[data-style='dusk'][data-wallpaper='style'] [data-display]:not([role='timer']) {
+  font-weight: 380;
+  text-shadow: 0 1px 22px rgb(var(--du-shade) / 38%);
+}
+html[data-style='dusk'][data-wallpaper='style'] :is([data-greeting], [data-hint]) {
+  display: table;
+  margin-inline: auto;
+  padding: 3px 14px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--background) 62%, transparent);
+}
+html[data-style='dusk'][data-wallpaper='style'] .tile-label {
+  width: auto;
+  max-width: 100%;
+  padding: 1px 9px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--background) 66%, transparent);
+  color: var(--foreground);
+}
+/* an empty state is a small card of its own, not a dashed outline on whatever is behind it; any other dashed drop zone or
+   placeholder gets a faint card tint while the scene is behind it */
+html[data-style='dusk'] [data-empty] {
+  border-style: solid;
+  background: color-mix(in oklab, var(--card) 72%, transparent);
+}
+html[data-style='dusk'][data-wallpaper='style'] .border-dashed {
+  background-color: color-mix(in oklab, var(--card) 58%, transparent);
+}
+
+/* no frosted glass anywhere: what floats over the sunset is the plain page colour, a little see-through */
+html[data-style='dusk'] [class*='backdrop-blur'],
+html[data-style='dusk'] .surface-glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-style='dusk'] .surface-glass {
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+}
+/* dialogs and menus dim the page with plum, not black */
+html[data-style='dusk'] [class*='bg-black/'][class*='fixed'] {
+  background: var(--du-veil);
+}
+
+/* the product tour dims the page with the same plum, and its spotlight keeps the accent ring */
+html[data-style='dusk'] [data-tour-overlay] > .bg-black\/60 {
+  background: var(--du-veil);
+}
+html[data-style='dusk'] [data-tour-overlay] > [style*='9999px'] {
+  box-shadow:
+    0 0 0 2px var(--brand),
+    0 0 0 9999px var(--du-veil) !important;
+}
+
+/* the sign-in gate (a page that needs an account) is a small card of its own, and its title is set in the serif */
+html[data-style='dusk'] div:has(> [data-gate-icon]) {
+  padding: 1.75rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--card) 88%, transparent);
+  box-shadow: var(--elev-2);
+}
+html[data-style='dusk'] [data-gate-icon] + div > h1 {
+  font-family: var(--du-display);
+  font-weight: 420;
+  font-size: 1.4rem;
+  line-height: 1.2;
+  letter-spacing: -0.018em;
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+}
+
+/* ───── Controls ───── */
+/* Buttons are pills; icon buttons are discs. The "link" button stays a text link. */
+html[data-style='dusk'] [data-variant]:not([data-variant='link']) {
+  border-radius: 9999px;
+}
+html[data-style='dusk'] [data-variant='primary'] {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 24%), 0 1px 2px rgb(var(--du-shade) / 30%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-style='dusk']:not([data-motion='reduced']) [data-variant] {
+    transition-timing-function: var(--ease-spring);
+    transition-duration: 220ms;
+  }
+  /* a soft lift under the pointer — transform only */
+  html[data-style='dusk']:not([data-motion='reduced']) :is([data-variant='primary'], [data-variant='secondary'], [data-variant='outline'], [data-variant='soft']):hover {
+    translate: 0 -1px;
+  }
+}
+
+/* the timer's big play/pause button is a disc, with a soft contact shadow instead of the stock glow */
+html[data-style='dusk'] button.bg-brand[class*='size-[72px]'] {
+  border-radius: 9999px;
+}
+html[data-style='dusk'] .shadow-brand {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 26%),
+    0 10px 22px -12px color-mix(in oklab, var(--brand) 70%, transparent);
+}
+
+/* Segmented controls: a pill track with a pill thumb */
+html[data-style='dusk'] [role='tablist'].rounded-lg,
+html[data-style='dusk'] [role='tablist'].rounded-lg > [role='tab'],
+html[data-style='dusk'] [role='tablist'].rounded-lg > span[class*='rounded-md'] {
+  border-radius: 9999px;
+}
+
+/* Switches: a soft track, and a thumb that stretches under the finger and springs home */
+html[data-style='dusk'] [role='switch'] {
+  background: color-mix(in oklab, var(--input) 55%, transparent);
+}
+html[data-style='dusk'] [role='switch'][data-checked] {
+  background: var(--brand);
+}
+html[data-style='dusk'] [role='switch'] > span {
+  box-shadow: 0 1px 3px rgb(var(--du-shade) / 35%);
+}
+
+/* Checkboxes (the note preview's task lists): a rounded square that fills with the accent and draws its tick */
+html[data-style='dusk'] input[type='checkbox']:not(.sr-only) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  border: 1.5px solid var(--input);
+  border-radius: 0.38em;
+  background: transparent;
+}
+html[data-style='dusk'] input[type='checkbox']:not(.sr-only)::before {
+  content: '';
+  width: 0.62em;
+  height: 0.62em;
+  background: var(--brand-foreground);
+  clip-path: polygon(14% 52%, 0 66%, 38% 100%, 100% 20%, 86% 6%, 38% 72%);
+  transform: scale(0);
+}
+html[data-style='dusk'] input[type='checkbox']:not(.sr-only):checked {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+html[data-style='dusk'] input[type='checkbox']:not(.sr-only):checked::before {
+  transform: scale(1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* the buttery part: only when motion is welcome */
+  html[data-style='dusk']:not([data-motion='reduced']) [role='switch'] > span {
+    transition-property: transform, width;
+    transition-duration: 320ms, 200ms;
+    transition-timing-function: var(--ease-spring), var(--ease-out-quart);
+  }
+  html[data-style='dusk']:not([data-motion='reduced']) [role='switch']:active:not([data-disabled]) > span {
+    width: 1.15rem;
+  }
+  html[data-style='dusk']:not([data-motion='reduced']) [role='switch'][data-checked]:active:not([data-disabled]) > span {
+    transform: translateX(0.85rem);
+  }
+  html[data-style='dusk']:not([data-motion='reduced']) input[type='checkbox']:not(.sr-only) {
+    transition:
+      background-color 200ms var(--ease-out-quart),
+      border-color 200ms var(--ease-out-quart),
+      transform 260ms var(--ease-spring);
+  }
+  html[data-style='dusk']:not([data-motion='reduced']) input[type='checkbox']:not(.sr-only)::before {
+    transition: transform 240ms var(--ease-spring);
+  }
+  html[data-style='dusk']:not([data-motion='reduced']) input[type='checkbox']:not(.sr-only):active {
+    transform: scale(0.9);
+  }
+}
+
+/* Fields: placeholders in the quiet ink (the gold focus ring comes from --ring) */
+html[data-style='dusk'] :is(input, textarea):not([type='checkbox'], [type='radio'], [type='range'])::placeholder {
+  color: var(--subtle-foreground);
+}
+
+/* ───── The pact mark: a flat rose tile with the "p." in plum — no gloss, no glow ───── */
+html[data-style='dusk'] [data-logo] {
+  filter: none;
+}
+html[data-style='dusk'] [data-logo] rect + rect {
+  display: none;
+}
+
+/* the rail's active marker: a tick, not a lamp */
+html[data-style='dusk'] [class*='shadow-[0_0_'] {
+  box-shadow: none;
+}
+
+/* the Kanban progress bar runs rose into gold, not into green */
+html[data-style='dusk'] [class*='from-brand'][class*='to-success'] {
+  --tw-gradient-to: var(--du-gold);
+}
+
+/* ───── Timer: a soft arc that drifts from gold to rose as the time runs (TimerRing writes --ring-progress, 0 → 1) ───── */
+html[data-style='dusk'] [data-ring] #timer-ring stop:first-child {
+  stop-color: color-mix(in oklch, var(--du-rose) calc(var(--ring-progress, 0) * 100%), var(--du-gold));
+}
+html[data-style='dusk'] [data-ring] #timer-ring stop:last-child {
+  stop-color: color-mix(in oklch, var(--du-rose) calc(min(1, var(--ring-progress, 0) + 0.35) * 100%), var(--du-gold));
+}
+/* a break is calmer: foam drifting to iris */
+html[data-style='dusk'] [data-ring][data-tone='success'] #timer-ring stop:first-child {
+  stop-color: color-mix(in oklch, var(--du-iris) calc(var(--ring-progress, 0) * 100%), var(--du-foam));
+}
+html[data-style='dusk'] [data-ring][data-tone='success'] #timer-ring stop:last-child {
+  stop-color: color-mix(in oklch, var(--du-iris) calc(min(1, var(--ring-progress, 0) + 0.35) * 100%), var(--du-foam));
+}
+
+/* ───── Identity tiles (avatars, community icons) are generated from a hue; here they are the sunset's own colours ───── */
+html[data-style='dusk'] .text-white[style*='linear-gradient(135deg, oklch('] {
+  text-shadow: 0 1px 2px rgb(var(--du-shade) / 35%);
+}
+
+/* ───── Markdown ───── */
+html[data-style='dusk'] .prose-pact :is(h1, h2, h3) {
+  font-family: var(--du-display);
+  font-weight: 420;
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+}
+html[data-style='dusk'] .prose-pact blockquote {
+  border-left-color: var(--du-gold);
+  border-left-width: 2px;
+}

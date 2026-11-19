@@ -257,7 +257,7 @@ describe('prepareBundle: never trust what is in a file', () => {
   describe('Appearance: values end up inside a generated stylesheet', () => {
     it('colours must be exactly #rrggbb — CSS can’t be smuggled in', () => {
       const evil = 'red;} body{background:url(//evil.example/x)} .x{color:';
-      const p = only('pact-appearance', { accent: { kind: 'custom', hex: evil }, wallpaper: { kind: 'solid', color: evil }, font: 'geist' }, 3);
+      const p = only('pact-appearance', { accent: { kind: 'custom', hex: evil }, wallpaper: { kind: 'solid', color: evil }, font: 'geist' }, 4);
       const s = st(p) as Record<string, unknown>;
       expect(s.accent).toBeUndefined();
       expect(s.wallpaper).toBeUndefined();
@@ -265,7 +265,7 @@ describe('prepareBundle: never trust what is in a file', () => {
       const good = only(
         'pact-appearance',
         { accent: { kind: 'custom', hex: '#12abEF' }, wallpaper: { kind: 'gradient', from: '#000000', to: '#ffffff', angle: 90 } },
-        3,
+        4,
       );
       expect(st(good).accent).toEqual({ kind: 'custom', hex: '#12abEF' });
       expect(st(good).wallpaper).toEqual({ kind: 'gradient', from: '#000000', to: '#ffffff', angle: 90 });
@@ -282,7 +282,7 @@ describe('prepareBundle: never trust what is in a file', () => {
           dim: { light: 999, dark: 'x' },
           blur: 500,
         },
-        3,
+        4,
       );
       const s = st(p) as Record<string, unknown>;
       expect(s.accent).toBeUndefined();
@@ -290,17 +290,36 @@ describe('prepareBundle: never trust what is in a file', () => {
       expect(s.wallpaper).toBeUndefined();
       expect(s.blur).toBeUndefined();
       expect(s.dim).toEqual({ light: 0, dark: 0 });
-      const img = only('pact-appearance', { wallpaper: { kind: 'image', id: '../../etc/passwd', name: 'n'.repeat(500) } }, 3);
+      const img = only('pact-appearance', { wallpaper: { kind: 'image', id: '../../etc/passwd', name: 'n'.repeat(500) } }, 4);
       expect(st(img).wallpaper).toEqual({ kind: 'image', id: 'wallpaper-image', name: 'n'.repeat(200) });
     });
 
     it('roundness is one of the four known steps — anything else is dropped (it ends up in CSS variables)', () => {
-      for (const radius of ['none', 'sm', 'md', 'lg']) expect(st(only('pact-appearance', { radius }, 3))).toEqual({ radius });
+      for (const radius of ['none', 'sm', 'md', 'lg']) expect(st(only('pact-appearance', { radius }, 4))).toEqual({ radius });
       for (const radius of ['xl', 'MD', '12px; } body { display:none', 12, null, {}]) {
-        const p = only('pact-appearance', { radius, font: 'geist' }, 3);
+        const p = only('pact-appearance', { radius, font: 'geist' }, 4);
         expect(st(p)).toEqual({ font: 'geist' });
         expect(p.areas[0]?.dropped).toBeGreaterThan(0);
       }
+    });
+
+    it('the theme style is one of the known styles and the search bar effect one of the known effects — anything else is dropped', () => {
+      for (const style of ['default', 'dotmatrix']) expect(st(only('pact-appearance', { style }, 4))).toEqual({ style });
+      for (const omniEffect of ['none', 'beam', 'fire', 'electric', 'haze', 'neon', 'aurora', 'stardust', 'matrix', 'lava'])
+        expect(st(only('pact-appearance', { omniEffect }, 4))).toEqual({ omniEffect });
+      for (const bad of ['retro', 'DOTMATRIX', '"><script>', 3, null, {}, ['fire']]) {
+        for (const field of ['style', 'omniEffect']) {
+          const p = only('pact-appearance', { [field]: bad, font: 'geist' }, 4);
+          expect(st(p), `${field}=${JSON.stringify(bad)}`).toEqual({ font: 'geist' });
+          expect(p.areas[0]?.dropped).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it('a v3 backup (before styles and effects) still imports; the store gives it Default and no effect on load', () => {
+      const p = only('pact-appearance', { font: 'geist', radius: 'lg' }, 3);
+      expect(st(p)).toEqual({ font: 'geist', radius: 'lg' });
+      expect(p.areas[0]?.strict).toBe(false);
     });
 
     it('an older backup without roundness still imports; the store gives it the stock look on load', () => {

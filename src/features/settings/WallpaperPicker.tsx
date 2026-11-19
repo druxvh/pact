@@ -1,6 +1,8 @@
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Segmented, Slider } from '@/components/ui';
+import { StyleWallThumb } from '@/features/stylewall/StyleWallThumb';
+import { activeStyleWallpaper, type StyleWallpaperDef, themeStyleById } from '@/lib/appearance/themeStyle';
 import {
   GRADIENTS,
   IMAGE_ASSET_ID,
@@ -22,6 +24,9 @@ import { notify } from '@/lib/toast';
 import { useAppearanceStore } from '@/store/useAppearanceStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { SettingsRow } from './ui';
+
+/** The wallpaper "type" row: the usual kinds, plus the active style's own wallpaper when it has one. */
+type PickerKind = WallpaperKind | 'style';
 
 const KINDS: Array<{ value: WallpaperKind; label: string }> = [
   { value: 'none', label: 'None' },
@@ -95,11 +100,25 @@ function Hint({ level, ratio }: Legibility) {
 }
 
 /** Miniature of the app over the current wallpaper — what you pick is what you get, dim included. */
-function Preview({ background, imageUrl, dim, blur }: { background: string | null; imageUrl: string | null; dim: number; blur: number }) {
+function Preview({
+  background,
+  imageUrl,
+  dim,
+  blur,
+  scene,
+}: {
+  background: string | null;
+  imageUrl: string | null;
+  dim: number;
+  blur: number;
+  /** A style wallpaper's scene id: its still frame is the picture. */
+  scene?: { id: string; plate: string; dark: boolean };
+}) {
   return (
     <div className="relative isolate h-24 overflow-hidden rounded-lg border" aria-hidden="true">
       <div className="absolute inset-0 bg-background" />
       {background && <div className="absolute inset-0" style={{ background }} />}
+      {scene && <StyleWallThumb scene={scene.id} plate={scene.plate} dark={scene.dark} width={208} height={96} />}
       {imageUrl && (
         <div
           className="absolute inset-0 scale-110 bg-cover bg-center"
@@ -115,13 +134,55 @@ function Preview({ background, imageUrl, dim, blur }: { background: string | nul
   );
 }
 
+/** The style wallpaper's variants (Ultramarine's engraving plates) as a small row of thumbnails; nothing at all for a style with just one. */
+function StylePlates({ def, plate, onPick, dark }: { def: StyleWallpaperDef; plate: string; onPick: (id: string) => void; dark: boolean }) {
+  const plates = def.plates;
+  return (
+    <div className="space-y-2.5">
+      <p className="text-[13px] text-muted-foreground">
+        <span className="font-medium text-foreground">{def.label}.</span> {def.description}
+      </p>
+      {plates && plates.length > 1 && (
+        <fieldset className="m-0 grid min-w-0 grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-2 border-0 p-0">
+          <legend className="sr-only">Plate</legend>
+          {plates.map((p) => {
+            const selected = (plate || plates[0]?.id) === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onPick(p.id)}
+                className={cn(
+                  'flex min-w-0 flex-col gap-1 rounded-lg border p-1 text-left outline-offset-2 transition-[border-color,transform] duration-150 active:scale-[0.98]',
+                  selected ? 'border-brand/60 bg-brand-soft' : 'hover:border-foreground/25',
+                )}
+              >
+                <span className="relative block h-16 overflow-hidden rounded-md bg-muted">
+                  <StyleWallThumb scene={def.scene} plate={p.id} dark={dark} width={192} height={128} />
+                </span>
+                <span className="px-0.5 text-xs font-medium">{p.label}</span>
+              </button>
+            );
+          })}
+        </fieldset>
+      )}
+    </div>
+  );
+}
+
 /** The full gallery and fine-tuning (kind, swatches, your own picture, dim and blur) — shown in the Wallpaper dialog. */
 export function WallpaperPicker() {
   const wallpaper = useAppearanceStore((s) => s.wallpaper);
   const dims = useAppearanceStore((s) => s.dim);
   const blur = useAppearanceStore((s) => s.blur);
   const imageLuminance = useAppearanceStore((s) => s.imageLuminance);
-  const { setWallpaper, setDim, setDims, setBlur } = useAppearanceStore.getState();
+  const style = useAppearanceStore((s) => s.style);
+  const styleWallpaper = useAppearanceStore((s) => s.styleWallpaper);
+  const plate = useAppearanceStore((s) => s.plate);
+  const { setWallpaper, setDim, setDims, setBlur, setStyleWallpaper, setPlate } = useAppearanceStore.getState();
+  const styleDef = themeStyleById(style).wallpaper;
+  const styleOn = activeStyleWallpaper(style, wallpaper, styleWallpaper);
   const theme = useThemeStore((s) => s.resolved);
   const dim = dims[theme];
   const fileRef = useRef<HTMLInputElement>(null);
@@ -129,7 +190,8 @@ export function WallpaperPicker() {
   const [dragging, setDragging] = useState(false);
   const imageUrl = useAssetUrl(wallpaper.kind === 'image' ? wallpaper.id : null);
 
-  const kind = wallpaper.kind;
+  const kind: PickerKind = styleOn ? 'style' : wallpaper.kind;
+  const kinds: Array<{ value: PickerKind; label: string }> = styleDef ? [{ value: 'style', label: 'Style' }, ...KINDS] : KINDS;
 
   /** Choose a wallpaper and let pact pick the dim that makes text readable; fine-tune with the slider afterwards. */
   const choose = (wp: Wallpaper, measured?: number | null) => {
@@ -143,11 +205,17 @@ export function WallpaperPicker() {
   // gradient builder state mirrors the current gradient (or sensible starting colours)
   const g = wallpaper.kind === 'gradient' ? wallpaper : { kind: 'gradient' as const, from: '#7f7fd5', to: '#86a8e7', angle: 135 };
 
-  const pickKind = (next: WallpaperKind) => {
+  const pickKind = (next: PickerKind) => {
     if (next === kind) return;
     switch (next) {
-      case 'none':
+      case 'style':
         setWallpaper(NO_WALLPAPER);
+        setStyleWallpaper(true);
+        break;
+      case 'none':
+        // "None" is none at all: the style's own wallpaper is switched off too
+        setWallpaper(NO_WALLPAPER);
+        setStyleWallpaper(false);
         break;
       case 'solid':
         choose({ kind: 'solid', color: SOLIDS[0]?.color ?? '#0c0c10' });
@@ -190,7 +258,9 @@ export function WallpaperPicker() {
 
   return (
     <div className="space-y-3.5">
-      <Segmented<WallpaperKind> aria-label="Wallpaper type" value={kind} onValueChange={pickKind} options={KINDS} />
+      <Segmented<PickerKind> aria-label="Wallpaper type" value={kind} onValueChange={pickKind} options={kinds} />
+
+      {kind === 'style' && styleDef && <StylePlates def={styleDef} plate={plate} onPick={setPlate} dark={theme === 'dark'} />}
 
       {kind === 'solid' && wallpaper.kind === 'solid' && (
         <div className="space-y-3">
@@ -327,7 +397,13 @@ export function WallpaperPicker() {
 
       {kind !== 'none' && (
         <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)]">
-          <Preview background={background} imageUrl={imageUrl} dim={dim} blur={blur} />
+          <Preview
+            background={background}
+            imageUrl={imageUrl}
+            dim={dim}
+            blur={blur}
+            scene={kind === 'style' && styleDef ? { id: styleDef.scene, plate, dark: theme === 'dark' } : undefined}
+          />
           <div className="space-y-3">
             <div>
               <div className="mb-1.5 flex justify-between text-[13px]">
@@ -347,6 +423,9 @@ export function WallpaperPicker() {
                 <Slider aria-label="Blur" value={blur} min={0} max={24} onValueChange={setBlur} />
               </div>
             )}
+            {kind === 'style' && (
+              <p className="text-xs text-muted-foreground">Moves slowly, and stills with reduced motion. Dim it if your text needs a calmer ground.</p>
+            )}
             {lum !== null && <Hint {...legibility(lum, dim, theme)} />}
           </div>
         </div>
@@ -358,10 +437,10 @@ export function WallpaperPicker() {
 const SOLID_BY_COLOR = new Map(SOLIDS.map((x) => [x.color, x.label]));
 
 /** Short words for what's behind the page right now. */
-export function describeWallpaper(wp: Wallpaper): string {
+export function describeWallpaper(wp: Wallpaper, style?: StyleWallpaperDef | null): string {
   switch (wp.kind) {
     case 'none':
-      return 'None';
+      return style ? `Style · ${style.label}` : 'None';
     case 'solid':
       return `Colour · ${SOLID_BY_COLOR.get(wp.color.toLowerCase()) ?? wp.color.toLowerCase()}`;
     case 'gradient':
@@ -374,8 +453,10 @@ export function describeWallpaper(wp: Wallpaper): string {
 }
 
 /** A thumbnail of the current wallpaper (or a hatched "nothing"). */
-function Thumb() {
+function Thumb({ style }: { style: StyleWallpaperDef | null }) {
   const wallpaper = useAppearanceStore((s) => s.wallpaper);
+  const plate = useAppearanceStore((s) => s.plate);
+  const dark = useThemeStore((s) => s.resolved) === 'dark';
   const imageUrl = useAssetUrl(wallpaper.kind === 'image' ? wallpaper.id : null);
   const background = wallpaperBackground(wallpaper);
   return (
@@ -386,7 +467,8 @@ function Thumb() {
         imageUrl ? { backgroundImage: `url(${imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : background ? { background } : undefined
       }
     >
-      {wallpaper.kind === 'none' && (
+      {wallpaper.kind === 'none' && style && <StyleWallThumb scene={style.scene} plate={plate} dark={dark} width={64} height={64} />}
+      {wallpaper.kind === 'none' && !style && (
         <span className="absolute inset-0 grid place-items-center text-muted-foreground">
           <ImagePlus className="size-3.5" />
         </span>
@@ -398,11 +480,14 @@ function Thumb() {
 /** Settings → Appearance → Wallpaper: a thumbnail and a name; "Choose…" opens the whole gallery in a dialog. */
 export function WallpaperRow() {
   const wallpaper = useAppearanceStore((s) => s.wallpaper);
+  const style = useAppearanceStore((s) => s.style);
+  const styleWallpaper = useAppearanceStore((s) => s.styleWallpaper);
+  const active = activeStyleWallpaper(style, wallpaper, styleWallpaper);
   const [open, setOpen] = useState(false);
   return (
     <>
-      <SettingsRow label="Wallpaper" description={describeWallpaper(wallpaper)}>
-        <Thumb />
+      <SettingsRow label="Wallpaper" description={describeWallpaper(wallpaper, active)}>
+        <Thumb style={active} />
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
           Choose…
         </Button>
@@ -411,7 +496,9 @@ export function WallpaperRow() {
         <DialogContent size="lg">
           <DialogHeader>
             <DialogTitle>Wallpaper</DialogTitle>
-            <DialogDescription>A colour, gradient or your own picture behind everything. A dim layer keeps text readable.</DialogDescription>
+            <DialogDescription>
+              Your style's own wallpaper, a colour, a gradient or your own picture behind everything. A dim layer keeps text readable.
+            </DialogDescription>
           </DialogHeader>
           <DialogBody>
             <WallpaperPicker />

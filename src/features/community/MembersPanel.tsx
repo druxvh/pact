@@ -1,7 +1,6 @@
 import { Ban, Crown, MoreHorizontal, ShieldCheck, ShieldOff, Timer, TimerOff, UserMinus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
-  Avatar,
   Badge,
   Button,
   confirm,
@@ -13,6 +12,7 @@ import {
   IconButton,
   promptText,
 } from '@/components/ui';
+import { PersonAvatar } from '@/features/nowplaying/PersonAvatar';
 import { notify } from '@/lib/toast';
 import { MemberHover } from './MemberHover';
 import { describeError } from './mapping';
@@ -86,8 +86,8 @@ export function MembersPanel({ community, onShowBans }: { community: Community; 
               return (
                 <li key={m.userId} className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent/50">
                   <MemberHover profile={m.profile} role={m.role} joinedAt={m.joinedAt} focusable side="left">
-                    <span className="flex min-w-0 flex-1 items-center gap-2 rounded-sm">
-                      <Avatar name={name} src={m.profile?.avatarUrl} size="md" />
+                    <span className="act-row flex min-w-0 flex-1 items-center gap-2 rounded-sm">
+                      <PersonAvatar userId={m.userId} note="tap" name={name} src={m.profile?.avatarUrl} size="md" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm">
                           {name}

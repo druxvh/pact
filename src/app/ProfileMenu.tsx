@@ -1,5 +1,7 @@
-import { Keyboard, LogIn, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { Keyboard, LogIn, LogOut, Monitor, Moon, Settings, StickyNote, Sun } from 'lucide-react';
 import { Avatar, DropdownContent, DropdownItem, DropdownLabel, DropdownMenu, DropdownSeparator, DropdownTrigger, IconButton, Tooltip } from '@/components/ui';
+import { useActivityStore } from '@/features/activity/hooks';
+import { openNoteComposer } from '@/features/activity/ui';
 import { requestSignOut } from '@/lib/supabase/signOut';
 import { selectSignedIn, useAuthStore } from '@/store/useAuthStore';
 import { useNavStore } from '@/store/useNavStore';
@@ -22,6 +24,7 @@ export function ProfileMenu({ side = 'right' }: { side?: 'top' | 'right' | 'bott
   const setSignInOpen = useUiStore((s) => s.setSignInOpen);
   const signedIn = useAuthStore(selectSignedIn);
   const email = useAuthStore((s) => s.user?.email ?? null);
+  const hasNote = useActivityStore((s) => s.mine.note !== null);
 
   // Guests have no account menu — just a way in.
   if (!signedIn) {
@@ -51,6 +54,9 @@ export function ProfileMenu({ side = 'right' }: { side?: 'top' | 'right' | 'bott
           </div>
         </div>
         <DropdownSeparator />
+        <DropdownItem icon={<StickyNote />} onClick={openNoteComposer}>
+          {hasNote ? 'Edit your note' : 'Add a note'}
+        </DropdownItem>
         <DropdownItem icon={<Settings />} onClick={() => go('settings')}>
           Profile &amp; settings
         </DropdownItem>

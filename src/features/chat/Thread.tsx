@@ -21,6 +21,7 @@ import { PersonHover } from '@/features/chat/PersonHover';
 import { buildRows } from '@/features/chat/rows';
 import { useChatStore } from '@/features/chat/store';
 import type { Conversation, Message } from '@/features/chat/types';
+import { PersonAvatar } from '@/features/nowplaying/PersonAvatar';
 import { generateRoomCode } from '@/features/party/roomCode';
 import { cn } from '@/lib/cn';
 import { spring } from '@/lib/motion';
@@ -202,7 +203,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
         ) : (
           <PersonHover person={peer} side="bottom">
             <span className="inline-flex">
-              <Avatar name={title} src={peer?.avatarUrl} size="lg" status={peer?.isOnline ? 'online' : 'offline'} />
+              <PersonAvatar userId={peer?.id} name={title} src={peer?.avatarUrl} size="lg" status={peer?.isOnline ? 'online' : 'offline'} />
             </span>
           </PersonHover>
         )}
@@ -229,7 +230,7 @@ export function Thread({ conversation, onBack }: { conversation: Conversation; o
               {[me, ...others].map((p) => (
                 <PersonHover key={p.id} person={p} focusable side="left">
                   <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-                    <Avatar name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
+                    <PersonAvatar userId={p.id} name={p.displayName} size="md" status={p.isOnline ? 'online' : 'offline'} />
                     <div className="min-w-0">
                       <p className="truncate text-[13px] font-medium">{p.id === ME_ID ? 'You' : p.displayName}</p>
                       <p className="truncate text-xs text-muted-foreground">@{p.username}</p>

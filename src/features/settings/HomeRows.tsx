@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button, GroupLabel, IconButton, Input, Popover, PopoverTrigger, Segmented, Switch } from '@/components/ui';
+import { activityFeedVisible } from '@/features/activity/feedPref';
 import { type ClockStyle, orderedWidgets, useHomeLayoutStore, WIDGET_INFO } from '@/features/home/layout';
 import { useHomeStore } from '@/features/home/store';
 import { cn } from '@/lib/cn';
@@ -115,7 +116,9 @@ export function PageRow() {
   const layout = useHomeLayoutStore((s) => s.layout);
   const setLayout = useHomeLayoutStore((s) => s.setLayout);
   const showTopSites = useSettingsStore((s) => s.showTopSites);
+  const activityFeed = useSettingsStore((s) => s.activityFeed);
   const set = useSettingsStore((s) => s.set);
+  const showActivity = activityFeedVisible(activityFeed, layout);
   const hidden = useHomeStore((s) => s.hiddenHosts.length);
   const resetHidden = useHomeStore((s) => s.resetHidden);
 
@@ -124,6 +127,7 @@ export function PageRow() {
     layout.showSearch && layout.showHints && 'hints',
     layout.showShortcuts && 'Shortcuts',
     layout.showShortcuts && showTopSites && 'most visited',
+    showActivity && 'Activity',
   ]);
 
   return (
@@ -163,6 +167,13 @@ export function PageRow() {
             checked={showTopSites}
             disabled={!layout.showShortcuts}
             onChange={(v) => set('showTopSites', v)}
+          />
+          <PanelSwitch
+            id="set-activity"
+            label="Show activity on Home"
+            hint="Notes and music from the people in your communities, below the widgets — with hearts and comments. Hidden by default in the Minimal, Zen and Focus layouts."
+            checked={showActivity}
+            onChange={(v) => set('activityFeed', v ? 'on' : 'off')}
           />
           <div className="mt-1 flex min-h-9 items-center justify-between gap-3 border-t pt-2">
             <p className="text-[13px]">

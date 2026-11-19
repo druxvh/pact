@@ -1,6 +1,9 @@
 import { MessageCircleMore, UserPlus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge, Button, EmptyState } from '@/components/ui';
+import { ActivityThread } from '@/features/activity/ActivityThreads';
+import { threadFromSub, threadLink } from '@/features/activity/describe';
+import { useUnreadActivity } from '@/features/activity/hooks';
 import { ConversationList } from '@/features/chat/ConversationList';
 import { FriendsDialog } from '@/features/chat/FriendsDialog';
 import { NewGroupDialog } from '@/features/chat/NewGroupDialog';
@@ -26,13 +29,21 @@ function DirectMessages() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
   const [mobileThread, setMobileThread] = useState(false);
+  /** A real person's note / song activity thread, when one is open (instead of a simulated chat). */
+  const [threadId, setThreadId] = useState<string | null>(null);
 
   const pendingRequests = requests.filter((r) => r.status === 'pending' && r.toId === ME_ID).length;
 
-  // Deep link: #/chat/<conversationId> (notifications use this).
+  // Deep link: #/chat/<conversationId> (notifications use this), or #/chat/a:<personId> for a note / song activity thread.
   useEffect(() => {
     if (sub && conversations.some((c) => c.id === sub)) {
       setActive(sub);
+      setThreadId(null);
+      setMobileThread(true);
+    }
+    const person = threadFromSub(sub);
+    if (person) {
+      setThreadId(person);
       setMobileThread(true);
     }
   }, [sub, conversations, setActive]);
@@ -48,14 +59,21 @@ function DirectMessages() {
 
   const open = (id: string) => {
     setActive(id);
+    setThreadId(null);
     setMobileThread(true);
     go('chat', id, { replace: true });
   };
 
+  const openThread = (personId: string) => {
+    setThreadId(personId);
+    setMobileThread(true);
+    go('chat', threadLink(personId), { replace: true });
+  };
+
   // If the open conversation is deleted, fall back to the list.
   useEffect(() => {
-    if (!active) setMobileThread(false);
-  }, [active]);
+    if (!active && !threadId) setMobileThread(false);
+  }, [active, threadId]);
 
   const showList = isDesktop || !mobileThread;
   const showThread = isDesktop || mobileThread;
@@ -64,7 +82,9 @@ function DirectMessages() {
     <div className="flex min-h-0 min-w-0 flex-1 bg-background/40">
       {showList && (
         <ConversationList
-          activeId={active?.id ?? null}
+          activeId={threadId ? null : (active?.id ?? null)}
+          activeThreadId={threadId}
+          onSelectThread={openThread}
           onSelect={open}
           onNewGroup={() => setGroupOpen(true)}
           onFriends={() => setFriendsOpen(true)}
@@ -73,7 +93,9 @@ function DirectMessages() {
       )}
 
       {showThread &&
-        (active ? (
+        (threadId ? (
+          <ActivityThread key={threadId} personId={threadId} onBack={() => setMobileThread(false)} />
+        ) : active ? (
           <Thread key={active.id} conversation={active} onBack={() => setMobileThread(false)} />
         ) : (
           <div className="grid flex-1 place-items-center p-6">
@@ -113,13 +135,13 @@ export function ChatView() {
   const [tab, setTab] = useState<Tab>(readTab);
   const sub = useNavStore((s) => s.sub);
   const conversations = useChatStore((s) => s.conversations);
-  const unread = useChatStore(selectTotalUnread);
+  const unread = useChatStore(selectTotalUnread) + useUnreadActivity();
   const communityUnread = useCommunityUnreadTotal();
 
   // Notification and invite links choose their own tab.
   useEffect(() => {
     if (inviteCodeFromSub(sub) || communityLinkFromSub(sub)) setTab('communities');
-    else if (sub && conversations.some((c) => c.id === sub)) setTab('dms');
+    else if ((sub && conversations.some((c) => c.id === sub)) || threadFromSub(sub)) setTab('dms');
   }, [sub, conversations]);
 
   const choose = (next: Tab) => {

@@ -109,7 +109,129 @@ describe('roundness', () => {
     const store = await loadStore();
     const part = store.persist.getOptions().partialize?.(store.getState());
     expect(part).toHaveProperty('radius', 'md');
-    expect(store.persist.getOptions().version).toBe(3);
+    expect(store.persist.getOptions().version).toBe(4);
+  });
+});
+
+describe('theme style and search bar effect', () => {
+  beforeEach(() => localStorage.clear());
+  const persisted = () => JSON.parse(localStorage.getItem('pact-appearance') ?? '{}');
+
+  it('start as Default and no effect', async () => {
+    const s = (await loadStore()).getState();
+    expect(s.style).toBe('default');
+    expect(s.omniEffect).toBe('none');
+  });
+
+  it('a v3 store (from before both existed) upgrades to Default / none and keeps everything else', async () => {
+    localStorage.setItem(
+      'pact-appearance',
+      JSON.stringify({ state: { accent: { kind: 'preset', id: 'blue' }, font: 'inter', radius: 'lg', dim: { light: 5, dark: 9 } }, version: 3 }),
+    );
+    const s = (await loadStore()).getState();
+    expect(s.style).toBe('default');
+    expect(s.omniEffect).toBe('none');
+    expect(s.accent).toEqual({ kind: 'preset', id: 'blue' });
+    expect(s.font).toBe('inter');
+    expect(s.radius).toBe('lg');
+    expect(s.dim).toEqual({ light: 5, dark: 9 });
+  });
+
+  it('an old v1 store goes through every migration', async () => {
+    localStorage.setItem('pact-appearance', JSON.stringify({ state: { dim: 40 }, version: 1 }));
+    const s = (await loadStore()).getState();
+    expect(s.dim).toEqual({ light: 40, dark: 40 });
+    expect(s.radius).toBe('md');
+    expect(s.style).toBe('default');
+    expect(s.omniEffect).toBe('none');
+  });
+
+  it('keeps a saved v4 style and effect', async () => {
+    localStorage.setItem('pact-appearance', JSON.stringify({ state: { style: 'dotmatrix', omniEffect: 'fire' }, version: 4 }));
+    const s = (await loadStore()).getState();
+    expect(s.style).toBe('dotmatrix');
+    expect(s.omniEffect).toBe('fire');
+  });
+
+  it('unknown or corrupt stored values coerce to the stock choice (they never reach the CSS)', async () => {
+    localStorage.setItem('pact-appearance', JSON.stringify({ state: { style: 'vaporwave', omniEffect: 'plasma', radius: 'xl' }, version: 4 }));
+    const s = (await loadStore()).getState();
+    expect(s.style).toBe('default');
+    expect(s.omniEffect).toBe('none');
+    expect(s.radius).toBe('md');
+    localStorage.setItem('pact-appearance', JSON.stringify({ state: { style: { evil: 1 }, omniEffect: ['beam'] }, version: 4 }));
+    const t = (await loadStore()).getState();
+    expect(t.style).toBe('default');
+    expect(t.omniEffect).toBe('none');
+  });
+
+  it('picking Dot Matrix applies its bundle once; tweaks afterwards keep the style', async () => {
+    const store = await loadStore();
+    store.getState().setAccent({ kind: 'preset', id: 'blue' });
+    store.getState().setStyle('dotmatrix');
+    const s = store.getState();
+    expect(s.style).toBe('dotmatrix');
+    expect(s.accent).toEqual({ kind: 'custom', hex: '#D71921' });
+    expect(s.font).toBe('space-grotesk');
+    expect(s.monoFont).toBe('space-mono');
+    expect(s.radius).toBe('sm');
+    // the user keeps control of every part of the bundle
+    store.getState().setAccent({ kind: 'preset', id: 'teal' });
+    store.getState().setFont('inter');
+    store.getState().setRadius('lg');
+    expect(store.getState().style).toBe('dotmatrix');
+    expect(store.getState().accent).toEqual({ kind: 'preset', id: 'teal' });
+    // picking the style that is already on is a no-op (your tweaks survive a stray click)
+    store.getState().setStyle('dotmatrix');
+    expect(store.getState().accent).toEqual({ kind: 'preset', id: 'teal' });
+    expect(store.getState().font).toBe('inter');
+    expect(persisted().state.style).toBe('dotmatrix');
+  });
+
+  it('picking Default again restores the stock accent, fonts and roundness; wallpaper is never touched', async () => {
+    const store = await loadStore();
+    store.getState().setWallpaper({ kind: 'solid', color: '#101010' });
+    store.getState().setStyle('dotmatrix');
+    store.getState().setStyle('default');
+    const s = store.getState();
+    expect(s.style).toBe('default');
+    expect(s.accent).toEqual({ kind: 'preset', id: 'orange' });
+    expect(s.font).toBe('geist');
+    expect(s.monoFont).toBe('geist-mono');
+    expect(s.radius).toBe('md');
+    expect(s.wallpaper).toEqual({ kind: 'solid', color: '#101010' });
+  });
+
+  it('setStyle and setOmniEffect ignore nonsense', async () => {
+    const store = await loadStore();
+    store.getState().setStyle('neon-noir' as never);
+    expect(store.getState().style).toBe('default');
+    store.getState().setOmniEffect('beam');
+    expect(store.getState().omniEffect).toBe('beam');
+    store.getState().setOmniEffect('sparkles' as never);
+    expect(store.getState().omniEffect).toBe('none');
+  });
+
+  it('Reset returns to Default and no effect', async () => {
+    const store = await loadStore();
+    store.getState().setStyle('dotmatrix');
+    store.getState().setOmniEffect('electric');
+    store.getState().resetAppearance();
+    const s = store.getState();
+    expect(s.style).toBe('default');
+    expect(s.omniEffect).toBe('none');
+    expect(s.accent).toEqual({ kind: 'preset', id: 'orange' });
+    expect(s.radius).toBe('md');
+  });
+
+  it('both are persisted', async () => {
+    const store = await loadStore();
+    store.getState().setStyle('dotmatrix');
+    store.getState().setOmniEffect('haze');
+    const part = store.persist.getOptions().partialize?.(store.getState());
+    expect(part).toHaveProperty('style', 'dotmatrix');
+    expect(part).toHaveProperty('omniEffect', 'haze');
+    expect(persisted().state).toMatchObject({ style: 'dotmatrix', omniEffect: 'haze' });
   });
 });
 

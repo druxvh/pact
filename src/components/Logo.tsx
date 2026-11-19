@@ -12,6 +12,7 @@ export function Logo({ className }: { className?: string }) {
       viewBox="0 0 128 128"
       fill="none"
       aria-hidden="true"
+      data-logo
       initial="rest"
       whileHover="hover"
       className={cn('size-9 shrink-0 drop-shadow-[0_4px_12px_var(--brand-glow)]', className)}

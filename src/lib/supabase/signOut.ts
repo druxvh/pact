@@ -1,6 +1,7 @@
 import { confirm } from '@/components/ui';
 import { drainNotes, haltNotesSync, useNotesSync } from '@/features/notes/sync/engine';
 import { SYNC_STATE_KEY } from '@/features/notes/sync/model';
+import { stopSharingNow } from '@/features/nowplaying/sync';
 import { createSnapshot } from '@/lib/backup/snapshots';
 import { freezePersistence } from '@/lib/persist';
 import { signOut } from '@/lib/supabase/auth';
@@ -35,6 +36,9 @@ export async function requestSignOut(): Promise<void> {
 
   // A safety net for anything that existed only here. Best effort — it must never block signing out.
   await createSnapshot({ kind: 'safety', label: 'Before sign-out' }).catch(() => null);
+
+  // Take down the track others can see while there is still a session to do it with (never blocks for long).
+  await stopSharingNow();
 
   const outcome = await signOut();
   if (!outcome.signedOutHere) {

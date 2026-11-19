@@ -3,7 +3,9 @@ import { useRef } from 'react';
 import { Button, Segmented, Switch } from '@/components/ui';
 import { AccentRow } from '@/features/settings/AccentPicker';
 import { FontRow } from '@/features/settings/FontPicker';
+import { OmniEffectRow } from '@/features/settings/OmniEffectPicker';
 import { RoundnessRow } from '@/features/settings/RoundnessPicker';
+import { StyleRow } from '@/features/settings/StylePicker';
 import { WallpaperRow } from '@/features/settings/WallpaperPicker';
 import { IMAGE_ASSET_ID } from '@/lib/appearance/wallpaper';
 import { deleteAsset } from '@/lib/assets';
@@ -32,7 +34,7 @@ export function AppearanceSection() {
         <Button
           variant="ghost"
           size="xs"
-          title="Back to the default accent, font, roundness and no wallpaper"
+          title="Back to the default style, accent, font, roundness, search bar effect and no wallpaper"
           onClick={async () => {
             await deleteAsset(IMAGE_ASSET_ID).catch(() => {});
             useAppearanceStore.getState().resetAppearance();
@@ -43,6 +45,7 @@ export function AppearanceSection() {
         </Button>
       }
     >
+      <StyleRow />
       <SettingsRow label="Theme" description="System follows your OS and switches automatically.">
         <div onPointerDownCapture={(e) => (origin.current = { x: e.clientX, y: e.clientY })}>
           <Segmented<ThemeMode>
@@ -61,6 +64,7 @@ export function AppearanceSection() {
       <RoundnessRow />
       <FontRow />
       <WallpaperRow />
+      <OmniEffectRow />
       <SettingsRow label="Animations" description="“System” follows your OS’s reduce-motion setting.">
         <ScrollX>
           <Segmented<MotionPreference>

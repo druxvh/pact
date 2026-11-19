@@ -35,6 +35,7 @@ const PERSONAL_KEYS = [
   'pact-capture',
   'pact-commands',
   'pact-camera',
+  'pact-nowplaying', // who may see my track is the previous account's setting; detecting needs a fresh opt-in
   'pact-sync-notes',
 ] as const;
 

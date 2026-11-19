@@ -1,7 +1,6 @@
 import { CornerUpLeft, Eye, EyeOff, Link2Off, MoreHorizontal, Pencil, SmilePlus, Trash2, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import {
-  Avatar,
   Badge,
   Button,
   DropdownContent,
@@ -17,6 +16,7 @@ import {
   Textarea,
 } from '@/components/ui';
 import { Linkified } from '@/features/chat/Linkified';
+import { PersonAvatar } from '@/features/nowplaying/PersonAvatar';
 import { cn } from '@/lib/cn';
 import { notify } from '@/lib/toast';
 import { AttachmentView } from './AttachmentView';
@@ -242,7 +242,7 @@ export function MessageItem({
         ) : (
           <MemberHover profile={author} role={authorRole} joinedAt={authorMember?.joinedAt}>
             <span className="inline-flex">
-              <Avatar name={name} src={author?.avatarUrl} size="lg" />
+              <PersonAvatar userId={m.authorId} name={name} src={author?.avatarUrl} size="lg" />
             </span>
           </MemberHover>
         )}

@@ -1,10 +1,12 @@
 import { MessageCirclePlus, Search, UserPlus, Users, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo } from 'react';
-import { Avatar, Badge, IconButton, InputGroup } from '@/components/ui';
+import { Badge, IconButton, InputGroup } from '@/components/ui';
+import { ActivityThreadList } from '@/features/activity/ActivityThreads';
 import { PersonHover } from '@/features/chat/PersonHover';
 import { lastMessageOf, unreadCount, useChatStore } from '@/features/chat/store';
 import type { Conversation, Message } from '@/features/chat/types';
+import { PersonAvatar } from '@/features/nowplaying/PersonAvatar';
 import { cn } from '@/lib/cn';
 import { relativeTime } from '@/lib/format';
 import { spring } from '@/lib/motion';
@@ -25,12 +27,17 @@ export function ConversationList({
   onNewGroup,
   onFriends,
   pendingRequests,
+  activeThreadId = null,
+  onSelectThread,
 }: {
   activeId: string | null;
   onSelect: (id: string) => void;
   onNewGroup: () => void;
   onFriends: () => void;
   pendingRequests: number;
+  /** The open note / song activity thread (a real person's id), if any. */
+  activeThreadId?: string | null;
+  onSelectThread?: (personId: string) => void;
 }) {
   const conversations = useChatStore((s) => s.conversations);
   const messages = useChatStore((s) => s.messages);
@@ -96,77 +103,87 @@ export function ConversationList({
         />
       </div>
 
-      <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1.5 pb-2">
-        <AnimatePresence initial={false}>
-          {items.map(({ c, peer, title, last }) => {
-            const unread = unreadCount(c, messages);
-            const active = c.id === activeId;
-            const typers = typing[c.id] ?? [];
-            return (
-              <motion.li
-                key={c.id}
-                layout="position"
-                transition={spring.soft}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelect(c.id)}
-                  aria-current={active ? 'true' : undefined}
-                  className={cn(
-                    'relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left outline-offset-[-2px] transition-colors duration-150 active:scale-[0.99]',
-                    active ? 'bg-brand-soft' : 'hover:bg-accent',
-                  )}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+        {onSelectThread && <ActivityThreadList activeId={activeThreadId} onSelect={onSelectThread} search={search} />}
+        <ul className="space-y-0.5 px-1.5 pt-1">
+          <AnimatePresence initial={false}>
+            {items.map(({ c, peer, title, last }) => {
+              const unread = unreadCount(c, messages);
+              const active = c.id === activeId;
+              const typers = typing[c.id] ?? [];
+              return (
+                <motion.li
+                  key={c.id}
+                  layout="position"
+                  transition={spring.soft}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                 >
-                  {active && <span className="absolute left-0 top-3 h-[calc(100%-1.5rem)] w-[3px] rounded-r-full bg-brand" />}
-                  {c.kind === 'group' ? (
-                    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-                      <Users className="size-5" />
-                    </span>
-                  ) : (
-                    <PersonHover person={peer}>
-                      <span className="inline-flex">
-                        <Avatar name={title} src={peer?.avatarUrl} size="lg" status={peer?.isOnline ? 'online' : 'offline'} />
+                  <button
+                    type="button"
+                    onClick={() => onSelect(c.id)}
+                    aria-current={active ? 'true' : undefined}
+                    className={cn(
+                      'act-row relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left outline-offset-[-2px] transition-colors duration-150 active:scale-[0.99]',
+                      active ? 'bg-brand-soft' : 'hover:bg-accent',
+                    )}
+                  >
+                    {active && <span className="absolute left-0 top-3 h-[calc(100%-1.5rem)] w-[3px] rounded-r-full bg-brand" />}
+                    {c.kind === 'group' ? (
+                      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+                        <Users className="size-5" />
                       </span>
-                    </PersonHover>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline justify-between gap-2">
-                      {c.kind === 'dm' ? (
-                        <PersonHover person={peer} side="bottom">
+                    ) : (
+                      <PersonHover person={peer}>
+                        <span className="inline-flex">
+                          <PersonAvatar
+                            userId={peer?.id}
+                            note="bubble"
+                            name={title}
+                            src={peer?.avatarUrl}
+                            size="lg"
+                            status={peer?.isOnline ? 'online' : 'offline'}
+                          />
+                        </span>
+                      </PersonHover>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        {c.kind === 'dm' ? (
+                          <PersonHover person={peer} side="bottom">
+                            <span className={cn('truncate text-[13.5px]', unread ? 'font-semibold' : 'font-medium')}>{title}</span>
+                          </PersonHover>
+                        ) : (
                           <span className={cn('truncate text-[13.5px]', unread ? 'font-semibold' : 'font-medium')}>{title}</span>
-                        </PersonHover>
-                      ) : (
-                        <span className={cn('truncate text-[13.5px]', unread ? 'font-semibold' : 'font-medium')}>{title}</span>
-                      )}
-                      <span className={cn('shrink-0 text-[11px]', unread ? 'font-medium text-brand-text' : 'text-subtle-foreground')}>
-                        {last ? relativeTime(last.createdAt) : ''}
+                        )}
+                        <span className={cn('shrink-0 text-[11px]', unread ? 'font-medium text-brand-text' : 'text-subtle-foreground')}>
+                          {last ? relativeTime(last.createdAt) : ''}
+                        </span>
+                      </span>
+                      <span className="flex items-center justify-between gap-2">
+                        <span className={cn('truncate text-xs', typers.length ? 'text-brand-text' : unread ? 'text-foreground' : 'text-muted-foreground')}>
+                          {typers.length ? 'typing…' : previewOf(last, c, people)}
+                        </span>
+                        {unread > 0 && !active && (
+                          <Badge tone="brand" className="h-[18px] min-w-[18px] justify-center rounded-full bg-brand px-1.5 text-brand-foreground">
+                            {unread > 99 ? '99+' : unread}
+                          </Badge>
+                        )}
                       </span>
                     </span>
-                    <span className="flex items-center justify-between gap-2">
-                      <span className={cn('truncate text-xs', typers.length ? 'text-brand-text' : unread ? 'text-foreground' : 'text-muted-foreground')}>
-                        {typers.length ? 'typing…' : previewOf(last, c, people)}
-                      </span>
-                      {unread > 0 && !active && (
-                        <Badge tone="brand" className="h-[18px] min-w-[18px] justify-center rounded-full bg-brand px-1.5 text-brand-foreground">
-                          {unread > 99 ? '99+' : unread}
-                        </Badge>
-                      )}
-                    </span>
-                  </span>
-                </button>
-              </motion.li>
-            );
-          })}
-        </AnimatePresence>
-        {items.length === 0 && (
-          <li className="px-4 py-10 text-center text-[13px] text-muted-foreground">
-            {search ? `No chats match “${search}”` : 'No conversations yet — add a friend to start one.'}
-          </li>
-        )}
-      </ul>
+                  </button>
+                </motion.li>
+              );
+            })}
+          </AnimatePresence>
+          {items.length === 0 && (
+            <li className="px-4 py-10 text-center text-[13px] text-muted-foreground">
+              {search ? `No chats match “${search}”` : 'No conversations yet — add a friend to start one.'}
+            </li>
+          )}
+        </ul>
+      </div>
     </aside>
   );
 }

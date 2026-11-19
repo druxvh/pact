@@ -1,3 +1,4 @@
+import { Equalizer } from '@/features/nowplaying/Equalizer';
 import { cn } from '@/lib/cn';
 import { hueFrom, initials } from '@/lib/format';
 
@@ -12,24 +13,35 @@ const SIZES = {
 /** Corner radius scales with the avatar but never exceeds rounded-lg. */
 const RADIUS = { xs: 'rounded-sm', sm: 'rounded-md', md: 'rounded-lg', lg: 'rounded-lg', xl: 'rounded-lg' } as const;
 
+/** The "listening now" badge sits on the top-right corner (the presence dot is bottom-right): a brand-coloured disc that grows with the avatar. */
+const LISTENING = {
+  xs: { disc: 'size-3 border', bars: 'xs' },
+  sm: { disc: 'size-3.5 border', bars: 'xs' },
+  md: { disc: 'size-4 border-2', bars: 'xs' },
+  lg: { disc: 'size-[18px] border-2', bars: 'xs' },
+  xl: { disc: 'size-5 border-2', bars: 'sm' },
+} as const;
+
 export type PresenceStatus = 'online' | 'away' | 'offline';
 
-type Props = {
+export type AvatarProps = {
   name: string;
   src?: string;
   size?: keyof typeof SIZES;
   status?: PresenceStatus;
+  /** Music is playing in this person's browser right now (see features/nowplaying): adds a small equalizer badge. */
+  listening?: boolean;
   className?: string;
 };
 
 /** Deterministic gradient avatar — same name, same colour, everywhere. */
-export function Avatar({ name, src, size = 'md', status, className }: Props) {
+export function Avatar({ name, src, size = 'md', status, listening, className }: AvatarProps) {
   const hue = hueFrom(name || '?');
   return (
     <span
       className={cn('relative inline-flex shrink-0 select-none items-center justify-center font-semibold text-white', RADIUS[size], SIZES[size], className)}
       style={{ background: `linear-gradient(135deg, oklch(0.6 0.15 ${hue}), oklch(0.46 0.16 ${(hue + 45) % 360}))` }}
-      aria-hidden={status ? undefined : true}
+      aria-hidden={status || listening ? undefined : true}
     >
       {src ? <img src={src} alt="" className="size-full rounded-[inherit] object-cover" /> : initials(name)}
       {status && (
@@ -43,6 +55,16 @@ export function Avatar({ name, src, size = 'md', status, className }: Props) {
             status === 'offline' && 'bg-subtle-foreground',
           )}
         />
+      )}
+      {listening && (
+        <span
+          role="img"
+          aria-label="Listening to music"
+          title="Listening now"
+          className={cn('absolute -right-1 -top-1 grid place-items-center rounded-full border-card bg-brand text-brand-foreground', LISTENING[size].disc)}
+        >
+          <Equalizer size={LISTENING[size].bars} />
+        </span>
       )}
     </span>
   );

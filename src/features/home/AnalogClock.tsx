@@ -1,5 +1,8 @@
 const TICKS = Array.from({ length: 60 }, (_, i) => i);
 
+/** Ultramarine's face adds the four cardinal numbers inside the ticks (hidden in every other style — see `[data-cardinals]` in styles/ultramarine.css). */
+const CARDINALS = ['12', '3', '6', '9'] as const;
+
 /**
  * An analog face drawn in SVG from the theme tokens (so it follows light/dark and the accent colour).
  *
@@ -37,6 +40,7 @@ export function AnalogClock({ now, showSeconds, label }: { now: Date; showSecond
         return (
           <line
             key={i}
+            data-tick={major ? 'major' : 'minor'}
             x1="100"
             y1={major ? 10 : 12}
             x2="100"
@@ -48,6 +52,14 @@ export function AnalogClock({ now, showSeconds, label }: { now: Date; showSecond
           />
         );
       })}
+      <g data-cardinals>
+        <circle cx="100" cy="100" r="53" />
+        {CARDINALS.map((n, i) => (
+          <text key={n} x={100 + 62 * Math.sin(i * (Math.PI / 2))} y={100 - 62 * Math.cos(i * (Math.PI / 2))} textAnchor="middle" dominantBaseline="central">
+            {n}
+          </text>
+        ))}
+      </g>
       {hand(hour, 46, 5, 'stroke-foreground', true)}
       {hand(minute, 68, 3.5, 'stroke-foreground', true)}
       {showSeconds && hand(second, 78, 1.5, 'stroke-brand', false)}

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AnalogClock } from '@/features/home/AnalogClock';
 import { useHomeLayoutStore } from '@/features/home/layout';
+import { TimeGlyph } from '@/features/home/TimeGlyph';
+import { useAppearanceStore } from '@/store/useAppearanceStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -45,6 +47,8 @@ function DateLine({ now, className }: { now: Date; className: string }) {
   const showGreeting = useSettingsStore((s) => s.showGreeting);
   const showDate = useHomeLayoutStore((s) => s.layout.showDate);
   const name = useUserStore((s) => s.currentUser.displayName);
+  // Dusk puts a small sun or moon before the greeting; no other style draws it.
+  const dusk = useAppearanceStore((s) => s.style === 'dusk');
   if (!showGreeting && !showDate) return null;
 
   const first = name.trim().split(/\s+/)[0] ?? '';
@@ -52,9 +56,10 @@ function DateLine({ now, className }: { now: Date; className: string }) {
   const date = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(now);
 
   return (
-    <p className={className}>
+    <p data-greeting className={className}>
       {showGreeting && (
         <>
+          {dusk && <TimeGlyph hour={now.getHours()} />}
           {greetingFor(now.getHours())}
           {named && <span className="text-foreground">, {first}</span>}
           {showDate && <span className="mx-2 text-subtle-foreground">·</span>}
@@ -94,7 +99,7 @@ export function Clock() {
   const compact = style === 'compact';
   return (
     <div className="text-center">
-      <h1 className="tabular flex items-baseline justify-center gap-2 font-light leading-none tracking-tighter">
+      <h1 data-display className="tabular flex items-baseline justify-center gap-2 font-light leading-none tracking-tighter">
         <span className={compact ? 'text-[clamp(44px,7vw,64px)]' : 'text-[clamp(64px,11vw,112px)]'}>
           <span className="sr-only">{spoken}</span>
           <span aria-hidden="true">

@@ -19,10 +19,17 @@ export function TimerRing({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative mx-auto grid aspect-square w-[min(300px,78vw)] place-items-center">
+    // `--ring-progress` (0 → 1) and `data-tone` are for a style's CSS: Dusk's arc drifts from gold to rose as the time runs.
+    <div
+      data-ring
+      data-tone={tone}
+      style={{ '--ring-progress': progress.toFixed(3) } as React.CSSProperties}
+      className="relative mx-auto grid aspect-square w-[min(300px,78vw)] place-items-center"
+    >
       {/* ambient glow, breathing while running */}
       <div
         aria-hidden="true"
+        data-glow
         className={cn(
           'absolute inset-6 rounded-full blur-3xl transition-opacity duration-700',
           tone === 'brand' ? 'bg-brand/30' : 'bg-success/30',
